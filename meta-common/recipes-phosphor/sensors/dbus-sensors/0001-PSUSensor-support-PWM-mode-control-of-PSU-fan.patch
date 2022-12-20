@@ -1,0 +1,107 @@
+From 655a700a8eba1946b71c7f54e6549e9a4d83a253 Mon Sep 17 00:00:00 2001
+From: Zhikui Ren <zhikui.ren@intel.com>
+Date: Thu, 20 Jan 2022 17:47:29 -0800
+Subject: [PATCH] PSUSensor: support PWM mode control of PSU fan
+
+Linux kernel pmbus driver provides two fan speed control parameters:
+1) fanx_target is for rpm mode, 2)pwmx is for pwm mode.
+
+https://github.com/torvalds/linux/commit/d206636e7697f47332774f29b90b92f6047d265d
+
+fanx_target is always created in hwmon path. pwmx is only created if fan
+pwm attribute is set to true. Change the PSU sensor to look for pwmx
+first and fallback to fanx_target if pwmx is not found.
+
+Tested:
+PSU fan sensors are created based on correct hwmon file.
+
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Change-Id: Iad5df2cba097922718b3ab3e210e1b9e4eb1695f
+---
+ src/PSUSensorMain.cpp | 41 ++++++++++++++++++++++++++---------------
+ src/PwmSensor.cpp     |  2 +-
+ 2 files changed, 27 insertions(+), 16 deletions(-)
+
+diff --git a/src/PSUSensorMain.cpp b/src/PSUSensorMain.cpp
+index e485598..abf5eea 100644
+--- a/src/PSUSensorMain.cpp
++++ b/src/PSUSensorMain.cpp
+@@ -265,6 +265,12 @@ static void
+                    sdbusplus::asio::object_server& objectServer,
+                    const std::string& psuName)
+ {
++    auto findPWMSensor = pwmSensors.find(psuName + labelHead);
++    if (findPWMSensor != pwmSensors.end())
++    {
++        return;
++    }
++
+     for (const auto& [pwmLabel, pwmName] : pwmTable)
+     {
+         if (pwmLabel != labelHead)
+@@ -272,20 +278,10 @@ static void
+             continue;
+         }
+ 
+-        const std::string& sensorPathStr = sensorPath.string();
+-        const std::string& pwmPathStr =
+-            boost::replace_all_copy(sensorPathStr, "input", "target");
++        const std::string pwmPathStr =
++            fs::canonical(sensorPath).parent_path().string()
++            + "/" + boost::replace_all_copy(pwmLabel, "fan", "pwm");
+         std::ifstream pwmFile(pwmPathStr);
+-        if (!pwmFile.good())
+-        {
+-            continue;
+-        }
+-
+-        auto findPWMSensor = pwmSensors.find(psuName + labelHead);
+-        if (findPWMSensor != pwmSensors.end())
+-        {
+-            continue;
+-        }
+ 
+         std::string name = "Pwm_";
+         name += psuName;
+@@ -296,8 +292,23 @@ static void
+         objPath += "_";
+         objPath += pwmName;
+ 
+-        pwmSensors[psuName + labelHead] = std::make_unique<PwmSensor>(
+-            name, pwmPathStr, dbusConnection, objectServer, objPath, "PSU");
++        if (pwmFile.good())
++        {
++            pwmSensors[psuName + labelHead] = std::make_unique<PwmSensor>(
++                name, pwmPathStr, dbusConnection, objectServer, objPath, "PSU");
++            continue;
++        }
++
++        const std::string& sensorPathStr = sensorPath.string();
++        const std::string& rpmPathStr =
++            boost::replace_all_copy(sensorPathStr, "input", "target");
++        std::ifstream rpmFile(rpmPathStr);
++        if (rpmFile.good())
++        {
++            pwmSensors[psuName + labelHead] = std::make_unique<PwmSensor>(
++                name, rpmPathStr, dbusConnection, objectServer, objPath, "PSU");
++            continue;
++        }
+     }
+ }
+ 
+diff --git a/src/PwmSensor.cpp b/src/PwmSensor.cpp
+index ae7b240..6df2fa7 100644
+--- a/src/PwmSensor.cpp
++++ b/src/PwmSensor.cpp
+@@ -23,7 +23,7 @@
+ #include <string>
+ 
+ static constexpr double sysPwmMax = 255.0;
+-static constexpr double psuPwmMax = 100.0;
++static constexpr double psuPwmMax = 100000.0;
+ static constexpr double defaultPwm = 30.0;
+ static constexpr double targetIfaceMax = sysPwmMax;
+ 
+-- 
+2.25.1
+

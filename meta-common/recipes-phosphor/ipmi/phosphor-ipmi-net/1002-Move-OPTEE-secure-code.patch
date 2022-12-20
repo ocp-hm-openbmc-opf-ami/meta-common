@@ -1,0 +1,127 @@
+From 1cc4e1daa4a734f8c03076c10f15ec08c17abb93 Mon Sep 17 00:00:00 2001
+From: Jitendra Tripathy <jitendra.kumarx.tripathy@intel.com>
+Date: Thu, 17 Nov 2022 16:43:21 +0000
+Subject: [PATCH] Move OPTEE secure code
+
+As OPTEE secure feature is moved from ipmid to pam-ipmi,
+remove dependency  on ipmid and bring code changes to netipmid.
+
+Tested:
+Verified the functionality by creating users from IPMI Tool,
+Redfish/EWS.
+
+root@bmc-maca4bf018cc482:~# ipmitool user list 3
+ID  Name             Callin  Link Auth  IPMI Msg   Channel Priv Limit
+1   root             false   true       true       ADMINISTRATOR
+2   debuguser        false   true       true       ADMINISTRATOR
+3   user3            false   true       true       OPERATOR
+4   debuguser1       true    false      true       ADMINISTRATOR
+5   user12           false   true       true       OPERATOR
+
+1. Verified using IPMITool User
+Command: ipmitool -I lanplus -H <BMC-IP> -U debuguser -P <PW> -C 17
+         -L ADMINISTRATOR raw 6 1
+Response: 23 00 00 16 02 bf 57 01 00 29 00 04 16 df 07
+
+2. Verified using EWS user
+Command: ipmitool -I lanplus -H <BMC-IP> -U user3 -P <PW> -C 17 -L
+         OPERATOR raw 6 1
+Response:  23 00 00 16 02 bf 57 01 00 29 00 04 16 df 07
+
+3. Verified using Redfish user
+Command: ipmitool -I lanplus -H <BMC-IP> -U user12 -P <PW> -C 17 -L
+         OPERATOR raw 6 1
+Response: 23 00 00 16 02 bf 57 01 00 29 00 04 16 df 07
+
+Signed-off-by: Jitendra Tripathy <jitendra.kumarx.tripathy@intel.com>
+---
+ auth_algo.cpp         |  2 +-
+ passwd_mgr_secure.hpp | 63 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 64 insertions(+), 1 deletion(-)
+ create mode 100644 passwd_mgr_secure.hpp
+
+diff --git a/auth_algo.cpp b/auth_algo.cpp
+index 2233b93..8c5b94a 100644
+--- a/auth_algo.cpp
++++ b/auth_algo.cpp
+@@ -7,7 +7,7 @@
+ #include <string.h>
+ 
+ #include <phosphor-logging/lg2.hpp>
+-#include <user_channel/passwd_mgr_secure.hpp>
++#include "passwd_mgr_secure.hpp"
+ 
+ namespace cipher
+ {
+diff --git a/passwd_mgr_secure.hpp b/passwd_mgr_secure.hpp
+new file mode 100644
+index 0000000..ec55642
+--- /dev/null
++++ b/passwd_mgr_secure.hpp
+@@ -0,0 +1,63 @@
++/*
++// Copyright (c) 2018 Intel Corporation
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//      http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++*/
++#pragma once
++
++#include <cstddef>
++#include <cstdint>
++#include <iostream>
++#ifdef HAS_OPTEE
++/* OP-TEE TEE client API (built by optee_client) */
++#include <tee_client_api.h>
++
++/* TA API: UUID and command IDs */
++#include <ipmi_pass_ta.h>
++/* TEE resources */
++struct uta_ctx
++{
++    TEEC_Context ctx;
++    TEEC_Session sess;
++};
++
++TEEC_Result prepare_tee_session(struct uta_ctx* ctx)
++{
++    TEEC_UUID uuid = TA_IPMI_PASS_UUID;
++    uint32_t origin;
++    TEEC_Result res;
++
++    /* Initialize a context connecting us to the TEE */
++    res = TEEC_InitializeContext(NULL, &ctx->ctx);
++    if (res != TEEC_SUCCESS)
++    {
++        std::cerr << "TEEC_InitializeContext failed with code " << res;
++        return res;
++    }
++    /* Open a session with the TA */
++    res = TEEC_OpenSession(&ctx->ctx, &ctx->sess, &uuid, TEEC_LOGIN_PUBLIC,
++                           NULL, NULL, &origin);
++    if (res != TEEC_SUCCESS)
++    {
++        std::cerr << "TEEC_Opensession failed with code " << res << "origin "
++                  << origin;
++    }
++    return res;
++}
++
++void terminate_tee_session(struct uta_ctx* ctx)
++{
++    TEEC_CloseSession(&ctx->sess);
++    TEEC_FinalizeContext(&ctx->ctx);
++}
++#endif
+-- 
+2.17.1
+

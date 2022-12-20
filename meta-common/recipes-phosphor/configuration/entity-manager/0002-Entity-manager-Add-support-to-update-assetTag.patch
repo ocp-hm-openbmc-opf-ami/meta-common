@@ -1,0 +1,169 @@
+From c87d52002229109f87e532efa310108adec04c35 Mon Sep 17 00:00:00 2001
+From: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Date: Tue, 31 May 2022 04:13:34 +0000
+Subject: [PATCH] Entity-manager: Add support to update assetTag
+
+Asset tag is an updateable property from User level interface like
+Redfish. User-level interface will update Asset tag in entity-manager,
+which will further update the needed FRU interface property exposed.
+
+Tested:
+Successfully updated in assetTag interface as well as in fru interface
+while using set-property and using redfish as well.
+The new value is preserved after BMC resets.
+
+Signed-off-by: mansijos <mansi.joshi@intel.com>
+---
+ src/entity_manager.cpp | 82 +++++++++++++++++++++++++++++++++++++++---
+ src/perform_scan.cpp   |  5 +++
+ 2 files changed, 83 insertions(+), 4 deletions(-)
+
+diff --git a/src/entity_manager.cpp b/src/entity_manager.cpp
+index bfda895..1e7100d 100644
+--- a/src/entity_manager.cpp
++++ b/src/entity_manager.cpp
+@@ -51,6 +51,13 @@ constexpr const char* lastConfiguration = "/tmp/configuration/last.json";
+ constexpr const char* currentConfiguration = "/var/configuration/system.json";
+ constexpr const char* globalSchema = "global.json";
+ 
++using foundProbeData = std::map<std::string, std::string>;
++static foundProbeData foundData;
++static std::map<std::string, foundProbeData> mapFoundData;
++
++constexpr const char* fruConn = "xyz.openbmc_project.FruDevice";
++constexpr const char* fruIntf = "xyz.openbmc_project.FruDevice";
++
+ const boost::container::flat_map<const char*, probe_type_codes, CmpStr>
+     probeTypes{{{"FALSE", probe_type_codes::FALSE_T},
+                 {"TRUE", probe_type_codes::TRUE_T},
+@@ -199,6 +206,43 @@ void addArrayToDbus(const std::string& name, const nlohmann::json& array,
+     }
+ }
+ 
++template <typename PropertyType>
++bool persistAssetTag(const PropertyType& newVal,
++                     const std::string& jsonPointerString)
++{
++    std::size_t found = jsonPointerString.find_last_of("/\\");
++    std::string jsonPointerPath = jsonPointerString.substr(0, found);
++
++    auto it = mapFoundData.find(jsonPointerPath);
++    if (it == mapFoundData.end())
++    {
++        std::cerr << "Error in finding jsonPointerPath in mapFoundData"
++                  << "\n";
++        return false;
++    }
++
++    foundProbeData& tmpMap = it->second;
++    auto foundPath = tmpMap.find("foundPath");
++    if (foundPath == tmpMap.end())
++    {
++        std::cerr << "No prob object data is avaliable in foundProbeData"
++                  << "\n";
++        return false;
++    }
++
++    systemBus->async_method_call(
++        [](const boost::system::error_code& ec) {
++            if (ec)
++            {
++                std::cerr << "Error setting AssetTag in FRU interface " << ec
++                          << "\n";
++            }
++        },
++        fruConn, foundPath->second, "org.freedesktop.DBus.Properties", "Set",
++        fruIntf, "PRODUCT_ASSET_TAG", std::variant<PropertyType>(newVal));
++    return true;
++}
++
+ template <typename PropertyType>
+ void addProperty(const std::string& name, const PropertyType& value,
+                  sdbusplus::asio::dbus_interface* iface,
+@@ -213,9 +257,18 @@ void addProperty(const std::string& name, const PropertyType& value,
+     }
+     iface->register_property(
+         name, value,
+-        [&systemConfiguration,
++        [name, &systemConfiguration,
+          jsonPointerString{std::string(jsonPointerString)}](
+             const PropertyType& newVal, PropertyType& val) {
++            if (name == "AssetTag")
++            {
++                if (!persistAssetTag(newVal, jsonPointerString))
++                {
++                    std::cerr << "error setting AssetTag in FRU interface\n";
++                    return -1;
++                }
++            }
++
+             val = newVal;
+             if (!setJsonFromPointer(jsonPointerString, val,
+                                     systemConfiguration))
+@@ -613,6 +666,9 @@ void postToDbus(const nlohmann::json& newConfiguration,
+         populateInterfaceFromJson(systemConfiguration, jsonPointerPath,
+                                   boardIface, boardValues, objServer);
+         jsonPointerPath += "/";
++
++        std::string foundPath;
++
+         // iterate through board properties
+         for (auto& [propName, propValue] : boardValues.items())
+         {
+@@ -622,9 +678,27 @@ void postToDbus(const nlohmann::json& newConfiguration,
+                     createInterface(objServer, boardName, propName,
+                                     boardKeyOrig);
+ 
+-                populateInterfaceFromJson(systemConfiguration,
+-                                          jsonPointerPath + propName, iface,
+-                                          propValue, objServer);
++                if (propName == "FoundProbe")
++                {
++                    foundPath = propValue["Path"];
++                }
++                if (propName ==
++                    "xyz.openbmc_project.Inventory.Decorator.AssetTag")
++                {
++                    foundData["foundPath"] = foundPath;
++                    mapFoundData[jsonPointerPath + propName] = foundData;
++
++                    populateInterfaceFromJson(
++                        systemConfiguration, jsonPointerPath + propName, iface,
++                        propValue, objServer,
++                        sdbusplus::asio::PropertyPermission::readWrite);
++                }
++                else
++                {
++                    populateInterfaceFromJson(systemConfiguration,
++                                              jsonPointerPath + propName, iface,
++                                              propValue, objServer);
++                }
+             }
+         }
+ 
+diff --git a/src/perform_scan.cpp b/src/perform_scan.cpp
+index 559b822..15066d1 100644
+--- a/src/perform_scan.cpp
++++ b/src/perform_scan.cpp
+@@ -38,6 +38,8 @@ constexpr const int32_t maxMapperDepth = 0;
+ 
+ constexpr const bool debug = false;
+ 
++constexpr const char* foundObject = "FoundProbe";
++
+ struct DBusInterfaceInstance
+ {
+     std::string busName;
+@@ -540,6 +542,9 @@ void PerformScan::updateSystemConfiguration(const nlohmann::json& recordRef,
+         getName.value() = deviceName;
+         usedNames.insert(deviceName);
+ 
++        // Save the dbus path info of the device
++        record[foundObject]["Path"] = path;
++
+         for (auto keyPair = record.begin(); keyPair != record.end(); keyPair++)
+         {
+             if (keyPair.key() != "Name")
+-- 
+2.25.1
+

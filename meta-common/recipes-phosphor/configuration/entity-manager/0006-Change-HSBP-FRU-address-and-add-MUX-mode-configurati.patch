@@ -1,0 +1,131 @@
+From fdadb08ae40fa3488a1e02374ae890cf8c0deab8 Mon Sep 17 00:00:00 2001
+From: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Date: Sun, 12 Sep 2021 22:21:55 +0000
+Subject: [PATCH] Change HSBP FRU address and add MUX mode configuration
+
+Changed the HSBP EEPROM FRU address according to Hardware
+rework and added the MUX idle mode configuration as
+"Disconnect". The later will keep MUX channel mode in
+disconnected state after the channel is accessed.
+
+legacy schema: add MuxIdleMode
+
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+
+Tested:
+1. Detected and read the HSBP EEPROM FRU with new address
+on reworked board.
+2. Confirmed the idle state of MUX channel after it is
+accessed is disconnected, this solved the bad read
+caused by reading multiple buses of different MUXes at
+same time.
+
+Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+
+---
+ configurations/f2u8x25_hsbp.json | 10 ++++++++--
+ schemas/legacy.json              | 10 ++++++++++
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/configurations/f2u8x25_hsbp.json b/configurations/f2u8x25_hsbp.json
+index 43a895e..55307ae 100644
+--- a/configurations/f2u8x25_hsbp.json
++++ b/configurations/f2u8x25_hsbp.json
+@@ -16,6 +16,7 @@
+                     "Drive_3",
+                     "Drive_4"
+                 ],
++                "MuxIdleMode": "Disconnect",
+                 "Name": "HSBP 1 Mux 1",
+                 "Type": "PCA9546Mux"
+             },
+@@ -28,6 +29,7 @@
+                     "Drive_7",
+                     "Drive_8"
+                 ],
++                "MuxIdleMode": "Disconnect",
+                 "Name": "HSBP 1 Mux 2",
+                 "Type": "PCA9546Mux"
+             },
+@@ -71,7 +73,7 @@
+             }
+         ],
+         "Name": "F2U8X25 HSBP 1",
+-        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'F2U8X25PCIHSBP', 'ADDRESS': 80})",
++        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'F2U8X25PCIHSBP', 'ADDRESS': 84})",
+         "Type": "Board",
+         "xyz.openbmc_project.Inventory.Decorator.Asset": {
+             "Manufacturer": "$BOARD_MANUFACTURER",
+@@ -97,6 +99,7 @@
+                     "Drive_11",
+                     "Drive_12"
+                 ],
++                "MuxIdleMode": "Disconnect",
+                 "Name": "HSBP 2 Mux 1",
+                 "Type": "PCA9546Mux"
+             },
+@@ -109,6 +112,7 @@
+                     "Drive_15",
+                     "Drive_16"
+                 ],
++                "MuxIdleMode": "Disconnect",
+                 "Name": "HSBP 2 Mux 2",
+                 "Type": "PCA9546Mux"
+             },
+@@ -152,7 +156,7 @@
+             }
+         ],
+         "Name": "F2U8X25 HSBP 2",
+-        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'F2U8X25PCIHSBP', 'ADDRESS': 83})",
++        "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'F2U8X25PCIHSBP', 'ADDRESS': 87})",
+         "Type": "Board",
+         "xyz.openbmc_project.Inventory.Decorator.Asset": {
+             "Manufacturer": "$BOARD_MANUFACTURER",
+@@ -178,6 +182,7 @@
+                     "Drive_19",
+                     "Drive_20"
+                 ],
++                "MuxIdleMode": "Disconnect",
+                 "Name": "HSBP 3 Mux 1",
+                 "Type": "PCA9546Mux"
+             },
+@@ -190,6 +195,7 @@
+                     "Drive_23",
+                     "Drive_24"
+                 ],
++                "MuxIdleMode": "Disconnect",
+                 "Name": "HSBP 3 Mux 2",
+                 "Type": "PCA9546Mux"
+             },
+diff --git a/schemas/legacy.json b/schemas/legacy.json
+index 47a6c7b..e04d380 100644
+--- a/schemas/legacy.json
++++ b/schemas/legacy.json
+@@ -108,6 +108,9 @@
+                 "MinValue": {
+                     "$ref": "#/definitions/Types/MinValue"
+                 },
++                "MuxIdleMode": {
++                    "$ref": "#/definitions/Types/MuxIdleMode"
++                },
+                 "Name": {
+                     "$ref": "#/definitions/Types/Name"
+                 },
+@@ -548,6 +551,13 @@
+             "MinValue": {
+                 "type": "number"
+             },
++            "MuxIdleMode": {
++                "type": "string",
++                "enum": [
++                    "Disconnect",
++                    "AsIs"
++                ]
++            },
+             "Name": {
+                 "type": "string"
+             },
+-- 
+2.25.1
+

@@ -1,0 +1,48 @@
+From aa37652ac87d3cb4ed64d252c2b661d9c76c3c05 Mon Sep 17 00:00:00 2001
+From: Karol Niczyj <karol.niczyj@intel.com>
+Date: Wed, 27 Apr 2022 18:04:58 +0200
+Subject: [PATCH] Removed checking cookie
+---
+ include/authentication.hpp | 26 ++++++++++----------------
+ 1 file changed, 10 insertions(+), 16 deletions(-)
+
+diff --git a/include/authentication.hpp b/include/authentication.hpp
+index 3c1ca484..ed07ff71 100644
+--- a/include/authentication.hpp
++++ b/include/authentication.hpp
+@@ -201,22 +201,16 @@ static std::shared_ptr<persistent_data::UserSession>
+                              << " will be used for this request.";
+             return sp;
+         }
+-        std::string_view cookieValue = reqHeader["Cookie"];
+-        if (cookieValue.empty() ||
+-            cookieValue.find("SESSION=") == std::string::npos)
+-        {
+-            // TODO: change this to not switch to cookie auth
+-            res.addHeader(
+-                "Set-Cookie",
+-                "XSRF-TOKEN=" + sp->csrfToken +
+-                    "; SameSite=Strict; Secure\r\nSet-Cookie: SESSION=" +
+-                    sp->sessionToken +
+-                    "; SameSite=Strict; Secure; HttpOnly\r\nSet-Cookie: "
+-                    "IsAuthenticated=true; Secure");
+-            BMCWEB_LOG_DEBUG << " TLS session: " << sp->uniqueId
+-                             << " with cookie will be used for this request.";
+-            return sp;
+-        }
++        // TODO: change this to not switch to cookie auth
++        res.addHeader("Set-Cookie",
++                      "XSRF-TOKEN=" + sp->csrfToken +
++                          "; SameSite=Strict; Secure\r\nSet-Cookie: SESSION=" +
++                          sp->sessionToken +
++                          "; SameSite=Strict; Secure; HttpOnly\r\nSet-Cookie: "
++                          "IsAuthenticated=true; Secure");
++        BMCWEB_LOG_DEBUG << " TLS session: " << sp->uniqueId
++                         << " with cookie will be used for this request.";
++        return sp;
+     }
+     return nullptr;
+ }
+-- 
+2.25.1
+

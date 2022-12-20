@@ -1,0 +1,63 @@
+From 24324fb9f4938264ccb48f6e7943fd8c0c538504 Mon Sep 17 00:00:00 2001
+From: Zhikui Ren <zhikui.ren@intel.com>
+Date: Fri, 30 Apr 2021 18:06:49 -0700
+Subject: [PATCH] [SecureEnclave]aspeed: Add psci_system_reset
+
+optee-os enables PSCI framework to manage reset.
+psci_system_reset is called through reboot.
+Trigger WDT1 timeout for reset
+
+Tested:
+Build and run reboot from serial console
+serial output:
+E/TC:0   psci_system_reset:109 psci_system_BP
+
+U-Boot 2019.04 (Jan 21 2021 - 21:24:51 +0000)
+
+SOC: AST2600-A1
+RST: WDT1 SOC
+eSPI Mode: SIO:Enable : SuperIO-2e
+Eth: MAC0: RMII/NCSI, MAC1: RGMII, MAC2: RMII/NCSI, MAC3: RMII/NCSI
+Model: Aspeed BMC
+
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+---
+ core/arch/arm/plat-aspeed/psci.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/core/arch/arm/plat-aspeed/psci.c b/core/arch/arm/plat-aspeed/psci.c
+index 831656a1..7432258d 100644
+--- a/core/arch/arm/plat-aspeed/psci.c
++++ b/core/arch/arm/plat-aspeed/psci.c
+@@ -21,6 +21,11 @@
+ #define MBOX_BOOT_SIG	0x184
+ register_phys_mem(MEM_AREA_IO_SEC, AST2600_SCU_BASE, 0x1000);
+ 
++#define AST2600_WDT1_BASE		0x1E785000
++#define AST2600_WDT_RELOAD	0x4
++#define AST2600_WDT_RESTART	0x8
++register_phys_mem(MEM_AREA_IO_SEC, AST2600_WDT1_BASE, 0x1000);
++
+ int psci_features(uint32_t psci_fid)
+ {
+ 	switch (psci_fid) {
+@@ -83,3 +88,16 @@ int psci_cpu_on(uint32_t core_idx, uint32_t entry,
+ 	return PSCI_RET_SUCCESS;
+ }
+ #endif
++
++void psci_system_reset(void)
++{
++	vaddr_t wdtctrl = core_mmu_get_va(AST2600_WDT1_BASE, MEM_AREA_IO_SEC);
++
++	if (!wdtctrl) {
++		EMSG("no wdtctrl mapping, hang here");
++		panic();
++	}
++
++	io_write32(wdtctrl + AST2600_WDT_RELOAD, 0x1);
++	io_write32(wdtctrl + AST2600_WDT_RESTART, 0x4755);
++}
+-- 
+2.17.1
+

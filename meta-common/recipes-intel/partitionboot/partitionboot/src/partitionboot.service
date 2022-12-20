@@ -1,0 +1,14 @@
+[Unit]
+Description=Partition Boot Daemon
+Requires=SetBaseboardFru.service
+After=SetBaseboardFru.service
+StartLimitBurst=5
+
+[Service]
+ExecStart=/usr/bin/partitionboot
+SyslogIdentifier=partitionboot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=basic.target

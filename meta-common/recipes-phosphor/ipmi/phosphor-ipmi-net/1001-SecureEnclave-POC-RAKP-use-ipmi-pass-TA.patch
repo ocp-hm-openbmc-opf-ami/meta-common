@@ -1,0 +1,446 @@
+From 54d8ea9dd01b0aa2234fb93faf0e35389f5f7388 Mon Sep 17 00:00:00 2001
+From: Zhikui Ren <zhikui.ren@intel.com>
+Date: Tue, 16 Mar 2021 14:07:35 -0700
+Subject: [PATCH] POC - RAKP use ipmi pass TA
+
+Initial patch to use TEE and TA for ipmi RAKP.
+
+Function generateHMAC in class AlgoSHA1 and AlgoSHA256 that
+is invoked by RAKP during ipmi session authentication.
+These functions accepts used password as input parameters
+t stain order to caculate HMAC per IPMI spec. As a result ipmid
+caches user clear text passwords in memory.
+
+As part of POC for secure enclave feature, OPTEE has been
+ported to ast2600 and integrated into BMC.
+User passwords can be saved into secure storage, which can
+only be read by trusted application(TA) executing in secure
+world (TEE). TA ipmi pass provides api to generateHMAC for
+given user and keep user passwords inside the TEE.
+
+AlgoSHA1 and AlgoSHA256 have been extended to call the TA's
+API without the need to pass the user passwords.
+
+ipmid detect whether OPTEE os is loaded or not on start up.
+If the tee device node exists, runtime flag teeLoaded
+is set and AlgoSHA1 and AlgoSHA256 will use secure API.
+This allows ipmid works the same when BMC is booted without
+loading optee os first.
+
+When optee is not loaded, use pamAuthenticate during RAKP handshake,
+to verify that user has not been locked out.
+When optee is not loaded, skip the above check since it currently requires
+passing user password in plain text. Follow up patch will implement
+the check with user password in secure storage.
+
+Tesetd:
+ipmitool -I lanplus command executed successfully for the
+1. uboot loads optee-os before normal linux kernel
+2. uboot loads normal linux kernel directly.
+
+ipmitool -v  -I lanplus -U root -P 0penBmc -H $IP0 -C 17 user list 1
+Loading IANA PEN Registry...
+Running Get VSO Capabilities my_addr 0x20, transit 0, target 0x20
+Invalid completion code received: Invalid command
+Discovered IPMB address 0x0
+ID  Name             Callin  Link Auth  IPMI Msg   Channel Priv Limit
+1   root             false   true       true       ADMINISTRATOR
+2                    true    false      false      NO ACCESS
+3                    true    false      false      NO ACCESS
+4                    true    false      false      NO ACCESS
+5                    true    false      false      NO ACCESS
+6                    true    false      false      NO ACCESS
+7                    true    false      false      NO ACCESS
+8                    true    false      false      NO ACCESS
+9                    true    false      false      NO ACCESS
+10                   true    false      false      NO ACCESS
+11                   true    false      false      NO ACCESS
+12                   true    false      false      NO ACCESS
+13                   true    false      false      NO ACCESS
+14                   true    false      false      NO ACCESS
+15                   true    false      false      NO ACCESS
+
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+---
+ auth_algo.cpp        | 102 ++++++++++++++++++++++++++++++++++++++++++-
+ auth_algo.hpp        |  30 ++++++++++---
+ command/rakp12.cpp   |  36 +++++----------
+ command/rakp34.cpp   |   4 +-
+ command_table.cpp    |   2 +-
+ main.cpp             |   7 +++
+ main.hpp             |   1 +
+ sessions_manager.cpp |   8 ++--
+ 8 files changed, 150 insertions(+), 40 deletions(-)
+
+diff --git a/auth_algo.cpp b/auth_algo.cpp
+index 40d277f..2233b93 100644
+--- a/auth_algo.cpp
++++ b/auth_algo.cpp
+@@ -7,6 +7,7 @@
+ #include <string.h>
+ 
+ #include <phosphor-logging/lg2.hpp>
++#include <user_channel/passwd_mgr_secure.hpp>
+ 
+ namespace cipher
+ {
+@@ -16,9 +17,100 @@ namespace rakp_auth
+ 
+ const std::string userName = "admin";
+ 
++#ifdef HAS_OPTEE
++TEEC_Result HMAC_SHA256(struct uta_ctx* ctx, const char* userName,
++                        size_t userNameSize, const uint8_t* inputData,
++                        size_t inputSize, uint8_t* outputData,
++                        size_t outputSize)
++{
++    TEEC_Operation op;
++    TEEC_Result res;
++    uint32_t origin;
++
++    memset(&op, 0, sizeof(op));
++    op.paramTypes =
++        TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_INPUT,
++                         TEEC_MEMREF_TEMP_OUTPUT, TEEC_NONE);
++
++    op.params[0].tmpref.buffer = const_cast<char*>(userName);
++    op.params[0].tmpref.size = userNameSize;
++
++    op.params[1].tmpref.buffer = const_cast<uint8_t*>(inputData);
++    op.params[1].tmpref.size = inputSize;
++
++    op.params[2].tmpref.buffer = outputData;
++    op.params[2].tmpref.size = outputSize;
++
++    res = TEEC_InvokeCommand(&ctx->sess, TA_HMAC_SHA256, &op, &origin);
++    return res;
++}
++
++TEEC_Result HMAC_SHA1(struct uta_ctx* ctx, const char* userName,
++                      size_t userNameSize, const uint8_t* inputData,
++                      size_t inputSize, uint8_t* outputData, size_t outputSize)
++{
++    TEEC_Operation op;
++    uint32_t origin;
++    TEEC_Result res;
++
++    memset(&op, 0, sizeof(op));
++    op.paramTypes =
++        TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_INPUT, TEEC_MEMREF_TEMP_INPUT,
++                         TEEC_MEMREF_TEMP_OUTPUT, TEEC_NONE);
++
++    op.params[0].tmpref.buffer = const_cast<char*>(userName);
++    op.params[0].tmpref.size = userNameSize;
++
++    op.params[1].tmpref.buffer = const_cast<uint8_t*>(inputData);
++    op.params[1].tmpref.size = inputSize;
++
++    op.params[2].tmpref.buffer = outputData;
++    op.params[2].tmpref.size = outputSize;
++
++    res = TEEC_InvokeCommand(&ctx->sess, TA_HMAC_SHA1, &op, &origin);
++    return res;
++}
++#endif
++
++std::vector<uint8_t>
++    AlgoSHA1::teeGenerateHMAC(const std::string& uName,
++                              const std::vector<uint8_t>& input) const
++{
++    std::vector<uint8_t> output(SHA_DIGEST_LENGTH);
++#ifdef HAS_OPTEE
++    uta_ctx ctx = {};
++    prepare_tee_session(&ctx);
++    HMAC_SHA1(&ctx, uName.c_str(), uName.size(), input.data(), input.size(),
++              output.data(), output.size());
++    terminate_tee_session(&ctx);
++#endif
++    return output;
++}
++
+ std::vector<uint8_t>
+-    AlgoSHA1::generateHMAC(const std::vector<uint8_t>& input) const
++    AlgoSHA256::teeGenerateHMAC(const std::string& uName,
++                                const std::vector<uint8_t>& input) const
+ {
++    std::vector<uint8_t> output(SHA256_DIGEST_LENGTH);
++#ifdef HAS_OPTEE
++    uta_ctx ctx = {};
++    prepare_tee_session(&ctx);
++    HMAC_SHA256(&ctx, uName.c_str(), uName.size(), input.data(), input.size(),
++                output.data(), output.size());
++    terminate_tee_session(&ctx);
++#endif
++    return output;
++}
++
++std::vector<uint8_t>
++    AlgoSHA1::generateHMAC(const std::string& uName,
++                           const std::vector<uint8_t>& input) const
++{
++    if (useTEE)
++    {
++        return teeGenerateHMAC(uName, input);
++    }
++
+     std::vector<uint8_t> output(SHA_DIGEST_LENGTH);
+     unsigned int mdLen = 0;
+ 
+@@ -51,8 +143,14 @@ std::vector<uint8_t>
+ }
+ 
+ std::vector<uint8_t>
+-    AlgoSHA256::generateHMAC(const std::vector<uint8_t>& input) const
++    AlgoSHA256::generateHMAC(const std::string& uName,
++                             const std::vector<uint8_t>& input) const
+ {
++    if (useTEE)
++    {
++        return teeGenerateHMAC(uName, input);
++    }
++
+     std::vector<uint8_t> output(SHA256_DIGEST_LENGTH);
+     unsigned int mdLen = 0;
+ 
+diff --git a/auth_algo.hpp b/auth_algo.hpp
+index f940370..2039ed7 100644
+--- a/auth_algo.hpp
++++ b/auth_algo.hpp
+@@ -78,7 +78,7 @@ class Interface
+      *        needs to be set before this operation.
+      */
+     std::vector<uint8_t> virtual generateHMAC(
+-        const std::vector<uint8_t>& input) const = 0;
++        const std::string& uName, const std::vector<uint8_t>& input) const = 0;
+ 
+     /**
+      * @brief Generate the Integrity Check Value
+@@ -164,8 +164,9 @@ class AlgoSHA1 : public Interface
+     static constexpr size_t integrityCheckValueLength = 12;
+ 
+     explicit AlgoSHA1(integrity::Algorithms intAlgo,
+-                      crypt::Algorithms cryptAlgo) :
+-        Interface(intAlgo, cryptAlgo)
++                      crypt::Algorithms cryptAlgo, bool teeLoaded) :
++        Interface(intAlgo, cryptAlgo),
++        useTEE(teeLoaded)
+     {}
+ 
+     AlgoSHA1() = delete;
+@@ -176,10 +177,17 @@ class AlgoSHA1 : public Interface
+     AlgoSHA1& operator=(AlgoSHA1&&) = default;
+ 
+     std::vector<uint8_t>
+-        generateHMAC(const std::vector<uint8_t>& input) const override;
++        generateHMAC(const std::string& uName,
++                     const std::vector<uint8_t>& input) const override;
+ 
+     std::vector<uint8_t>
+         generateICV(const std::vector<uint8_t>& input) const override;
++
++  private:
++    bool useTEE = false;
++    std::vector<uint8_t>
++        teeGenerateHMAC(const std::string& uName,
++                        const std::vector<uint8_t>& input) const;
+ };
+ 
+ /**
+@@ -199,8 +207,9 @@ class AlgoSHA256 : public Interface
+     static constexpr size_t integrityCheckValueLength = 16;
+ 
+     explicit AlgoSHA256(integrity::Algorithms intAlgo,
+-                        crypt::Algorithms cryptAlgo) :
+-        Interface(intAlgo, cryptAlgo)
++                        crypt::Algorithms cryptAlgo, bool teeLoaded) :
++        Interface(intAlgo, cryptAlgo),
++        useTEE(teeLoaded)
+     {}
+ 
+     ~AlgoSHA256() = default;
+@@ -210,10 +219,17 @@ class AlgoSHA256 : public Interface
+     AlgoSHA256& operator=(AlgoSHA256&&) = default;
+ 
+     std::vector<uint8_t>
+-        generateHMAC(const std::vector<uint8_t>& input) const override;
++        generateHMAC(const std::string& uName,
++                     const std::vector<uint8_t>& input) const override;
+ 
+     std::vector<uint8_t>
+         generateICV(const std::vector<uint8_t>& input) const override;
++
++  private:
++    bool useTEE = false;
++    std::vector<uint8_t>
++        teeGenerateHMAC(const std::string& uName,
++                        const std::vector<uint8_t>& input) const;
+ };
+ 
+ } // namespace rakp_auth
+diff --git a/command/rakp12.cpp b/command/rakp12.cpp
+index 1619115..b22300d 100644
+--- a/command/rakp12.cpp
++++ b/command/rakp12.cpp
+@@ -188,33 +188,17 @@ std::vector<uint8_t> RAKP12(const std::vector<uint8_t>& inPayload,
+     // check user is enabled before proceeding.
+     bool userEnabled = false;
+     ipmi::ipmiUserCheckEnabled(userId, userEnabled);
+-    if (!userEnabled)
++    if (!userEnabled && !teeLoaded)
+     {
+         response->rmcpStatusCode =
+             static_cast<uint8_t>(RAKP_ReturnCode::INACTIVE_ROLE);
+         logInvalidLoginRedfishEvent(message);
+         return outPayload;
+     }
+-    // Get the user password for RAKP message authenticate
+-    passwd = ipmi::ipmiUserGetPassword(userName);
+-    if (passwd.empty())
++    else
+     {
+-        response->rmcpStatusCode =
+-            static_cast<uint8_t>(RAKP_ReturnCode::UNAUTH_NAME);
+-        logInvalidLoginRedfishEvent(message);
+-        return outPayload;
+-    }
+-    // Check whether user is already locked for failed attempts
+-    if (!ipmi::ipmiUserPamAuthenticate(userName, passwd))
+-    {
+-        lg2::error(
+-            "Authentication failed - user already locked out, user id: {ID}",
+-            "ID", userId);
+-
+-        response->rmcpStatusCode =
+-            static_cast<uint8_t>(RAKP_ReturnCode::UNAUTH_NAME);
+-        logInvalidLoginRedfishEvent(message);
+-        return outPayload;
++        // Check whether user is already locked for failed attempts
++        // to do with secure password
+     }
+ 
+     uint8_t chNum = static_cast<uint8_t>(getInterfaceIndex());
+@@ -279,9 +263,13 @@ std::vector<uint8_t> RAKP12(const std::vector<uint8_t>& inPayload,
+         return outPayload;
+     }
+ 
+-    std::fill(authAlgo->userKey.data(),
+-              authAlgo->userKey.data() + authAlgo->userKey.size(), 0);
+-    std::copy_n(passwd.c_str(), passwd.size(), authAlgo->userKey.data());
++    if (!teeLoaded)
++    {
++        std::fill(authAlgo->userKey.data(),
++                  authAlgo->userKey.data() + authAlgo->userKey.size(), 0);
++
++        std::copy_n(passwd.c_str(), passwd.size(), authAlgo->userKey.data());
++    }
+ 
+     // Copy the Managed System Random Number to the Authentication Algorithm
+     std::copy_n(iter, cipher::rakp_auth::BMC_RANDOM_NUMBER_LEN,
+@@ -305,7 +293,7 @@ std::vector<uint8_t> RAKP12(const std::vector<uint8_t>& inPayload,
+     std::copy_n(session->userName.data(), session->userName.size(), iter);
+ 
+     // Generate Key Exchange Authentication Code - RAKP2
+-    auto output = authAlgo->generateHMAC(input);
++    auto output = authAlgo->generateHMAC(userName, input);
+ 
+     response->messageTag = request->messageTag;
+     response->rmcpStatusCode = static_cast<uint8_t>(RAKP_ReturnCode::NO_ERROR);
+diff --git a/command/rakp34.cpp b/command/rakp34.cpp
+index f14430e..b3c82f9 100644
+--- a/command/rakp34.cpp
++++ b/command/rakp34.cpp
+@@ -154,7 +154,7 @@ std::vector<uint8_t> RAKP34(const std::vector<uint8_t>& inPayload,
+     std::copy_n(session->userName.data(), userLength, iter);
+ 
+     // Generate Key Exchange Authentication Code - RAKP2
+-    auto output = authAlgo->generateHMAC(input);
++    auto output = authAlgo->generateHMAC(session->userName, input);
+ 
+     if (inPayload.size() != (sizeof(RAKP3request) + output.size()) ||
+         std::memcmp(output.data(), request + 1, output.size()))
+@@ -211,7 +211,7 @@ std::vector<uint8_t> RAKP34(const std::vector<uint8_t>& inPayload,
+     std::copy_n(session->userName.data(), userLength, iter);
+ 
+     // Generate Session Integrity Key
+-    auto sikOutput = authAlgo->generateHMAC(input);
++    auto sikOutput = authAlgo->generateHMAC(session->userName, input);
+ 
+     // Update the SIK in the Authentication Algo Interface
+     authAlgo->sessionIntegrityKey.insert(authAlgo->sessionIntegrityKey.begin(),
+diff --git a/command_table.cpp b/command_table.cpp
+index c0e655a..7560939 100644
+--- a/command_table.cpp
++++ b/command_table.cpp
+@@ -129,7 +129,7 @@ void Table::executeCommand(uint32_t inCommand,
+ 
+         // If command time execution time exceeds 2 seconds, log a time
+         // exceeded message
+-        if (elapsedSeconds > 2s)
++        if (elapsedSeconds > 10s)
+         {
+             lg2::error("IPMI command timed out: {DELAY}", "DELAY",
+                        elapsedSeconds.count());
+diff --git a/main.cpp b/main.cpp
+index b66c6f5..047f035 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -70,6 +70,7 @@ EInterfaceIndex getInterfaceIndex(void)
+     return currentInterfaceIndex;
+ }
+ 
++bool teeLoaded = false;
+ int main(int argc, char* argv[])
+ {
+     CLI::App app("KCS RMCP+ bridge");
+@@ -81,6 +82,12 @@ int main(int argc, char* argv[])
+     app.add_option("-v,--verbose", verbose, "print more verbose output");
+     CLI11_PARSE(app, argc, argv);
+ 
++    if (std::filesystem::exists("/dev/teepriv0"))
++    {
++        teeLoaded = true;
++        lg2::info("OPTEE is loaded");
++    }
++
+     // Connect to system bus
+     auto rc = sd_bus_default_system(&bus);
+     if (rc < 0)
+diff --git a/main.hpp b/main.hpp
+index a5be04c..0abf67f 100644
+--- a/main.hpp
++++ b/main.hpp
+@@ -11,6 +11,7 @@ static constexpr size_t SELECT_CALL_TIMEOUT = 30;
+ static const auto IPMI_STD_PORT = 623;
+ 
+ extern sd_bus* bus;
++extern bool teeLoaded;
+ 
+ std::shared_ptr<sdbusplus::asio::connection> getSdBus();
+ std::shared_ptr<boost::asio::io_context> getIo();
+diff --git a/sessions_manager.cpp b/sessions_manager.cpp
+index 5c9789b..c660766 100644
+--- a/sessions_manager.cpp
++++ b/sessions_manager.cpp
+@@ -146,15 +146,15 @@ std::shared_ptr<Session>
+             case cipher::rakp_auth::Algorithms::RAKP_HMAC_SHA1:
+             {
+                 session->setAuthAlgo(
+-                    std::make_unique<cipher::rakp_auth::AlgoSHA1>(intAlgo,
+-                                                                  cryptAlgo));
++                    std::make_unique<cipher::rakp_auth::AlgoSHA1>(
++                        intAlgo, cryptAlgo, teeLoaded));
+                 break;
+             }
+             case cipher::rakp_auth::Algorithms::RAKP_HMAC_SHA256:
+             {
+                 session->setAuthAlgo(
+-                    std::make_unique<cipher::rakp_auth::AlgoSHA256>(intAlgo,
+-                                                                    cryptAlgo));
++                    std::make_unique<cipher::rakp_auth::AlgoSHA256>(
++                        intAlgo, cryptAlgo, teeLoaded));
+                 break;
+             }
+             default:
+-- 
+2.25.1
+

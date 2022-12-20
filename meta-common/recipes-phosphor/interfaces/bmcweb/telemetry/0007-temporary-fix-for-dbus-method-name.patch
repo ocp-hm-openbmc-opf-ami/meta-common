@@ -1,0 +1,38 @@
+From f72026e7d87c078daf413fc749c8a1b4f4861fa6 Mon Sep 17 00:00:00 2001
+From: Krzysztof Grobelny <krzysztof.grobelny@intel.com>
+Date: Fri, 18 Nov 2022 10:20:45 +0000
+Subject: [PATCH] temporary fix for dbus method name
+
+---
+ redfish-core/lib/metric_report_definition.hpp | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/redfish-core/lib/metric_report_definition.hpp b/redfish-core/lib/metric_report_definition.hpp
+index f2582550..24b9ecb8 100644
+--- a/redfish-core/lib/metric_report_definition.hpp
++++ b/redfish-core/lib/metric_report_definition.hpp
+@@ -469,8 +469,9 @@ inline void
+         dbus_utils::UnpackErrorPrinter(), properties, "ReportingType",
+         reportingType, "Interval", interval, "ReportActions", reportActions,
+         "ReportUpdates", reportUpdates, "AppendLimit", appendLimit,
+-        "ReadingParameters", readingParams, "Name", name, "Enabled", enabled,
+-        "ErrorMessages", errorMessages, "Triggers", triggers);
++        "ReadingParametersFutureVersion", readingParams, "Name", name,
++        "Enabled", enabled, "ErrorMessages", errorMessages, "Triggers",
++        triggers);
+ 
+     if (!success)
+     {
+@@ -1001,7 +1002,8 @@ class AddReport
+                 }
+                 },
+                 telemetry::service, "/xyz/openbmc_project/Telemetry/Reports",
+-                "xyz.openbmc_project.Telemetry.ReportManager", "AddReport",
++                "xyz.openbmc_project.Telemetry.ReportManager",
++                "AddReportFutureVersion",
+                 args.getProperties(std::move(readingParams)));
+         }
+         catch (const std::exception& e)
+-- 
+2.34.1
+

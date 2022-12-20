@@ -1,0 +1,17 @@
+[Unit]
+Description=Enforce Static MAC addr mapping
+After=xyz.openbmc_project.EntityManager.service
+Wants=xyz.openbmc_project.EntityManager.service
+
+[Service]
+Type=simple
+Restart=no
+# mac-check is the original bash script
+# mac_check is the compiled C++ service
+# Long-term goal is to migrate mac-check script into mac_check
+ExecStart=/usr/bin/mac_check
+TimeoutSec=120
+
+[Install]
+WantedBy=network.target
+

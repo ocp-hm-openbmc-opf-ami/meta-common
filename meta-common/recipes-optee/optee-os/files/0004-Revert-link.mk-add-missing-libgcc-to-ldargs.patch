@@ -1,0 +1,61 @@
+From bcf8f312924b7a0e611ba9f20544942846f6ac2a Mon Sep 17 00:00:00 2001
+From: Zhikui Ren <zhikui.ren@intel.com>
+Date: Fri, 30 Apr 2021 10:06:45 -0700
+Subject: [PATCH] Revert "link.mk: add missing $libgcc to ldargs"
+
+This reverts commit a03cdefb3510ddcfabecfa469200f9a33236600b.
+The above commit was to fix build issue for AOPS.
+But it was causing the build error for us in optee-example, optee-test
+with:
+optee-examples arm-openbmc-linux-gnueabi-ld.bfd:
+cannot find libgcc.a: no such file or directory
+
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+---
+ ldelf/link.mk             | 2 +-
+ ta/arch/arm/link.mk       | 2 +-
+ ta/arch/arm/link_shlib.mk | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/ldelf/link.mk b/ldelf/link.mk
+index 8fafc879..c48af1d0 100644
+--- a/ldelf/link.mk
++++ b/ldelf/link.mk
+@@ -21,7 +21,7 @@ link-ldflags += $(link-ldflags$(sm))
+ 
+ link-ldadd  = $(addprefix -L,$(libdirs))
+ link-ldadd += --start-group $(addprefix -l,$(libnames)) --end-group
+-ldargs-ldelf.elf := $(link-ldflags) $(objs) $(link-ldadd) $(libgcc$(sm))
++ldargs-ldelf.elf := $(link-ldflags) $(objs) $(link-ldadd)
+ 
+ link-script-cppflags-$(sm) := \
+ 	$(filter-out $(CPPFLAGS_REMOVE) $(cppflags-remove), \
+diff --git a/ta/arch/arm/link.mk b/ta/arch/arm/link.mk
+index cca6e6f4..e526eaab 100644
+--- a/ta/arch/arm/link.mk
++++ b/ta/arch/arm/link.mk
+@@ -61,7 +61,7 @@ link-ldadd += --end-group
+ link-ldadd-after-libgcc += $(addprefix -l,$(libnames-after-libgcc))
+ 
+ ldargs-$(user-ta-uuid).elf := $(link-ldflags) $(objs) $(link-ldadd) \
+-				$(libgcc$(sm)) $(link-ldadd-after-libgcc)
++				$(link-ldadd-after-libgcc)
+ 
+ link-script-cppflags-$(sm) := \
+ 	$(filter-out $(CPPFLAGS_REMOVE) $(cppflags-remove), \
+diff --git a/ta/arch/arm/link_shlib.mk b/ta/arch/arm/link_shlib.mk
+index cc177ef0..c6c01af8 100644
+--- a/ta/arch/arm/link_shlib.mk
++++ b/ta/arch/arm/link_shlib.mk
+@@ -25,7 +25,7 @@ shlink-ldflags += --as-needed # Do not add dependency on unused shlib
+ shlink-ldadd  = $(LDADD)
+ shlink-ldadd += $(addprefix -L,$(libdirs))
+ shlink-ldadd += --start-group $(addprefix -l,$(libnames)) --end-group
+-ldargs-$(shlibname).so := $(shlink-ldflags) $(objs) $(shlink-ldadd) $(libgcc$(sm))
++ldargs-$(shlibname).so := $(shlink-ldflags) $(objs) $(shlink-ldadd)
+ 
+ 
+ $(link-out-dir)/$(shlibname).so: $(objs) $(libdeps)
+-- 
+2.17.1
+

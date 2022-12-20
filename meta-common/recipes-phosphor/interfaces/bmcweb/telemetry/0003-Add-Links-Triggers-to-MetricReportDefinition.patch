@@ -1,0 +1,111 @@
+From d5d4c9cd3384a666c9c2ecbdd05ce5a1f7d72a02 Mon Sep 17 00:00:00 2001
+From: Szymon Dompke <szymon.dompke@intel.com>
+Date: Mon, 7 Mar 2022 14:28:06 +0100
+Subject: [PATCH] Add Links/Triggers to MetricReportDefinition
+
+This change is adding Triggers property to Links when GET is called on
+MetricReportDefinition. It contains array of @odata.id pointing to
+Trigger resource if it is also linking to given MRD.
+
+Testing done:
+- Links/Trigger property is returned by GET request on
+  /redfish/v1/TelemetryService/MetricReportDefinitions/<str>/
+
+Signed-off-by: Szymon Dompke <szymon.dompke@intel.com>
+Change-Id: I5accf4b50324437b0b185003200078ad2c7020b0
+---
+ include/dbus_utility.hpp                      |  1 +
+ redfish-core/lib/metric_report_definition.hpp | 46 ++++++++++++++++++-
+ 2 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/include/dbus_utility.hpp b/include/dbus_utility.hpp
+index 94b2b64d..55eb8b68 100644
+--- a/include/dbus_utility.hpp
++++ b/include/dbus_utility.hpp
+@@ -63,6 +63,7 @@ using DbusVariantType = std::variant<
+     std::vector<uint32_t>,
+     std::vector<uint16_t>,
+     sdbusplus::message::object_path,
++    std::vector<sdbusplus::message::object_path>,
+     std::tuple<uint64_t, std::vector<std::tuple<std::string, std::string, double, uint64_t>>>,
+     std::vector<std::tuple<std::string, std::string>>,
+     std::vector<std::tuple<uint32_t, std::vector<uint32_t>>>,
+diff --git a/redfish-core/lib/metric_report_definition.hpp b/redfish-core/lib/metric_report_definition.hpp
+index e064cd2f..bf1cceb9 100644
+--- a/redfish-core/lib/metric_report_definition.hpp
++++ b/redfish-core/lib/metric_report_definition.hpp
+@@ -54,6 +54,40 @@ std::string toDbusReportAction(std::string_view action)
+     return "";
+ }
+ 
++inline std::optional<nlohmann::json> getLinkedTriggers(
++    const std::vector<sdbusplus::message::object_path>& triggerPaths)
++{
++    nlohmann::json triggers = nlohmann::json::array();
++
++    for (const sdbusplus::message::object_path& path : triggerPaths)
++    {
++        if (path.parent_path() !=
++            "/xyz/openbmc_project/Telemetry/Triggers/TelemetryService")
++        {
++            BMCWEB_LOG_ERROR << "Property Triggers contains invalid value: "
++                             << path.str;
++            return std::nullopt;
++        }
++
++        std::string id = path.filename();
++        if (id.empty())
++        {
++            BMCWEB_LOG_ERROR << "Property Triggers contains invalid value: "
++                             << path.str;
++            return std::nullopt;
++        }
++
++        triggers.push_back({
++            {"@odata.id",
++             crow::utility::urlFromPieces("redfish", "v1", "TelemetryService",
++                                          "Triggers", id)
++                 .string()},
++        });
++    }
++
++    return std::make_optional(triggers);
++}
++
+ inline void
+     fillReportDefinition(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& id,
+@@ -68,13 +102,14 @@ inline void
+     uint64_t interval = 0;
+     bool enabled = false;
+     std::vector<std::tuple<std::string, std::string>> errorMessages;
++    std::vector<sdbusplus::message::object_path> triggers;
+ 
+     const bool success = sdbusplus::unpackPropertiesNoThrow(
+         dbus_utils::UnpackErrorPrinter(), properties, "ReportingType",
+         reportingType, "Interval", interval, "ReportActions", reportActions,
+         "ReportUpdates", reportUpdates, "AppendLimit", appendLimit,
+         "ReadingParameters", readingParams, "Name", name, "Enabled", enabled,
+-        "ErrorMessages", errorMessages);
++        "ErrorMessages", errorMessages, "Triggers", triggers);
+ 
+     if (!success)
+     {
+@@ -82,6 +117,15 @@ inline void
+         return;
+     }
+ 
++    std::optional<nlohmann::json> linkedTriggers = getLinkedTriggers(triggers);
++    if (!linkedTriggers)
++    {
++        messages::internalError(asyncResp->res);
++        return;
++    }
++
++    asyncResp->res.jsonValue["Links"]["Triggers"] = *linkedTriggers;
++
+     nlohmann::json::array_t redfishReportActions;
+     for (const std::string& action : reportActions)
+     {
+-- 
+2.34.1

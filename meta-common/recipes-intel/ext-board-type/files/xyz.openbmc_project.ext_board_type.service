@@ -1,0 +1,15 @@
+[Unit]
+Description=ext-board-type
+Before=xyz.openbmc_project.EntityManager.service
+After=SetBaseboardFru.service
+
+[Service]
+ExecStart=/usr/bin/ext-board-type
+Type=dbus
+BusName=com.intel.extBoardType
+SyslogIdentifier=ext-board-type
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+

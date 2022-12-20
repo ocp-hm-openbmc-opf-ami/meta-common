@@ -1,0 +1,177 @@
+From 30f9ae0d076f02454a9928676efb55ca45c72035 Mon Sep 17 00:00:00 2001
+From: AppaRao Puli <apparao.puli@linux.intel.com>
+Date: Wed, 6 Oct 2021 21:51:16 +0000
+Subject: [PATCH] Input parameter validation for Event Subscription
+
+There is no check on the size of input parameters(Context,
+Destination and Header) during Event Subscription. This
+creates out of memory situation.
+
+This commit adds check for the size of input parameters and
+rejects if it is exceeding the input size limits.
+
+Adding a generic error message "PropertySizeExceeded"
+to address properties which exceed there defined size limit.
+
+Tested
+  - Validated using POST on Event Subscription.
+  - When Context, Destination and Headers were too long,
+    received a error message denoting the same.
+
+Change-Id: Ibab847ce0c99f445a76e6d3aee8074428bb7d30f
+Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
+Signed-off-by: Ayushi Smriti <smriti.ayushi@intel.com>
+Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+---
+ redfish-core/include/error_messages.hpp       | 12 +++++++++
+ .../registries/base_message_registry.hpp      | 14 +++++++++-
+ redfish-core/lib/event_service.hpp            | 26 +++++++++++++++++++
+ redfish-core/src/error_messages.cpp           | 20 ++++++++++++++
+ 4 files changed, 71 insertions(+), 1 deletion(-)
+
+diff --git a/redfish-core/include/error_messages.hpp b/redfish-core/include/error_messages.hpp
+index 50bcfa02..6501d6a0 100644
+--- a/redfish-core/include/error_messages.hpp
++++ b/redfish-core/include/error_messages.hpp
+@@ -248,6 +248,18 @@ nlohmann::json propertyValueNotInList(std::string_view arg1,
+ void propertyValueNotInList(crow::Response& res, std::string_view arg1,
+                             std::string_view arg2);
+ 
++/**
++ * @brief Formats PropertySizeExceeded message into JSON
++ * Message body: "The property <arg1> is too long. The value exceeds its size
++ * limit."
++ *
++ * @param[in] arg1 Parameter of message that will replace %1 in its body.
++ *
++ * @returns Message PropertySizeExceeded formatted to JSON */
++nlohmann::json propertySizeExceeded(std::string_view arg1);
++
++void propertySizeExceeded(crow::Response& res, std::string_view arg1);
++
+ /**
+  * @brief Formats PropertyValueOutOfRange message into JSON
+  * Message body: "The value '%1' for the property %2 is not in the supported
+diff --git a/redfish-core/include/registries/base_message_registry.hpp b/redfish-core/include/registries/base_message_registry.hpp
+index c030530d..0681be5a 100644
+--- a/redfish-core/include/registries/base_message_registry.hpp
++++ b/redfish-core/include/registries/base_message_registry.hpp
+@@ -1233,7 +1233,18 @@ constexpr std::array registry =
+             {},
+             "Correct the request body and resubmit the request if it failed.",
+         }},
+-
++    MessageEntry{
++        "PropertySizeExceeded",
++        {
++            "Indicates that a given property exceeds the size limit imposed.",
++            "The property %1 is too long. The value exceeds its size limit.",
++            "Warning",
++            1,
++            {
++                "string",
++            },
++            "Correct the value for the property in the request body and resubmit the request if the operation failed.",
++        }}
+ };
+ 
+ enum class Index
+@@ -1342,5 +1353,6 @@ enum class Index
+     success = 101,
+     undeterminedFault = 102,
+     unrecognizedRequestBody = 103,
++    propertySizeExceeded = 104
+ };
+ } // namespace redfish::registries::base
+diff --git a/redfish-core/lib/event_service.hpp b/redfish-core/lib/event_service.hpp
+index c4cd5e98..93a99047 100644
+--- a/redfish-core/lib/event_service.hpp
++++ b/redfish-core/lib/event_service.hpp
+@@ -25,6 +25,10 @@
+ 
+ #include <span>
+ 
++#define MAX_CONTEXT_SIZE 256
++#define MAX_DESTINATION_SIZE 1024
++#define MAX_HEADER_SIZE 8096
++
+ namespace redfish
+ {
+ 
+@@ -249,6 +253,12 @@ inline void requestRoutesEventDestinationCollection(App& app)
+             return;
+         }
+ 
++        if (destUrl.size() > MAX_DESTINATION_SIZE)
++        {
++            messages::propertySizeExceeded(asyncResp->res, "Destination");
++            return;
++        }
++
+         if (regPrefixes && msgIds)
+         {
+             if (!regPrefixes->empty() && !msgIds->empty())
+@@ -326,13 +336,29 @@ inline void requestRoutesEventDestinationCollection(App& app)
+ 
+         if (context)
+         {
++            if (context->size() > MAX_CONTEXT_SIZE)
++            {
++                messages::propertySizeExceeded(asyncResp->res, "Context");
++                return;
++            }
+             subValue->customText = *context;
+         }
+ 
+         if (headers)
+         {
++            size_t cumulativeLen = 0;
++
+             for (const nlohmann::json& headerChunk : *headers)
+             {
++                std::string hdr{headerChunk.dump(
++                    -1, ' ', true, nlohmann::json::error_handler_t::replace)};
++                cumulativeLen += hdr.length();
++                if (cumulativeLen > MAX_HEADER_SIZE)
++                {
++                    messages::propertySizeExceeded(asyncResp->res,
++                                                   "HttpHeaders");
++                    return;
++                }
+                 for (const auto& item : headerChunk.items())
+                 {
+                     const std::string* value =
+diff --git a/redfish-core/src/error_messages.cpp b/redfish-core/src/error_messages.cpp
+index 60689056..b93ed030 100644
+--- a/redfish-core/src/error_messages.cpp
++++ b/redfish-core/src/error_messages.cpp
+@@ -439,6 +439,26 @@ void propertyValueFormatError(crow::Response& res, std::string_view arg1,
+     addMessageToJson(res.jsonValue, propertyValueFormatError(arg1, arg2), arg2);
+ }
+ 
++/**
++ * @internal
++ * @brief Formats PropertySizeExceeded message into JSON for the specified
++ * property
++ *
++ * See header file for more information
++ * @endinternal
++ */
++nlohmann::json propertySizeExceeded(std::string_view arg1)
++{
++    return getLog(redfish::registries::base::Index::propertySizeExceeded,
++                  std::to_array({arg1}));
++}
++
++void propertySizeExceeded(crow::Response& res, std::string_view arg1)
++{
++    res.result(boost::beast::http::status::bad_request);
++    addMessageToJson(res.jsonValue, propertySizeExceeded(arg1), arg1);
++}
++
+ /**
+  * @internal
+  * @brief Formats PropertyValueNotInList message into JSON for the specified
+-- 
+2.17.1
+

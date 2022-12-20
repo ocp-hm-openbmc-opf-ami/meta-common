@@ -1,0 +1,155 @@
+From 9a26cb056aa0cbb2febbbb0e56390f9025317d18 Mon Sep 17 00:00:00 2001
+From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Date: Mon, 18 Oct 2021 22:58:29 +0530
+Subject: [PATCH] Add Privileges to Websockets
+
+This commit adds Privileges to Websockets.
+In the current implementation, once a rule is upgraded (i.e. from
+BaseRule to WebSocket), there is no provosion to add priviliges.
+In this commit, WebSocket inherits PrivilegeParameterTraits to enable
+privileges.
+
+Also, in the earlier implementation, .privilege() was called after
+BMCWEB_ROUTE(). This results in adding those privileges to the Base rule
+that is created. By moving the privileges() below websocket(), the
+privileges are applied to the websocket.
+
+Tested:
+ - websocket_test.py Passed
+ - Only Admin privileged user able to access KVM, SOL and Virtual Media
+   on WebUI
+ - Operator and Readonly Users unable to access KVM, SOL and Virtual
+   Media on WebUI
+
+Change-Id: Iff2051dbb7d363c902fd463fa446f280adc6d648
+Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
+
+%% original patch: 0004-Add-Privileges-to-Websockets.patch
+---
+ http/routing.hpp          | 4 +++-
+ include/dbus_monitor.hpp  | 3 ++-
+ include/kvm_websocket.hpp | 3 ++-
+ include/nbd_proxy.hpp     | 1 +
+ include/obmc_console.hpp  | 3 ++-
+ include/vm_websocket.hpp  | 3 ++-
+ 6 files changed, 12 insertions(+), 5 deletions(-)
+
+diff --git a/http/routing.hpp b/http/routing.hpp
+index e55cfe13..7850cec2 100644
+--- a/http/routing.hpp
++++ b/http/routing.hpp
+@@ -354,7 +354,9 @@ struct PrivilegeParameterTraits
+     }
+ };
+ 
+-class WebSocketRule : public BaseRule
++class WebSocketRule :
++    public BaseRule,
++    public PrivilegeParameterTraits<WebSocketRule>
+ {
+     using self_t = WebSocketRule;
+ 
+diff --git a/include/dbus_monitor.hpp b/include/dbus_monitor.hpp
+index 6d6b3daf..cbb3c031 100644
+--- a/include/dbus_monitor.hpp
++++ b/include/dbus_monitor.hpp
+@@ -5,6 +5,7 @@
+ #include <boost/container/flat_set.hpp>
+ #include <dbus_singleton.hpp>
+ #include <openbmc_dbus_rest.hpp>
++#include <registries/privilege_registry.hpp>
+ #include <sdbusplus/bus/match.hpp>
+ #include <sdbusplus/message/types.hpp>
+ #include <websocket.hpp>
+@@ -108,8 +109,8 @@ inline int onPropertyUpdate(sd_bus_message* m, void* userdata,
+ inline void requestRoutes(App& app)
+ {
+     BMCWEB_ROUTE(app, "/subscribe")
+-        .privileges({{"Login"}})
+         .websocket()
++        .privileges(redfish::privileges::privilegeSetLogin)
+         .onopen([&](crow::websocket::Connection& conn,
+                     const std::shared_ptr<bmcweb::AsyncResp>&) {
+             BMCWEB_LOG_DEBUG << "Connection " << &conn << " opened";
+diff --git a/include/kvm_websocket.hpp b/include/kvm_websocket.hpp
+index 46dfe365..ede4d864 100644
+--- a/include/kvm_websocket.hpp
++++ b/include/kvm_websocket.hpp
+@@ -4,6 +4,7 @@
+ #include <app.hpp>
+ #include <async_resp.hpp>
+ #include <boost/container/flat_map.hpp>
++#include <registries/privilege_registry.hpp>
+ #include <websocket.hpp>
+ 
+ namespace crow
+@@ -159,8 +160,8 @@ inline void requestRoutes(App& app)
+     sessions.reserve(maxSessions);
+ 
+     BMCWEB_ROUTE(app, "/kvm/0")
+-        .privileges({{"ConfigureComponents", "ConfigureManager"}})
+         .websocket()
++        .privileges(redfish::privileges::privilegeSetConfigureManager)
+         .onopen([](crow::websocket::Connection& conn,
+                    const std::shared_ptr<bmcweb::AsyncResp>&) {
+             BMCWEB_LOG_DEBUG << "Connection " << &conn << " opened";
+diff --git a/include/nbd_proxy.hpp b/include/nbd_proxy.hpp
+index c042044c..b6683f56 100644
+--- a/include/nbd_proxy.hpp
++++ b/include/nbd_proxy.hpp
+@@ -255,6 +255,7 @@ inline void requestRoutes(App& app)
+ {
+     BMCWEB_ROUTE(app, "/nbd/<str>")
+         .websocket()
++	.privileges(redfish::privileges::privilegeSetConfigureManager)
+         .onopen([](crow::websocket::Connection& conn,
+                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+             BMCWEB_LOG_DEBUG << "nbd-proxy.onopen(" << &conn << ")";
+diff --git a/include/obmc_console.hpp b/include/obmc_console.hpp
+index 2f6d75f5..977b5fbf 100644
+--- a/include/obmc_console.hpp
++++ b/include/obmc_console.hpp
+@@ -5,6 +5,7 @@
+ #include <async_resp.hpp>
+ #include <boost/asio/local/stream_protocol.hpp>
+ #include <boost/container/flat_set.hpp>
++#include <registries/privilege_registry.hpp>
+ #include <websocket.hpp>
+ 
+ namespace crow
+@@ -135,8 +136,8 @@ inline void connectHandler(const boost::system::error_code& ec)
+ inline void requestRoutes(App& app)
+ {
+     BMCWEB_ROUTE(app, "/console0")
+-        .privileges({{"ConfigureComponents", "ConfigureManager"}})
+         .websocket()
++        .privileges(redfish::privileges::privilegeSetConfigureManager)
+         .onopen(
+             [](crow::websocket::Connection& conn,
+                const std::shared_ptr<bmcweb::AsyncResp>&) {
+diff --git a/include/vm_websocket.hpp b/include/vm_websocket.hpp
+index 8e71df7f..b9ba98ce 100644
+--- a/include/vm_websocket.hpp
++++ b/include/vm_websocket.hpp
+@@ -5,6 +5,7 @@
+ #include <boost/process/async_pipe.hpp>
+ #include <boost/process/child.hpp>
+ #include <boost/process/io.hpp>
++#include <registries/privilege_registry.hpp>
+ #include <websocket.hpp>
+ 
+ #include <csignal>
+@@ -162,8 +163,8 @@ static std::shared_ptr<Handler> handler;
+ inline void requestRoutes(App& app)
+ {
+     BMCWEB_ROUTE(app, "/vm/0/0")
+-        .privileges({{"ConfigureComponents", "ConfigureManager"}})
+         .websocket()
++        .privileges(redfish::privileges::privilegeSetConfigureManager)
+         .onopen([](crow::websocket::Connection& conn,
+                    const std::shared_ptr<bmcweb::AsyncResp>&) {
+             BMCWEB_LOG_DEBUG << "Connection " << &conn << " opened";
+-- 
+2.25.1
+

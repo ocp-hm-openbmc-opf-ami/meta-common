@@ -1,0 +1,238 @@
+From 418e5186e225cba3a0f20ed0e451a4aad5231719 Mon Sep 17 00:00:00 2001
+From: Jakub Kalinowski <JakubX.Kalinowski@intel.com>
+Date: Mon, 27 Jun 2022 15:44:21 +0200
+Subject: [PATCH] Restore AsyncResp in openhandler
+
+The asyncResp class in openhandler has been introduced once again. It
+is necessary for the correct operation of the VM. This change was made
+in response to a defect that resulted from removing the asyncResp
+class from openHandler. The problem was that when mounting images
+quickly, the mounting was not always successful. This was due to the
+fact that we started reading from the websocket even before it was
+initialized. Handler can work asynchronously in many situations and at
+this point there is no protection against data transfer to an empty
+handler. Previously, in the asyncResp class destructor, the method
+responsible for reading the websocket was run, this protected the
+websocket handler from reading the websocket before initialization.
+This commit proposes to restore the asyncResp class and to use the
+callback contained in crow::Response. This will ensure that the
+websocket handler is ready.
+
+Commit that introduced the defect:
+Remove AsyncResp from openHandler
+7772638ea777820234e6004ee63dc558e629e35e
+
+Previous modification of asyncResp:
+Change the completionhandler to accept Res
+72374eb7fe42257e866dd088bc13520b0b28cffa
+
+Before:
+
+Apr 28 15:40:51 intel-obmc bmcweb[401]: (2022-04-28 15:40:51) [DEBUG "nbd_proxy.hpp":85] Connection opened --> Starts to read from websocket
+Apr 28 15:40:51 intel-obmc bmcweb[401]: (2022-04-28 15:40:51) [ERROR "nbd_proxy.hpp":203] No data to write to UNIX socket --> No data on websocket
+Apr 28 15:42:57 intel-obmc bmcweb[401]: (2022-04-28 15:42:57) [DEBUG "nbd_proxy.hpp":420] nbd-proxy.onclose(reason = '') --> Closing websocket
+Apr 28 15:42:57 intel-obmc bmcweb[401]: (2022-04-28 15:42:57) [DEBUG "nbd_proxy.hpp":124] peerSocket->close()
+Apr 28 15:42:57 intel-obmc bmcweb[401]: (2022-04-28 15:42:57) [DEBUG "nbd_proxy.hpp":127] std::remove(/run/virtual-media/nbd1.sock)
+Apr 28 15:42:57 intel-obmc bmcweb[401]: (2022-04-28 15:42:57) [ERROR "nbd_proxy.hpp":163] UNIX socket: async_read_some error = Operation canceled
+Apr 28 15:42:57 intel-obmc bmcweb[401]: (2022-04-28 15:42:57) [DEBUG "nbd_proxy.hpp":57] NbdProxyServer destructor
+Apr 28 15:42:57 intel-obmc bmcweb[401]: (2022-04-28 15:42:57) [ERROR "nbd_proxy.hpp":135] DBus error: generic:13, cannot call unmount method
+Apr 28 15:42:57 intel-obmc bmcweb[401]: (2022-04-28 15:42:57) [ERROR "nbd_proxy.hpp":135] DBus error: generic:13, cannot call unmount method
+
+After:
+
+May 31 14:13:49 intel-obmc bmcweb[398]: (2022-05-31 14:13:49) [DEBUG "nbd_proxy.hpp":85] Connection opened --> Starts to read from websocket
+May 31 14:13:49 intel-obmc bmcweb[398]: (2022-05-31 14:13:49) [DEBUG "nbd_proxy.hpp":423] nbd-proxy.onmessage(len = 20) --> Data exchange with websocket is successful
+May 31 14:13:49 intel-obmc bmcweb[398]: (2022-05-31 14:13:49) [DEBUG "nbd_proxy.hpp":423] nbd-proxy.onmessage(len = 10)
+
+Tested:
+Mount image by legacy mode on slot_2
+Unmount image on slot_2
+Mount image by legacy mode on slot_3
+Unmount image on slot_3
+Mount image by proxy mode on slot_1
+Check if mounted image is visible by the OS
+Unmount image on slot_1
+
+Change-Id: I59f500a65e36c2504dfbb13d50673603c947873e
+Signed-off-by: Jakub Kalinowski <JakubX.Kalinowski@intel.com>
+---
+ http/routing.hpp          |  4 +++-
+ http/websocket.hpp        | 12 ++++++++----
+ include/async_resp.hpp    |  1 +
+ include/dbus_monitor.hpp  |  3 ++-
+ include/kvm_websocket.hpp |  3 ++-
+ include/nbd_proxy.hpp     | 13 ++++++++-----
+ include/obmc_console.hpp  |  6 ++++--
+ include/vm_websocket.hpp  |  3 ++-
+ 8 files changed, 30 insertions(+), 15 deletions(-)
+
+diff --git a/http/routing.hpp b/http/routing.hpp
+index 3a7b9c2f6..152a90c7f 100644
+--- a/http/routing.hpp
++++ b/http/routing.hpp
+@@ -398,7 +398,9 @@ class WebSocketRule : public BaseRule
+     }
+ 
+   protected:
+-    std::function<void(crow::websocket::Connection&)> openHandler;
++    std::function<void(crow::websocket::Connection&,
++                       const std::shared_ptr<bmcweb::AsyncResp>&)>
++        openHandler;
+     std::function<void(crow::websocket::Connection&, const std::string&, bool)>
+         messageHandler;
+     std::function<void(crow::websocket::Connection&, const std::string&)>
+diff --git a/http/websocket.hpp b/http/websocket.hpp
+index ecaa1d2f9..677e02e60 100644
+--- a/http/websocket.hpp
++++ b/http/websocket.hpp
+@@ -69,7 +69,8 @@ class ConnectionImpl : public Connection
+   public:
+     ConnectionImpl(
+         const crow::Request& reqIn, Adaptor adaptorIn,
+-        std::function<void(Connection&)> openHandlerIn,
++        std::function<void(Connection&, std::shared_ptr<bmcweb::AsyncResp>&)>
++            openHandlerIn,
+         std::function<void(Connection&, const std::string&, bool)>
+             messageHandlerIn,
+         std::function<void(Connection&, const std::string&)> closeHandlerIn,
+@@ -197,11 +198,13 @@ class ConnectionImpl : public Connection
+     {
+         BMCWEB_LOG_DEBUG << "Websocket accepted connection";
+ 
+-        doRead();
++        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
++        asyncResp->res.setCompleteRequestHandler(
++            [this, self(shared_from_this())](Response&) { doRead(); });
+ 
+         if (openHandler)
+         {
+-            openHandler(*this);
++            openHandler(*this, asyncResp);
+         }
+     }
+ 
+@@ -280,7 +283,8 @@ class ConnectionImpl : public Connection
+     std::vector<std::string> outBuffer;
+     bool doingWrite = false;
+ 
+-    std::function<void(Connection&)> openHandler;
++    std::function<void(Connection&, std::shared_ptr<bmcweb::AsyncResp>&)>
++        openHandler;
+     std::function<void(Connection&, const std::string&, bool)> messageHandler;
+     std::function<void(Connection&, const std::string&)> closeHandler;
+     std::function<void(Connection&)> errorHandler;
+diff --git a/include/async_resp.hpp b/include/async_resp.hpp
+index 219d9df79..521b7d47d 100644
+--- a/include/async_resp.hpp
++++ b/include/async_resp.hpp
+@@ -27,6 +27,7 @@ class AsyncResp
+         res.end();
+     }
+ 
++    // class
+     crow::Response res;
+ };
+ 
+diff --git a/include/dbus_monitor.hpp b/include/dbus_monitor.hpp
+index 129422e4a..6d6b3daf2 100644
+--- a/include/dbus_monitor.hpp
++++ b/include/dbus_monitor.hpp
+@@ -110,7 +110,8 @@ inline void requestRoutes(App& app)
+     BMCWEB_ROUTE(app, "/subscribe")
+         .privileges({{"Login"}})
+         .websocket()
+-        .onopen([&](crow::websocket::Connection& conn) {
++        .onopen([&](crow::websocket::Connection& conn,
++                    const std::shared_ptr<bmcweb::AsyncResp>&) {
+             BMCWEB_LOG_DEBUG << "Connection " << &conn << " opened";
+             sessions.try_emplace(&conn);
+         })
+diff --git a/include/kvm_websocket.hpp b/include/kvm_websocket.hpp
+index 79975d2c0..46dfe3659 100644
+--- a/include/kvm_websocket.hpp
++++ b/include/kvm_websocket.hpp
+@@ -161,7 +161,8 @@ inline void requestRoutes(App& app)
+     BMCWEB_ROUTE(app, "/kvm/0")
+         .privileges({{"ConfigureComponents", "ConfigureManager"}})
+         .websocket()
+-        .onopen([](crow::websocket::Connection& conn) {
++        .onopen([](crow::websocket::Connection& conn,
++                   const std::shared_ptr<bmcweb::AsyncResp>&) {
+             BMCWEB_LOG_DEBUG << "Connection " << &conn << " opened";
+ 
+             if (sessions.size() == maxSessions)
+diff --git a/include/nbd_proxy.hpp b/include/nbd_proxy.hpp
+index cb4d06e13..c042044cc 100644
+--- a/include/nbd_proxy.hpp
++++ b/include/nbd_proxy.hpp
+@@ -255,12 +255,14 @@ inline void requestRoutes(App& app)
+ {
+     BMCWEB_ROUTE(app, "/nbd/<str>")
+         .websocket()
+-        .onopen([](crow::websocket::Connection& conn) {
++        .onopen([](crow::websocket::Connection& conn,
++                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+             BMCWEB_LOG_DEBUG << "nbd-proxy.onopen(" << &conn << ")";
+ 
+             auto getUserInfoHandler =
+-                [&conn](const boost::system::error_code ec,
+-                        const dbus::utility::DBusPropertiesMap& userInfo) {
++                [&conn,
++                 asyncResp](const boost::system::error_code ec,
++                            const dbus::utility::DBusPropertiesMap& userInfo) {
+             if (ec)
+             {
+                 BMCWEB_LOG_ERROR << "GetUserInfo failed...";
+@@ -302,8 +304,9 @@ inline void requestRoutes(App& app)
+             }
+ 
+             auto openHandler =
+-                [&conn](const boost::system::error_code ec2,
+-                        const dbus::utility::ManagedObjectType& objects) {
++                [&conn,
++                 asyncResp](const boost::system::error_code ec2,
++                            const dbus::utility::ManagedObjectType& objects) {
+                 const std::string* socketValue = nullptr;
+                 const std::string* endpointValue = nullptr;
+                 const std::string* endpointObjectPath = nullptr;
+diff --git a/include/obmc_console.hpp b/include/obmc_console.hpp
+index d314b559e..2f6d75f5c 100644
+--- a/include/obmc_console.hpp
++++ b/include/obmc_console.hpp
+@@ -21,7 +21,8 @@ static boost::container::flat_set<crow::websocket::Connection*> sessions;
+ 
+ static bool doingWrite = false;
+ 
+-constexpr char const* uartMuxCtrlPath = "/sys/bus/platform/drivers/aspeed-uart-routing/1e789098.uart-routing/hicra";
++constexpr char const* uartMuxCtrlPath =
++    "/sys/bus/platform/drivers/aspeed-uart-routing/1e789098.uart-routing/hicra";
+ constexpr char const* uartMuxCtrlVal = "0x03450003";
+ 
+ inline void doWrite()
+@@ -137,7 +138,8 @@ inline void requestRoutes(App& app)
+         .privileges({{"ConfigureComponents", "ConfigureManager"}})
+         .websocket()
+         .onopen(
+-            [](crow::websocket::Connection& conn) {
++            [](crow::websocket::Connection& conn,
++               const std::shared_ptr<bmcweb::AsyncResp>&) {
+         BMCWEB_LOG_DEBUG << "Connection " << &conn << " opened";
+ 
+         sessions.insert(&conn);
+diff --git a/include/vm_websocket.hpp b/include/vm_websocket.hpp
+index ebf0a698e..8e71df7f6 100644
+--- a/include/vm_websocket.hpp
++++ b/include/vm_websocket.hpp
+@@ -164,7 +164,8 @@ inline void requestRoutes(App& app)
+     BMCWEB_ROUTE(app, "/vm/0/0")
+         .privileges({{"ConfigureComponents", "ConfigureManager"}})
+         .websocket()
+-        .onopen([](crow::websocket::Connection& conn) {
++        .onopen([](crow::websocket::Connection& conn,
++                   const std::shared_ptr<bmcweb::AsyncResp>&) {
+             BMCWEB_LOG_DEBUG << "Connection " << &conn << " opened";
+ 
+             if (session != nullptr)
+-- 
+2.25.1
+

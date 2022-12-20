@@ -1,0 +1,92 @@
+From 8060f5269bc54a645aa79f411a2e44ad740d4a21 Mon Sep 17 00:00:00 2001
+From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Date: Mon, 11 Jul 2022 00:07:00 +0530
+Subject: [PATCH] Delete Terminated Event Subscriptions
+
+Added functionality to delete/remove event subscription(s) which are
+configured to Terminate after retries.
+
+Currently, when an Event is subscribed with Retry Policy as
+"TerminateAfterRetries", the response is set to bad_gateway, but the
+subscription is not removed.
+This commit adds the functionality to delete terminated subscriptions by
+capturing the response and calling deleteSubscription.
+In order to acheive this, sendDataWithCallback() of HttpClient is used
+to which the lambda to handle deletion of subscription is passed.
+
+Tested:
+ - Created a Subscription with
+   DeliveryRetryPolicy: "TerminateAfterRetries"
+ - Received Events successfully on Event listener
+ - Once the Event listener was stopped, the Subscription was
+   removed/deleted after retries.
+
+Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Change-Id: I641e37b39885705d751c56bdf65e2ff25cb42790
+---
+ .../include/event_service_manager.hpp         | 32 +++++++++++++++++--
+ 1 file changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
+index b20946a6..1a1b8137 100644
+--- a/redfish-core/include/event_service_manager.hpp
++++ b/redfish-core/include/event_service_manager.hpp
+@@ -55,6 +55,9 @@ static constexpr const char* metricReportFormatType = "MetricReport";
+ static constexpr const char* eventServiceFile =
+     "/var/lib/bmcweb/eventservice_config.json";
+ 
++std::function<void(const std::string&)> deleteTerminatedSubscription =
++    [](const std::string&) {};
++
+ static constexpr const uint8_t maxNoOfSubscriptions = 20;
+ static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
+ 
+@@ -396,11 +399,30 @@ class Subscription : public persistent_data::UserSubscription
+             return true;
+         }
+ 
++        std::function<void(crow::Response&)> sendEventCallback =
++            [subId(id), retryPolicy(retryPolicy),
++             deleteTerminatedSubscription(deleteTerminatedSubscription)](
++                crow::Response& res) {
++            if (res.result() == boost::beast::http::status::bad_gateway)
++            {
++                // Response is going to have bad_gateway result if the event
++                // listener was not able to receive the event even after
++                // multiple retries. This response is received only when retry
++                // policy is Suspend after retires or Terminate after reties.
++                // Call Delete subscription only when policy is terminate after
++                // retries.
++                if (retryPolicy == "TerminateAfterRetries")
++                {
++                    deleteTerminatedSubscription(subId);
++                }
++            }
++        };
++
+         bool useSSL = (uriProto == "https");
+         // A connection pool will be created if one does not already exist
+-        crow::HttpClient::getInstance().sendData(
++        crow::HttpClient::getInstance().sendDataWithCallback(
+             msg, id, host, port, path, useSSL, verifyCertificate, httpHeaders,
+-            boost::beast::http::verb::post, retryPolicyName);
++            boost::beast::http::verb::post, retryPolicyName, sendEventCallback);
+         eventSeqNum++;
+ 
+         return true;
+@@ -601,6 +623,12 @@ class EventServiceManager
+ 
+     EventServiceManager()
+     {
++        // Set Lambda for deletion of terminated subscriptions
++        deleteTerminatedSubscription = [](const std::string& id) {
++            BMCWEB_LOG_DEBUG << "Deleting Terminated Subscription : " << id;
++            EventServiceManager::getInstance().deleteSubscription(id);
++        };
++
+         // Load config from persist store.
+         initConfig();
+     }
+-- 
+2.17.1
+

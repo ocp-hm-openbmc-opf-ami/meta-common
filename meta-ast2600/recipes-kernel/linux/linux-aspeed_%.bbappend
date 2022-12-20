@@ -1,0 +1,1 @@
+COMPATIBLE_MACHINE = "intel-ast2600"

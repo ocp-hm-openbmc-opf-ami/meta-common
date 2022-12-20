@@ -1,0 +1,459 @@
+From 6c52f76eaf516e6dbbcccf63455d0d3ba0b4554a Mon Sep 17 00:00:00 2001
+From: Zhikui Ren <zhikui.ren@intel.com>
+Date: Thu, 7 May 2020 22:55:49 -0700
+Subject: [PATCH] Add plat-aspeed initial commit
+
+This is initial commit of plat-aspeed and comments are added
+for temporary workarounds and follow up work.
+
+Tested:
+Build with PLATFORM = aspeed and run with QEMU.
+Also build optee_examples and tested on ast2600 A0.
+Both cores comes up and successfully run
+optee_example_hotp, optee_example and xtest 1004.
+
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+---
+ Makefile                                    |  4 +-
+ core/arch/arm/kernel/misc_a32.S             |  7 +-
+ core/arch/arm/plat-aspeed/conf.mk           | 77 ++++++++++++++++++
+ core/arch/arm/plat-aspeed/main.c            | 89 +++++++++++++++++++++
+ core/arch/arm/plat-aspeed/platform_config.h | 75 +++++++++++++++++
+ core/arch/arm/plat-aspeed/psci.c            | 86 ++++++++++++++++++++
+ core/arch/arm/plat-aspeed/sub.mk            |  3 +
+ core/drivers/ns16550.c                      | 13 ++-
+ 8 files changed, 345 insertions(+), 9 deletions(-)
+ create mode 100644 core/arch/arm/plat-aspeed/conf.mk
+ create mode 100644 core/arch/arm/plat-aspeed/main.c
+ create mode 100644 core/arch/arm/plat-aspeed/platform_config.h
+ create mode 100644 core/arch/arm/plat-aspeed/psci.c
+ create mode 100644 core/arch/arm/plat-aspeed/sub.mk
+
+diff --git a/Makefile b/Makefile
+index 571fba7f..abf976bc 100644
+--- a/Makefile
++++ b/Makefile
+@@ -33,6 +33,9 @@ $(info Loading OPTEE configuration file $(CFG_OPTEE_CONFIG))
+ include $(CFG_OPTEE_CONFIG)
+ endif
+ 
++#Todo: is there a better place to set PLATFORM
++PLATFORM        ?= aspeed
++
+ # If $(PLATFORM) is defined and contains a hyphen, parse it as
+ # $(PLATFORM)-$(PLATFORM_FLAVOR) for convenience
+ ifneq (,$(findstring -,$(PLATFORM)))
+@@ -42,7 +45,6 @@ endif
+ 
+ # Make these default for now
+ $(call force,ARCH,arm)
+-PLATFORM        ?= vexpress
+ # Default value for PLATFORM_FLAVOR is set in plat-$(PLATFORM)/conf.mk
+ ifeq ($O,)
+ O               := out
+diff --git a/core/arch/arm/kernel/misc_a32.S b/core/arch/arm/kernel/misc_a32.S
+index 75b153e8..3d502e4a 100644
+--- a/core/arch/arm/kernel/misc_a32.S
++++ b/core/arch/arm/kernel/misc_a32.S
+@@ -42,7 +42,12 @@ UNWIND(	.fnstart)
+ 	/* Calculate CorePos = (ClusterId * (cores/cluster)) + CoreId */
+ 	ubfx	r0, r3, #MPIDR_AFF1_SHIFT, #MPIDR_AFFINITY_BITS
+ 	ubfx	r1, r3, #MPIDR_AFF2_SHIFT, #MPIDR_AFFINITY_BITS
+-	add	r0, r0, r1, LSL #(CFG_CORE_CLUSTER_SHIFT)
++/*todo original code not working in QEMU - need to fix QEMU
++ 	add	r0, r0, r1, LSL #(CFG_CORE_CLUSTER_SHIFT)
++*/
++/* hack, see above todo #MPIDR_CLUSTER_MASK*/
++        and     r0, r0, #MPIDR_CPU_MASK
++
+ #else
+ 	/*
+ 	 * Calculate CorePos =
+diff --git a/core/arch/arm/plat-aspeed/conf.mk b/core/arch/arm/plat-aspeed/conf.mk
+new file mode 100644
+index 00000000..97aa8f1d
+--- /dev/null
++++ b/core/arch/arm/plat-aspeed/conf.mk
+@@ -0,0 +1,77 @@
++PLATFORM_FLAVOR ?= ast2600
++
++# Define DEBUG=1 to compile without optimization (forces -O0)
++# Perfomance can be more than 300 times slower
++# DEBUG=1
++CFG_TEE_CORE_LOG_LEVEL ?= 1
++CFG_TEE_CORE_MALLOC_DEBUG ?= n
++CFG_TEE_TA_MALLOC_DEBUG ?= n
++CFG_FTRACE_SUPPORT=n
++CFG_SYSCALL_FTRACE=n
++CFG_ULIBS_MCOUNT=n
++CFG_TA_MCOUNT=n
++
++ifeq ($(PLATFORM_FLAVOR),qemu_virt)
++include core/arch/arm/cpu/cortex-a15.mk
++else
++include core/arch/arm/cpu/cortex-a7.mk
++endif
++
++$(call force,CFG_GENERIC_BOOT,y)
++$(call force,CFG_ARM32_core,y)
++$(call force,CFG_ARM64_core,n)
++$(call force,CFG_GIC,y)
++$(call force,CFG_16550_UART,y)
++$(call force,CFG_PM_STUBS,y)
++
++$(call force,CFG_TEE_CORE_NB_CORE,2)
++$(call force,CFG_CORE_CLUSTER_SHIFT,1)
++$(call force,CFG_PSCI_ARM32,y)
++$(call force,CFG_BOOT_SECONDARY_REQUEST,y)
++$(call force,CFG_BOOT_SYNC_CPU, n)
++#Keeping Number of TEE thread equal to number of cores on the SoC
++CFG_NUM_THREADS ?= CFG_TEE_CORE_NB_CORE
++
++#TO-BE-FIXED: disable for now since it cause exception during optee-os
++$(call force,CFG_WITH_VFP,n)
++#TO-BE_FIXED: following section may need to be adjusted
++CFG_CRYPTO ?= y
++CFG_CRYPTO_RSA ?= y
++CFG_CRYPTO_SIZE_OPTIMIZATION ?= n
++
++$(call force,CFG_SECURE_TIME_SOURCE_REE,y)
++$(call force,CFG_SECONDARY_INIT_CNTFRQ,y)
++
++CFG_WITH_STACK_CANARIES ?= y
++CFG_WITH_STATS ?= y
++
++#dynamically add op-tee node in device tree
++$(call force,CFG_DT, y)
++CFG_DTB_MAX_SIZE ?= 0x100000
++
++###################
++#Memory map for TEE
++#TODO: following section may need to be adjusted
++$(call force,CFG_DRAM_BASE,0x80000000)
++#512MiB Total SDRAM
++CFG_DRAM_SIZE ?= 0x1e000000
++#48M TEE_OS_DRAM
++$(call force,CFG_TEE_OS_DRAM_SIZE,0x3000000)
++#1M SHMEM
++CFG_SHMEM_SIZE ?= 0x00100000
++#In ARMv7 platform CFG_SHMEM_SIZE is different to that of ARMv8 platforms.
++CFG_TZDRAM_START ?= ((CFG_DRAM_BASE + CFG_DRAM_SIZE) - CFG_TEE_OS_DRAM_SIZE)
++CFG_TZDRAM_SIZE ?= ( CFG_TEE_OS_DRAM_SIZE - (2*CFG_SHMEM_SIZE))
++CFG_SHMEM_START ?= ((CFG_DRAM_BASE + CFG_DRAM_SIZE) - (2*CFG_SHMEM_SIZE))
++
++$(call force,CFG_WITH_PAGER,n)
++CFG_NS_ENTRY_ADDR ?= 0x80001000
++
++#CFG_WITH_SOFTWARE_PRNG ?= n
++CFG_SECURE_DATA_PATH ?= n
++
++ifeq ($(CFG_SECURE_DATA_PATH),y)
++CFG_TEE_SDP_MEM_SIZE ?= 0x00400000
++else
++CFG_TEE_SDP_MEM_SIZE ?= 0x0
++endif
+diff --git a/core/arch/arm/plat-aspeed/main.c b/core/arch/arm/plat-aspeed/main.c
+new file mode 100644
+index 00000000..4cd8429f
+--- /dev/null
++++ b/core/arch/arm/plat-aspeed/main.c
+@@ -0,0 +1,89 @@
++#include <console.h>
++#include <drivers/gic.h>
++#include <drivers/ns16550.h>
++#include <io.h>
++#include <kernel/generic_boot.h>
++#include <kernel/panic.h>
++#include <kernel/pm_stubs.h>
++#include <mm/core_memprot.h>
++#include <platform_config.h>
++#include <stdint.h>
++#include <tee/entry_std.h>
++#include <tee/entry_fast.h>
++
++static struct ns16550_data console_data __nex_bss;
++
++register_phys_mem(MEM_AREA_IO_NSEC, CONSOLE_UART_BASE, 0x1000);
++/*TODO - configure secure SRAM
++ *register_phys_mem_pgdir(MEM_AREA_IO_NSEC, ISRAM_BASE, ISRAM_SIZE);
++ */
++
++static const struct thread_handlers handlers = {
++#if defined(CFG_WITH_ARM_TRUSTED_FW)
++	.cpu_on = cpu_on_handler,
++	.cpu_off = pm_do_nothing,
++	.cpu_suspend = pm_do_nothing,
++	.cpu_resume = pm_do_nothing,
++	.system_off = pm_do_nothing,
++	.system_reset = pm_do_nothing,
++#else
++	.cpu_on = pm_panic,
++	.cpu_off = pm_panic,
++	.cpu_suspend = pm_panic,
++	.cpu_resume = pm_panic,
++	.system_off = pm_panic,
++	.system_reset = pm_panic,
++#endif
++};
++
++#define GIC_BASE		0x40461000
++#define GICC_OFFSET		0x1000
++#define GICD_OFFSET		0x0
++
++#define GICC_BASE		(GIC_BASE + GICC_OFFSET)
++#define GICD_BASE		(GIC_BASE + GICD_OFFSET)
++
++#ifdef GIC_BASE
++static struct gic_data gic_data __nex_bss;
++
++register_phys_mem(MEM_AREA_IO_SEC, GICD_BASE, 0x1000);
++register_phys_mem(MEM_AREA_IO_SEC, GICC_BASE, 0x1000);
++
++void main_init_gic(void)
++{
++	vaddr_t gicc_base;
++	vaddr_t gicd_base;
++
++	gicc_base = (vaddr_t)phys_to_virt_io(GICC_BASE);
++	gicd_base = (vaddr_t)phys_to_virt_io(GICD_BASE);
++
++	if (!gicc_base || !gicd_base)
++		panic();
++
++	gic_init(&gic_data, gicc_base, gicd_base);
++	itr_init(&gic_data.chip);
++}
++
++void main_secondary_init_gic(void)
++{
++	gic_cpu_init(&gic_data);
++}
++
++void itr_core_handler(void)
++{
++	gic_it_handle(&gic_data);
++}
++
++#endif
++
++const struct thread_handlers *generic_boot_get_handlers(void)
++{
++	return &handlers;
++}
++
++void console_init(void)
++{
++	ns16550_init(&console_data, CONSOLE_UART_BASE);
++	register_serial_console(&console_data.chip);
++	DMSG("Early console on UART");
++}
+diff --git a/core/arch/arm/plat-aspeed/platform_config.h b/core/arch/arm/plat-aspeed/platform_config.h
+new file mode 100644
+index 00000000..9e1609b6
+--- /dev/null
++++ b/core/arch/arm/plat-aspeed/platform_config.h
+@@ -0,0 +1,75 @@
++/* SPDX-License-Identifier: BSD-2-Clause */
++/*
++ * Copyright (c) 2014, Linaro Limited
++ */
++
++#ifndef PLATFORM_CONFIG_H
++#define PLATFORM_CONFIG_H
++
++#include <mm/generic_ram_layout.h>
++#include <stdint.h>
++
++/* Make stacks aligned to data cache line length */
++#define STACK_ALIGNMENT		64
++
++#if defined(PLATFORM_FLAVOR_ast2600)
++/*
++ * ast2600 specifics.
++ */
++#define DRAM_SIZE		0x1F000000  /* 512MiB */
++
++#ifndef UART_BAUDRATE
++#define UART_BAUDRATE		115200
++#endif
++
++#ifndef CONSOLE_BAUDRATE
++#define CONSOLE_BAUDRATE	UART_BAUDRATE
++#endif
++
++/* For virtual platforms where there isn't a clock */
++#ifndef CONSOLE_UART_CLK_IN_HZ
++#define CONSOLE_UART_CLK_IN_HZ	1
++#endif
++
++/*
++ * Assumes that either TZSRAM isn't large enough or TZSRAM doesn't exist,
++ * everything is in TZDRAM.
++ * +--------+---------+
++ * |  DRAM  |  SHMEM  |
++ * +--------+---------+
++ * |        | TA_RAM  |
++ * | TZDRAM +---------+
++ * |        | TEE_RAM |
++ * +--------+---------+
++ */
++/* Internal SRAM */
++#define ISRAM_BASE		0x10000000
++#define ISRAM_SIZE		0x10000         /* 64K */
++
++/*Share the same UART with normal world since that is the only serial port
++ *supported on the real hardware
++ *To separate them in QEMU, use UART1 for the normal world, un-comment below
++ */
++/*#define CONSOLE_UART_BASE	0x1E783000   */ /* UART1 */
++#define CONSOLE_UART_BASE	0x1E784000   /* UART5 */
++
++/*
++ * ast2600 memory map
++ *
++ * +---------------------------+
++ * |        | TEE_RAM |  46 MiB|
++ * + TZDRAM +------------------+
++ * |        | TA_RAM  |  1 MiB |
++ * +--------+---------+--------+
++ * | SHMEM  |         |  1 MiB |
++ * +---------------------------+
++ */
++
++/* Location of trusted dram */
++#define TEE_LOAD_ADDR		TZDRAM_BASE
++#define TEE_RAM_SIZE		TEE_RAM_VA_SIZE
++#define TEE_RAM_START		TZDRAM_BASE
++#define TEE_RAM_PH_SIZE		TEE_RAM_VA_SIZE
++
++#endif
++#endif /* PLATFORM_CONFIG_H */
+diff --git a/core/arch/arm/plat-aspeed/psci.c b/core/arch/arm/plat-aspeed/psci.c
+new file mode 100644
+index 00000000..1c7be1be
+--- /dev/null
++++ b/core/arch/arm/plat-aspeed/psci.c
+@@ -0,0 +1,86 @@
++/*
++ * Copyright (c) 2020, Intel
++ */
++
++#include <console.h>
++#include <io.h>
++#include <kernel/generic_boot.h>
++#include <kernel/misc.h>
++#include <kernel/panic.h>
++#include <kernel/pm_stubs.h>
++#include <mm/core_mmu.h>
++#include <mm/core_memprot.h>
++#include <platform_config.h>
++#include <stdint.h>
++#include <sm/optee_smc.h>
++#include <sm/psci.h>
++#include <tee/entry_std.h>
++#include <tee/entry_fast.h>
++
++#define AST2600_SCU_BASE 0x1e6e2000
++#define MBOX_BOOT_ADDR	0x180
++#define MBOX_BOOT_SIG	0x184
++register_phys_mem(MEM_AREA_IO_SEC, AST2600_SCU_BASE, 0x1000);
++
++int psci_features(uint32_t psci_fid)
++{
++	switch (psci_fid) {
++	case PSCI_PSCI_FEATURES:
++	case PSCI_VERSION:
++	case PSCI_SYSTEM_RESET:
++#ifdef CFG_BOOT_SECONDARY_REQUEST
++	case PSCI_CPU_ON:
++#endif
++		return PSCI_RET_SUCCESS;
++	default:
++		return PSCI_RET_NOT_SUPPORTED;
++	}
++}
++
++uint32_t psci_version(void)
++{
++	return PSCI_VERSION_1_0;
++}
++
++static void ast2600_prepare_cpus(void)
++{
++	vaddr_t sysctrl = core_mmu_get_va(AST2600_SCU_BASE, MEM_AREA_IO_SEC);
++
++	if (!sysctrl) {
++		EMSG("no sysctrl mapping, hang here");
++		panic();
++	}
++
++	io_write32(sysctrl + MBOX_BOOT_SIG, 0xBADABABA);
++}
++
++#ifdef CFG_BOOT_SECONDARY_REQUEST
++int psci_cpu_on(uint32_t core_idx, uint32_t entry,
++		uint32_t context_id)
++{
++	uint32_t val = 0;
++	size_t pos = get_core_pos_mpidr(core_idx);
++	vaddr_t base = core_mmu_get_va(AST2600_SCU_BASE, MEM_AREA_IO_SEC);
++
++	if (!base) {
++		EMSG("No smpmem base mapping for cpu%d", pos);
++		return PSCI_RET_INVALID_PARAMETERS;
++	}
++
++	if ((pos == 0) || (pos >= CFG_TEE_CORE_NB_CORE))
++		return PSCI_RET_INVALID_PARAMETERS;
++
++	/* set secondary core's NS entry addresses */
++	generic_boot_set_core_ns_entry(pos, entry, context_id);
++
++	ast2600_prepare_cpus();
++	val = virt_to_phys((void *)TEE_TEXT_VA_START);
++	io_write32(base + MBOX_BOOT_ADDR, 0);
++	io_write32(base + MBOX_BOOT_ADDR, val);
++
++	/* release secondary core */
++	io_write32(base + MBOX_BOOT_SIG, (0xABBAAB00 | (pos & 0xff)));
++
++	return PSCI_RET_SUCCESS;
++}
++#endif
+diff --git a/core/arch/arm/plat-aspeed/sub.mk b/core/arch/arm/plat-aspeed/sub.mk
+new file mode 100644
+index 00000000..58f977b7
+--- /dev/null
++++ b/core/arch/arm/plat-aspeed/sub.mk
+@@ -0,0 +1,3 @@
++global-incdirs-y += .
++srcs-y += main.c
++srcs-$(CFG_PSCI_ARM32) += psci.c
+\ No newline at end of file
+diff --git a/core/drivers/ns16550.c b/core/drivers/ns16550.c
+index d65adb62..5aff72f2 100644
+--- a/core/drivers/ns16550.c
++++ b/core/drivers/ns16550.c
+@@ -35,13 +35,12 @@
+ /* uart register defines */
+ #define UART_RBR	0x0
+ #define UART_THR	0x0
+-#define UART_IER	0x1
+-#define UART_FCR	0x2
+-#define UART_LCR	0x3
+-#define UART_MCR	0x4
+-#define UART_LSR	0x5
+-#define UART_MSR	0x6
+-#define UART_SPR	0x7
++#define UART_IER	0x4
++#define UART_FCR	0x8
++#define UART_LCR	0xc
++#define UART_MCR	0x10
++#define UART_LSR	0x14
++#define UART_MSR	0x18
+ 
+ /* uart status register bits */
+ #define UART_LSR_THRE	0x20 /* Transmit-hold-register empty */
+-- 
+2.17.1
+

@@ -1,0 +1,149 @@
+From 99b183547189a969062ca26bf28849f55e0f86aa Mon Sep 17 00:00:00 2001
+From: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Date: Sun, 20 Jun 2021 18:22:34 +0000
+Subject: [PATCH] Add MUX and Drives present in HSBP in json configuration
+
+Added Mux addresses for all 3 HSBP configuration and the drive
+names to be exposed via entity manager when the HSBP is connected
+
+Added board instance to separate each HSBP board.
+
+Tested:
+After this addition, detected the MUXes in entity manager
+tree as well as in /dev/i2c-mux location. Also able to detect
+the drive address.
+
+Change-Id: Ic07e3880cf5b6f8a47ee7b8f1f98e12042765da8
+Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+
+---
+ configurations/f2u8x25_hsbp.json | 78 ++++++++++++++++++++++++++++++--
+ 1 file changed, 75 insertions(+), 3 deletions(-)
+
+diff --git a/configurations/f2u8x25_hsbp.json b/configurations/f2u8x25_hsbp.json
+index e7c7f7c..43a895e 100644
+--- a/configurations/f2u8x25_hsbp.json
++++ b/configurations/f2u8x25_hsbp.json
+@@ -7,6 +7,30 @@
+                 "Name": "F2U8X25 HSBP1 FRU",
+                 "Type": "EEPROM"
+             },
++            {
++                "Address": "0x70",
++                "Bus": "$bus",
++                "ChannelNames": [
++                    "Drive_1",
++                    "Drive_2",
++                    "Drive_3",
++                    "Drive_4"
++                ],
++                "Name": "HSBP 1 Mux 1",
++                "Type": "PCA9546Mux"
++            },
++            {
++                "Address": "0x74",
++                "Bus": "$bus",
++                "ChannelNames": [
++                    "Drive_5",
++                    "Drive_6",
++                    "Drive_7",
++                    "Drive_8"
++                ],
++                "Name": "HSBP 1 Mux 2",
++                "Type": "PCA9546Mux"
++            },
+             {
+                 "Address": "0x68",
+                 "Bus": "$bus",
+@@ -46,7 +70,7 @@
+                 "Type": "TMP75"
+             }
+         ],
+-        "Name": "F2U8X25 HSBP",
++        "Name": "F2U8X25 HSBP 1",
+         "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'F2U8X25PCIHSBP', 'ADDRESS': 80})",
+         "Type": "Board",
+         "xyz.openbmc_project.Inventory.Decorator.Asset": {
+@@ -64,6 +88,30 @@
+                 "Name": "F2U8X25 HSBP2 FRU",
+                 "Type": "EEPROM"
+             },
++            {
++                "Address": "0x73",
++                "Bus": "$bus",
++                "ChannelNames": [
++                    "Drive_9",
++                    "Drive_10",
++                    "Drive_11",
++                    "Drive_12"
++                ],
++                "Name": "HSBP 2 Mux 1",
++                "Type": "PCA9546Mux"
++            },
++            {
++                "Address": "0x77",
++                "Bus": "$bus",
++                "ChannelNames": [
++                    "Drive_13",
++                    "Drive_14",
++                    "Drive_15",
++                    "Drive_16"
++                ],
++                "Name": "HSBP 2 Mux 2",
++                "Type": "PCA9546Mux"
++            },
+             {
+                 "Address": "0x69",
+                 "Bus": "$bus",
+@@ -103,7 +151,7 @@
+                 "Type": "TMP75"
+             }
+         ],
+-        "Name": "F2U8X25 HSBP",
++        "Name": "F2U8X25 HSBP 2",
+         "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'F2U8X25PCIHSBP', 'ADDRESS': 83})",
+         "Type": "Board",
+         "xyz.openbmc_project.Inventory.Decorator.Asset": {
+@@ -121,6 +169,30 @@
+                 "Name": "F2U8X25 HSBP3 FRU",
+                 "Type": "EEPROM"
+             },
++            {
++                "Address": "0x72",
++                "Bus": "$bus",
++                "ChannelNames": [
++                    "Drive_17",
++                    "Drive_18",
++                    "Drive_19",
++                    "Drive_20"
++                ],
++                "Name": "HSBP 3 Mux 1",
++                "Type": "PCA9546Mux"
++            },
++            {
++                "Address": "0x76",
++                "Bus": "$bus",
++                "ChannelNames": [
++                    "Drive_21",
++                    "Drive_22",
++                    "Drive_23",
++                    "Drive_24"
++                ],
++                "Name": "HSBP 3 Mux 2",
++                "Type": "PCA9546Mux"
++            },
+             {
+                 "Address": "0x6B",
+                 "Bus": "$bus",
+@@ -160,7 +232,7 @@
+                 "Type": "TMP75"
+             }
+         ],
+-        "Name": "F2U8X25 HSBP",
++        "Name": "F2U8X25 HSBP 3",
+         "Probe": "xyz.openbmc_project.FruDevice({'BOARD_PRODUCT_NAME': 'F2U8X25PCIHSBP', 'ADDRESS': 82})",
+         "Type": "Board",
+         "xyz.openbmc_project.Inventory.Decorator.Asset": {
+-- 
+2.25.1
+

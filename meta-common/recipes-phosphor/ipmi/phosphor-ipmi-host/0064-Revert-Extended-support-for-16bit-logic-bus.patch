@@ -1,0 +1,100 @@
+From 0ae4b646eed01d59fd2df097a8e12c180eba7eb9 Mon Sep 17 00:00:00 2001
+From: V-Sanjana <sanjana.v@intel.com>
+Date: Mon, 12 Dec 2022 22:03:44 +0530
+Subject: [PATCH] Revert "Extended support for 16bit logic bus"
+
+This reverts commit d90b3f0849d9e8d1ba0337b75ab34adc95bde28b.
+---
+ dbus-sdr/storagecommands.cpp | 28 +++++++++++++---------------
+ 1 file changed, 13 insertions(+), 15 deletions(-)
+
+diff --git a/dbus-sdr/storagecommands.cpp b/dbus-sdr/storagecommands.cpp
+index b50db1a..17ed9ff 100644
+--- a/dbus-sdr/storagecommands.cpp
++++ b/dbus-sdr/storagecommands.cpp
+@@ -112,14 +112,12 @@ constexpr static const char* chassisTypeMainServer = "17";
+ constexpr static const uint8_t deassertionEvent = 0x80;
+ 
+ static std::vector<uint8_t> fruCache;
+-static constexpr uint16_t invalidBus = 0xFFFF;
+-static constexpr uint8_t invalidAddr = 0xFF;
+-static uint16_t cacheBus = invalidBus;
+-static uint8_t cacheAddr = invalidAddr;
++static uint8_t cacheBus = 0xFF;
++static uint8_t cacheAddr = 0XFF;
+ static uint8_t lastDevId = 0xFF;
+ 
+-static uint16_t writeBus = invalidBus;
+-static uint8_t writeAddr = invalidAddr;
++static uint8_t writeBus = 0xFF;
++static uint8_t writeAddr = 0XFF;
+ 
+ std::unique_ptr<phosphor::Timer> writeTimer = nullptr;
+ static std::vector<sdbusplus::bus::match_t> fruMatches;
+@@ -128,12 +126,12 @@ ManagedObjectType frus;
+ 
+ // we unfortunately have to build a map of hashes in case there is a
+ // collision to verify our dev-id
+-boost::container::flat_map<uint8_t, std::pair<uint16_t, uint8_t>> deviceHashes;
++boost::container::flat_map<uint8_t, std::pair<uint8_t, uint8_t>> deviceHashes;
+ void registerStorageFunctions() __attribute__((constructor));
+ 
+ bool writeFru(const std::vector<uint8_t>& fru)
+ {
+-    if (writeBus == invalidBus && writeAddr == invalidAddr)
++    if (writeBus == 0xFF && writeAddr == 0xFF)
+     {
+         return true;
+     }
+@@ -154,8 +152,8 @@ bool writeFru(const std::vector<uint8_t>& fru)
+             "error writing fru");
+         return false;
+     }
+-    writeBus = invalidBus;
+-    writeAddr = invalidAddr;
++    writeBus = 0xFF;
++    writeAddr = 0xFF;
+     return true;
+ }
+ 
+@@ -195,7 +193,7 @@ void recalculateHashes()
+             continue;
+         }
+ 
+-        uint16_t fruBus = std::get<uint32_t>(busFind->second);
++        uint8_t fruBus = std::get<uint32_t>(busFind->second);
+         uint8_t fruAddr = std::get<uint32_t>(addrFind->second);
+         auto chassisFind = fruIface->second.find("CHASSIS_TYPE");
+         std::string chassisType;
+@@ -215,7 +213,7 @@ void recalculateHashes()
+                 fruHash = 1;
+             }
+         }
+-        std::pair<uint16_t, uint8_t> newDev(fruBus, fruAddr);
++        std::pair<uint8_t, uint8_t> newDev(fruBus, fruAddr);
+ 
+         bool emplacePassed = false;
+         while (!emplacePassed)
+@@ -288,8 +286,8 @@ std::pair<ipmi::Cc, std::vector<uint8_t>> getFru(ipmi::Context::ptr ctx,
+             "Couldn't get raw fru",
+             phosphor::logging::entry("ERROR=%s", ec.message().c_str()));
+ 
+-        cacheBus = invalidBus;
+-        cacheAddr = invalidAddr;
++        cacheBus = 0xFF;
++        cacheAddr = 0xFF;
+         return {ipmi::ccResponseError, {}};
+     }
+ 
+@@ -579,7 +577,7 @@ ipmi_ret_t getFruSdrs(ipmi::Context::ptr ctx, size_t index,
+         return IPMI_CC_INVALID_FIELD_REQUEST;
+     }
+     auto device = deviceHashes.begin() + index;
+-    uint16_t& bus = device->second.first;
++    uint8_t& bus = device->second.first;
+     uint8_t& address = device->second.second;
+ 
+     boost::container::flat_map<std::string, Value>* fruData = nullptr;
+-- 
+2.17.1
+
