@@ -40,7 +40,6 @@ IMAGE_INSTALL:append = " \
         intel-ipmi-oem \
         phosphor-ipmi-ipmb \
         dbus-sensors \
-        at-scale-debug \
         phosphor-pid-control \
         phosphor-host-postd \
         phosphor-certificate-manager \
@@ -78,9 +77,6 @@ IMAGE_INSTALL:append = " \
         configure-usb-c \
         zip \
         peci-pcie \
-        libespi \
-        modular-system \
-        domain-mapperd \
         "
 
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr-manager', '', d)}"

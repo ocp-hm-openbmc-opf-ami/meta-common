@@ -8,4 +8,5 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI += " \
         file://0001-Enable-64-bit-RdPkgConfig-and-WrPkgConfig-transfers.patch \
+        file://0003-Add-pre-release-CPUModel-definitions.patch \
 "

@@ -1,0 +1,26 @@
+From 91fd7883f8bb83bc294ab8c69d1160a9334df83d Mon Sep 17 00:00:00 2001
+From: Jonathan Doman <jonathan.doman@intel.com>
+Date: Fri, 25 Mar 2022 17:34:45 -0700
+Subject: [PATCH] Add pre-release CPUModel definitions
+
+Signed-off-by: Jonathan Doman <jonathan.doman@intel.com>
+---
+ peci.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/peci.h b/peci.h
+index 7eb327c..ca12ad2 100644
+--- a/peci.h
++++ b/peci.h
+@@ -35,6 +35,8 @@ typedef enum
+     icx = 0x000606A0,
+     icxd = 0x000606C0,
+     spr = 0x000806F0,
++    emr = 0x000C06F0,
++    gnr = 0x000A06D0,
+ } CPUModel;
+ 
+ // PECI Status Codes
+-- 
+2.25.1
+
