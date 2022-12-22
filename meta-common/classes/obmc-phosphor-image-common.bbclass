@@ -77,6 +77,8 @@ IMAGE_INSTALL:append = " \
         configure-usb-c \
         zip \
         peci-pcie \
+        libespi \
+        domain-mapperd \
         "
 
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr-manager', '', d)}"
