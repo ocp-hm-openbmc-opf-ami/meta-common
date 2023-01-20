@@ -5,7 +5,6 @@ inherit image_types_phosphor_auto
 DEPENDS += "obmc-intel-pfr-image-native \
             python3-native \
             intel-pfr-signing-utility-native \
-            external-signing-utility-native\
             "
 
 require recipes-core/os-release/version-vars.inc
@@ -147,7 +146,6 @@ do_image_pfr[vardepsexclude] += "IPMI_MAJOR IPMI_MINOR IPMI_AUX13 IPMI_AUX14 IPM
 do_image_pfr[depends] += " \
                          obmc-intel-pfr-image-native:do_populate_sysroot \
                          intel-pfr-signing-utility-native:do_populate_sysroot \
-                         external-signing-utility-native:do_populate_sysroot \
                          "
 
 python() {
