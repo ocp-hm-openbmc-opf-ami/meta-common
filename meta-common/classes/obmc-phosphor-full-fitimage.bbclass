@@ -343,7 +343,7 @@ fitimage_assemble() {
     ramdiskcount=${3}
     setupcount=""
     if [ ! -z ${SPL_BINARY} ]; then
-        hash_type="${SECURE_BOOT_HASH_TYPE_SELECT}"
+        hash_type="${ECURE_BOOT_HASH_TYPE_SELECT}"
     else
         hash_type=""
     fi
