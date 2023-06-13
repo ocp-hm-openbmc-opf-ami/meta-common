@@ -4,10 +4,6 @@ FILESEXTRAPATHS:append:intel-ast2600:= "${THISDIR}/files:"
 # Temporary pin to fix sync build. TODO: Need to update to new u-boot.
 SRCREV = "ed55c4e7c3c4abacecaadda149656129f8b22965"
 
-# Temporary disable of SOCSEC_SIGN_ENABLE to fix sync build. TODO: Need
-# to figure out what this is and enable properly.
-SOCSEC_SIGN_ENABLE = "0"
-
 # the meta-phosphor layer adds this patch, which conflicts
 # with the intel layout for environment
 

@@ -12,6 +12,9 @@ DEPS = " ${PN}:do_image_${@d.getVar('IMAGE_BASETYPE', True).replace('-', '_')} \
 SECURE_BOOT_ALGO_SELECT ?= "${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "RSA2048-keys", "rsa2048", "rsa3072", d)}"
 SECURE_BOOT_HASH_TYPE_SELECT ?= "${@bb.utils.contains_any("EXTRA_IMAGE_FEATURES", "RSA2048-keys", "sha256", "sha384", d)}"
 
+SECURE_BOOT_ALGO_SELECT = "${FIT_SIGN_ALG}"
+SECURE_BOOT_HASH_TYPE_SELECT = "${FIT_HASH_ALG}"
+
 # Options for the device tree compiler passed to mkimage '-D' feature:
 UBOOT_MKIMAGE_DTCOPTS ??= ""
 
@@ -343,7 +346,7 @@ fitimage_assemble() {
     ramdiskcount=${3}
     setupcount=""
     if [ ! -z ${SPL_BINARY} ]; then
-        hash_type="${ECURE_BOOT_HASH_TYPE_SELECT}"
+        hash_type="${SECURE_BOOT_HASH_TYPE_SELECT}"
     else
         hash_type=""
     fi

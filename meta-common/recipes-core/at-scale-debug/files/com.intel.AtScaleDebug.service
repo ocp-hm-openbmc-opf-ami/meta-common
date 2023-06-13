@@ -5,8 +5,12 @@ Requires=network-online.target
 [Service]
 Restart=always
 RestartSec=30
-ExecStart={bindir}/asd
+ExecStart={bindir}/asd -u
 Type=simple
 SyslogIdentifier=asd
+#StandardOutput=tty
+#StandardError=tty
 
+[Install]
+WantedBy=multi-user.target
 

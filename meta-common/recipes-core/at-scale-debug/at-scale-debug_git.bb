@@ -20,7 +20,7 @@ inherit useradd
 USERADD_PACKAGES = "${PN}"
 
 # add a special user asdbg
-USERADD_PARAM:${PN} = "-u 999 asdbg"
+USERADD_PARAM:${PN} = "-u 9999 asd"
 
 S = "${WORKDIR}/git"
 
@@ -39,3 +39,19 @@ do_configure:prepend() {
     cp -r ${WORKDIR}/asm ${S}/asm
 }
 CFLAGS:append = " -I ${S}"
+
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+SRC_URI += "file://CtlASD.sh"
+
+localdir = "/usr/local"
+mybindir = "${localdir}/bin"
+
+FILES:${PN} += "${localdir}/* ${mybindir}/* "
+
+do_install:append() {
+    install -m 0755 -d ${D}${localdir}
+    install -m 0755 -d ${D}${mybindir}
+    cp ${WORKDIR}/CtlASD.sh ${D}${mybindir}
+}
+
+
