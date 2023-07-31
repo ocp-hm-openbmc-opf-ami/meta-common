@@ -1,7 +1,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI =  "git://github.com/openbmc/phosphor-dbus-interfaces.git;branch=master;protocol=https"
-#SRCREV = "219368bedb6a8607a50ec9ad9129478e45cdd68f"
+SRCREV = "b9f7c1de73ad44c4c6ced7dab8b2a402468cec5d"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 

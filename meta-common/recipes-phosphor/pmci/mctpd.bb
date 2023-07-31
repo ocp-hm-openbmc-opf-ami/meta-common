@@ -4,8 +4,8 @@ DESCRIPTION = "Implementation of MCTP (DTMF DSP0236)"
 LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=e3fc50a88d0a364313df4b21ef20c29e"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.mctpd.git;protocol=ssh;branch=main"
-SRCREV = "10d147d57f2df342b60efc9f461017ae28ae4e31"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.mctpd.git;protocol=ssh;branch=main"
+SRCREV = "703413d762b1c324cb71b3522e02587c8f60e174"
 
 S = "${WORKDIR}/git"
 

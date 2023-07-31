@@ -1,4 +1,4 @@
-From 88271dc3231d06f2b53b0f15305f98f5288cfe06 Mon Sep 17 00:00:00 2001
+From 2ddb7c94dc9c4bf12fe5d6a944c27c9c22f71afd Mon Sep 17 00:00:00 2001
 From: "Ambrozewicz, Adrian" <adrian.ambrozewicz@intel.com>
 Date: Fri, 30 Jul 2021 16:35:44 +0200
 Subject: [PATCH] Add 'count' sensor type
@@ -15,11 +15,11 @@ Signed-off-by: Alicja Rybak <alicja.rybak@intel.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/redfish-core/lib/sensors.hpp b/redfish-core/lib/sensors.hpp
-index 51c1d2ec..c547eaac 100644
+index 540a9f0a..896b4ea0 100644
 --- a/redfish-core/lib/sensors.hpp
 +++ b/redfish-core/lib/sensors.hpp
-@@ -61,6 +61,7 @@ static auto powerPaths = std::to_array<std::string_view>({
- static auto sensorPaths = std::to_array<std::string_view>({
+@@ -67,6 +67,7 @@ constexpr auto powerPaths = std::to_array<std::string_view>({
+ constexpr auto sensorPaths = std::to_array<std::string_view>({
      "/xyz/openbmc_project/sensors/power",
      "/xyz/openbmc_project/sensors/current",
 +    "/xyz/openbmc_project/sensors/count",
@@ -27,5 +27,5 @@ index 51c1d2ec..c547eaac 100644
      "/xyz/openbmc_project/sensors/humidity",
  #ifdef BMCWEB_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
 -- 
-2.25.1
+2.17.1
 

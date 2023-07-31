@@ -1,4 +1,4 @@
-From 91a248abdf67a8f31699608391b688f2524fd335 Mon Sep 17 00:00:00 2001
+From c5ee5f7c81bc1f3480e20077a84c54628ba1a471 Mon Sep 17 00:00:00 2001
 From: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
 Date: Fri, 30 Jul 2021 17:33:16 +0000
 Subject: [PATCH] Add/get IPMI session id's to Redfish
@@ -104,18 +104,18 @@ Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
  1 file changed, 203 insertions(+), 19 deletions(-)
 
 diff --git a/redfish-core/lib/redfish_sessions.hpp b/redfish-core/lib/redfish_sessions.hpp
-index e4eae68c..d32beacc 100644
+index 06083335..dfc078b4 100644
 --- a/redfish-core/lib/redfish_sessions.hpp
 +++ b/redfish-core/lib/redfish_sessions.hpp
-@@ -22,6 +22,7 @@
- #include <http/utility.hpp>
- #include <query.hpp>
- #include <registries/privilege_registry.hpp>
-+#include <sdbusplus/unpack_properties.hpp>
- #include <utils/json_utils.hpp>
+@@ -21,6 +21,7 @@
+ #include "persistent_data.hpp"
+ #include "query.hpp"
+ #include "registries/privilege_registry.hpp"
++#include "sdbusplus/unpack_properties.hpp"
+ #include "utils/json_utils.hpp"
  
- namespace redfish
-@@ -58,13 +59,115 @@ inline void
+ #include <boost/url/format.hpp>
+@@ -76,13 +77,115 @@ inline void
      auto session =
          persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
  
@@ -234,7 +234,7 @@ index e4eae68c..d32beacc 100644
  }
  
  inline void
-@@ -79,32 +182,74 @@ inline void
+@@ -97,32 +200,74 @@ inline void
      auto session =
          persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
  
@@ -254,7 +254,7 @@ index e4eae68c..d32beacc 100644
 +    if (session)
      {
 -        Privileges effectiveUserPrivileges =
--            redfish::getUserPrivileges(req.userRole);
+-            redfish::getUserPrivileges(*req.session);
 -
 -        if (!effectiveUserPrivileges.isSupersetOf({"ConfigureUsers"}))
 +        if (session->username != req.session->username)
@@ -262,7 +262,7 @@ index e4eae68c..d32beacc 100644
 -            messages::insufficientPrivilege(asyncResp->res);
 -            return;
 +            Privileges effectiveUserPrivileges =
-+                redfish::getUserPrivileges(req.userRole);
++                redfish::getUserPrivileges(*req.session);
 +
 +            if (!effectiveUserPrivileges.isSupersetOf({"ConfigureUsers"}))
 +            {
@@ -325,7 +325,7 @@ index e4eae68c..d32beacc 100644
  }
  
  inline nlohmann::json getSessionCollectionMembers()
-@@ -139,6 +284,45 @@ inline void handleSessionCollectionGet(
+@@ -168,6 +313,45 @@ inline void handleSessionCollectionGet(
          "/redfish/v1/SessionService/Sessions/";
      asyncResp->res.jsonValue["Name"] = "Session Collection";
      asyncResp->res.jsonValue["Description"] = "Session Collection";

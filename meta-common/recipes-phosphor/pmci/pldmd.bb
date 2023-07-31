@@ -4,8 +4,8 @@ DESCRIPTION = "Implementation of PLDM specifications"
 LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=86d3f3a95c324c9479bd8986968f4327"
 
-SRC_URI += "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.pldmd.git;protocol=ssh;branch=main"
-SRCREV = "d8e58a148a91d3bcaf0d5d4e9d1662e6cee346ac"
+SRC_URI += "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.pldmd.git;protocol=ssh;branch=main"
+SRCREV = "87cacea52937d09e3bbc71f2da491aa91b71cbb1"
 
 S = "${WORKDIR}/git"
 

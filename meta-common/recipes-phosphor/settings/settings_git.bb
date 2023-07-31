@@ -1,7 +1,7 @@
 SUMMARY = "Settings"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.settings-manager.git;protocol=ssh;branch=main"
-SRCREV = "83fbed3eb4a460d53dc0a416d88fe75a7828ffeb"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.settings-manager.git;protocol=ssh;branch=main"
+SRCREV = "72a1e75317fafe8b8f4771554a40a1ca30365f78"
 PV = "0.1+git${SRCPV}"
 
 LICENSE = "Apache-2.0"

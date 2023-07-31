@@ -74,11 +74,18 @@ IMAGE_INSTALL:append = " \
         biosconfig-manager \
         telemetry \
         i3c-tools \
-        configure-usb-c \
         zip \
         peci-pcie \
         libespi \
         domain-mapperd \
+        mctpd \
+        pldmd \
+        pmci-launcher \
+        nvmemi-daemon \
+        "
+
+IMAGE_INSTALL:append:bhs-features = " \
+        power-feature-discovery \
         "
 
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr-manager', '', d)}"
@@ -86,8 +93,7 @@ IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'ncsi-monitor', '', d)}"
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-secboot', 'ncsi-monitor', '', d)}"
 
-IMAGE_INSTALL:append = " ${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'optee-ast2600', 'optee-os optee-client optee-user-ta', '', d)}"
-inherit ${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'optee-ast2600', 'obmc-phosphor-full-fitimage-optee', '', d)}
+IMAGE_INSTALL:append = "${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'debug-tweaks', ' mctp-emulator ', '', d)}"
 
 # this package was flagged as a security risk
 IMAGE_INSTALL:remove = " lrzsz"

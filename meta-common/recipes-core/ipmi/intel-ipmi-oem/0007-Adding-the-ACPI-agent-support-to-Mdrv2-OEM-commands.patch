@@ -1,4 +1,4 @@
-From 0a2ff17f8cb5c7b375f6824b9bf3951b8de6fe50 Mon Sep 17 00:00:00 2001
+From ab641704ae79c6ab7af75bb275e4fbdb23ea0760 Mon Sep 17 00:00:00 2001
 From: hmudun1x <hemanthx.kumar.mudunuri@intel.com>
 Date: Thu, 23 Jun 2022 01:33:25 -0700
 Subject: [PATCH] Adding the ACPI agent support to Mdrv2 OEM commands
@@ -6,8 +6,8 @@ Subject: [PATCH] Adding the ACPI agent support to Mdrv2 OEM commands
 ---
  include/smbiosmdrv2.hpp        |   2 +
  include/smbiosmdrv2handler.hpp | 153 +++++++---
- src/smbiosmdrv2handler.cpp     | 527 +++++++++++++++++++++++----------
- 3 files changed, 478 insertions(+), 204 deletions(-)
+ src/smbiosmdrv2handler.cpp     | 530 +++++++++++++++++++++++----------
+ 3 files changed, 479 insertions(+), 206 deletions(-)
 
 diff --git a/include/smbiosmdrv2.hpp b/include/smbiosmdrv2.hpp
 index 9736ee8..e1ec33c 100644
@@ -25,7 +25,7 @@ index 9736ee8..e1ec33c 100644
  
  struct DataIdStruct
 diff --git a/include/smbiosmdrv2handler.hpp b/include/smbiosmdrv2handler.hpp
-index 9bfb54f..0f66765 100644
+index 7fd6f55..37b9f82 100644
 --- a/include/smbiosmdrv2handler.hpp
 +++ b/include/smbiosmdrv2handler.hpp
 @@ -24,13 +24,18 @@
@@ -47,7 +47,7 @@ index 9bfb54f..0f66765 100644
  
  static constexpr const uint8_t maxDirEntries = 4; // Maximum directory entries
  static constexpr const uint32_t mdr2SMSize =
-@@ -43,29 +48,40 @@ static constexpr const uint8_t mdrTypeII = 2; // MDR V2 type
+@@ -43,29 +48,40 @@ static constexpr const uint8_t mdrTypeII = 2;          // MDR V2 type
  static constexpr const uint8_t mdr2Version = 2;        // MDR V2 versoin
  static constexpr const uint8_t smbiosAgentVersion = 1; // Agent version of
                                                         // smbios
@@ -60,22 +60,22 @@ index 9bfb54f..0f66765 100644
 +static constexpr const int mdrv2DirIndex = 0; // SMBIOS directory index
  
  static constexpr const uint32_t smbiosTableVersion =
-     15; // Version of smbios table
+     15;          // Version of smbios table
 +static constexpr const uint32_t acpiTableVersion = 1; // Version of acpi table
  static constexpr const uint32_t smbiosTableTimestamp =
-     0x45464748; // Time stamp when smbios table created
+     0x45464748;  // Time stamp when smbios table created
 +static constexpr const uint32_t acpiTableTimestamp =
-+    0; // Time stamp when smbios table created
++    0;           // Time stamp when smbios table created
  static constexpr const size_t smbiosSMMemoryOffset =
-     0; // Offset of VGA share memory
+     0;           // Offset of VGA share memory
  static constexpr const size_t smbiosSMMemorySize =
      1024 * 1024; // Total size of VGA share memory
 +static constexpr const size_t acpiSMMemoryOffset =
-+    0; // Offset of VGA share memory
++    0;           // Offset of VGA share memory
 +static constexpr const size_t acpiSMMemorySize =
 +    1024 * 1024; // Total size of VGA share memory
  static constexpr const size_t smbiosTableStorageSize =
-     64 * 1024; // Total size of smbios table
+     64 * 1024;   // Total size of smbios table
 +constexpr uint32_t acpiTableStorageSize = 737 * 1024;
  static constexpr const uint32_t defaultTimeout = 4000;
  static constexpr const uint16_t sysClock = 1000;
@@ -251,7 +251,7 @@ index 9bfb54f..0f66765 100644
 +    int currentAgentIndex = 0;
  };
 diff --git a/src/smbiosmdrv2handler.cpp b/src/smbiosmdrv2handler.cpp
-index c5d00a1..17aaec7 100644
+index fac3d94..2691faf 100644
 --- a/src/smbiosmdrv2handler.cpp
 +++ b/src/smbiosmdrv2handler.cpp
 @@ -31,6 +31,7 @@
@@ -696,8 +696,8 @@ index c5d00a1..17aaec7 100644
 +        mdrv2->mdrv2Dir[agentIndex].dir[idIndex].common.size)
      {
 -        outSize = mdrv2->smbiosDir.dir[idIndex].common.size - xferOffset;
-+        outSize =
-+            mdrv2->mdrv2Dir[agentIndex].dir[idIndex].common.size - xferOffset;
++        outSize = mdrv2->mdrv2Dir[agentIndex].dir[idIndex].common.size -
++                  xferOffset;
      }
  
      uint32_t respXferLength = outSize;
@@ -734,7 +734,7 @@ index c5d00a1..17aaec7 100644
                data.begin());
  
      return ipmi::responseSuccess(respXferLength, u32Checksum, data);
-@@ -751,8 +829,7 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
+@@ -750,8 +828,7 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
              "Unknown agent id", phosphor::logging::entry("ID=%x", agentId));
          return ipmi::responseParmOutOfRange();
      }
@@ -744,7 +744,7 @@ index c5d00a1..17aaec7 100644
  
      if ((idIndex < 0) || (idIndex >= maxDirEntries))
      {
-@@ -761,7 +838,7 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
+@@ -760,7 +837,7 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
          return ipmi::responseParmOutOfRange();
      }
  
@@ -753,7 +753,7 @@ index c5d00a1..17aaec7 100644
      {
          if (xferOffset > UINT_MAX - xferLength)
          {
-@@ -770,16 +847,16 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
+@@ -769,24 +846,24 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
              return ipmi::responseParmOutOfRange();
          }
          if (((xferOffset + xferLength) >
@@ -773,16 +773,17 @@ index c5d00a1..17aaec7 100644
              UINT_MAX - xferOffset)
          {
              phosphor::logging::log<phosphor::logging::level::ERR>(
-@@ -787,7 +864,7 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
+                 "Offset is out of range");
              return ipmi::responseParmOutOfRange();
          }
-         uint8_t* destAddr =
--            mdrv2->smbiosDir.dir[idIndex].dataStorage + xferOffset;
+-        uint8_t* destAddr = mdrv2->smbiosDir.dir[idIndex].dataStorage +
+-                            xferOffset;
++        uint8_t* destAddr =
 +            mdrv2->mdrv2Dir[agentIndex].dir[idIndex].dataStorage + xferOffset;
          uint8_t* sourceAddr = reinterpret_cast<uint8_t*>(mdrv2->area->vPtr);
          uint32_t calcChecksum = mdrv2->calcChecksum32(sourceAddr, xferLength);
          if (calcChecksum != checksum)
-@@ -817,10 +894,12 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
+@@ -816,10 +893,12 @@ ipmi::RspType<> mdr2SendDataBlock(uint16_t agentId, uint16_t lockHandle,
      return ipmi::responseSuccess();
  }
  
@@ -798,7 +799,7 @@ index c5d00a1..17aaec7 100644
      if (!smbiosFile.good())
      {
          phosphor::logging::log<phosphor::logging::level::ERR>(
-@@ -877,27 +956,30 @@ void SharedMemoryArea::Initialize(uint32_t addr, uint32_t areaSize)
+@@ -876,27 +955,30 @@ void SharedMemoryArea::Initialize(uint32_t addr, uint32_t areaSize)
      physicalAddr = addr;
  }
  
@@ -836,7 +837,7 @@ index c5d00a1..17aaec7 100644
              ret = true;
              break;
  
-@@ -908,8 +990,8 @@ bool MDRV2::smbiosUnlock(uint8_t index)
+@@ -907,8 +989,8 @@ bool MDRV2::smbiosUnlock(uint8_t index)
      return ret;
  }
  
@@ -847,7 +848,7 @@ index c5d00a1..17aaec7 100644
  {
      bool ret = false;
      uint32_t u32Status = 0;
-@@ -920,54 +1002,61 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
+@@ -919,54 +1001,61 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
      }
      std::chrono::microseconds usec(timeout * sysClock);
  
@@ -924,7 +925,7 @@ index c5d00a1..17aaec7 100644
                  ret = true;
              }
              break;
-@@ -980,7 +1069,7 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
+@@ -979,7 +1068,7 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
  
  void MDRV2::timeoutHandler()
  {
@@ -933,7 +934,7 @@ index c5d00a1..17aaec7 100644
      mdrv2->area.reset(nullptr);
  }
  
-@@ -1017,30 +1106,72 @@ ipmi::RspType<uint8_t,  // mdr2Version
+@@ -1016,30 +1105,71 @@ ipmi::RspType<uint8_t,  // mdr2Version
              "Unknown agent id", phosphor::logging::entry("ID=%x", agentId));
          return ipmi::responseParmOutOfRange();
      }
@@ -949,9 +950,6 @@ index c5d00a1..17aaec7 100644
 +        int index = 0;
 +        for (; index < mdrv2->mdrv2Dir[agentIndex].dirEntries; index++)
 +        {
- 
--    std::shared_ptr<sdbusplus::asio::connection> bus = getSdBus();
--    std::string service = ipmi::getService(*bus, mdrv2Interface, mdrv2Path);
 +            int info = 0;
 +            for (; info < arrayDataInfo.size(); info++)
 +            {
@@ -983,6 +981,9 @@ index c5d00a1..17aaec7 100644
 +            ipmi::getService(*bus, mdrv2->mdrv2Dir[agentIndex].mdrv2Interface,
 +                             mdrv2->mdrv2Dir[agentIndex].mdrv2Path);
  
+-    std::shared_ptr<sdbusplus::asio::connection> bus = getSdBus();
+-    std::string service = ipmi::getService(*bus, mdrv2Interface, mdrv2Path);
+-
 -    int idIndex = mdrv2->findDataId(dataInfo.data(), dataInfo.size(), service);
 +        idIndex = mdrv2->findDataId(dataInfo.data(), dataInfo.size(), service);
  
@@ -1018,7 +1019,7 @@ index c5d00a1..17aaec7 100644
  
      return ipmi::responseSuccess(mdr2Version, session, dataLength, xferAddress,
                                   xferLength);
-@@ -1069,7 +1200,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
+@@ -1068,7 +1198,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1027,7 +1028,7 @@ index c5d00a1..17aaec7 100644
  
      if ((idIndex < 0) || (idIndex >= maxDirEntries))
      {
-@@ -1078,7 +1209,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
+@@ -1077,7 +1207,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1036,7 +1037,7 @@ index c5d00a1..17aaec7 100644
      {
          phosphor::logging::log<phosphor::logging::level::ERR>(
              "Unlock Data failed - cannot unlock idIndex");
-@@ -1101,6 +1232,7 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1100,6 +1230,7 @@ ipmi::RspType<uint8_t, uint16_t>
                          uint32_t xferLength, uint16_t timeout)
  {
      uint16_t session = 0;
@@ -1044,7 +1045,7 @@ index c5d00a1..17aaec7 100644
  
      if (dataLength > smbiosTableStorageSize)
      {
-@@ -1116,7 +1248,6 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1115,7 +1246,6 @@ ipmi::RspType<uint8_t, uint16_t>
      }
  
      std::shared_ptr<sdbusplus::asio::connection> bus = getSdBus();
@@ -1052,7 +1053,7 @@ index c5d00a1..17aaec7 100644
  
      if (mdrv2 == nullptr)
      {
-@@ -1131,16 +1262,67 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1130,16 +1260,67 @@ ipmi::RspType<uint8_t, uint16_t>
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1107,9 +1108,9 @@ index c5d00a1..17aaec7 100644
 -            "Invalid Data ID", phosphor::logging::entry("IDINDEX=%x", idIndex));
 -        return ipmi::responseParmOutOfRange();
 +        std::shared_ptr<sdbusplus::asio::connection> bus = getSdBus();
-+        service =
-+            ipmi::getService(*bus, mdrv2->mdrv2Dir[agentIndex].mdrv2Interface,
-+                             mdrv2->mdrv2Dir[agentIndex].mdrv2Path);
++        service = ipmi::getService(*bus,
++                                   mdrv2->mdrv2Dir[agentIndex].mdrv2Interface,
++                                   mdrv2->mdrv2Dir[agentIndex].mdrv2Path);
 +        idIndex = mdrv2->findDataId(dataInfo.data(), dataInfo.size(), service);
 +
 +        if ((idIndex < 0) || (idIndex >= maxDirEntries))
@@ -1126,7 +1127,7 @@ index c5d00a1..17aaec7 100644
      {
          try
          {
-@@ -1149,21 +1331,27 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1148,21 +1329,27 @@ ipmi::RspType<uint8_t, uint16_t>
          }
          catch (const std::system_error& e)
          {
@@ -1163,7 +1164,7 @@ index c5d00a1..17aaec7 100644
          }
      }
      else
-@@ -1201,7 +1389,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
+@@ -1199,7 +1386,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1172,7 +1173,7 @@ index c5d00a1..17aaec7 100644
  
      if ((idIndex < 0) || (idIndex >= maxDirEntries))
      {
-@@ -1210,7 +1398,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
+@@ -1208,7 +1395,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1181,7 +1182,7 @@ index c5d00a1..17aaec7 100644
      {
          phosphor::logging::log<phosphor::logging::level::ERR>(
              "Send data done failed - cannot unlock idIndex");
-@@ -1220,54 +1408,71 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
+@@ -1218,54 +1405,71 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
      mdrv2->area.reset(nullptr);
      MDRSMBIOSHeader mdr2Smbios;
      mdr2Smbios.mdrType = mdrTypeII;

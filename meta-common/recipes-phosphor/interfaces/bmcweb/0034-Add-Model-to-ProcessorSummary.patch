@@ -1,4 +1,4 @@
-From e0a8fc169297bfe74615ac4f2422e5011099fe1b Mon Sep 17 00:00:00 2001
+From 9ca82734813f172ca0b4b686d9780d68b46109cb Mon Sep 17 00:00:00 2001
 From: Alex Antony <alexx.kanjirathingal.antony@intel.com>
 Date: Wed, 30 Nov 2022 17:18:04 +0000
 Subject: [PATCH] Add Model to ProcessorSummary
@@ -18,11 +18,11 @@ Signed-off-by: Alex Antony <alexx.kanjirathingal.antony@intel.com>
  1 file changed, 34 insertions(+), 1 deletion(-)
 
 diff --git a/redfish-core/lib/systems.hpp b/redfish-core/lib/systems.hpp
-index caf6a292..07d243bb 100644
+index 28414270..13dcc31b 100644
 --- a/redfish-core/lib/systems.hpp
 +++ b/redfish-core/lib/systems.hpp
-@@ -134,8 +134,41 @@ inline void getProcessorProperties(
- 
+@@ -141,8 +141,41 @@ inline void getProcessorProperties(
+ {
      BMCWEB_LOG_DEBUG << "Got " << properties.size() << " Cpu properties.";
  
 -    // TODO: Get Model

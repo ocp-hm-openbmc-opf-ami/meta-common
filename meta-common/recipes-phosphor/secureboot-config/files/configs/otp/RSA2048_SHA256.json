@@ -1,0 +1,101 @@
+{
+    "name": "ctl",
+    "version": "A3",
+    "data_region": {
+        "ecc_region": true,
+        "rsa_key_order": "big",
+        "key": [
+            {
+                // "aes_vault"
+                // "rsa_pub_oem"
+                "types": "aes_vault",
+                "key_bin": "aes_vault_key.bin",
+                "key_bin2": "aes_vault_key1.bin",
+                "offset": "0x40"
+            },
+            {
+                "types": "rsa_pub_oem",
+                "key_pem": "rsa_key_public_2048_0.pem",
+                "offset": "0x480",
+                "number_id": 0
+            },
+            {
+                "types": "rsa_pub_oem",
+                "key_pem": "rsa_key_public_2048_1.pem",
+                "offset": "0x580",
+                "number_id": 1
+            },
+            {
+                "types": "rsa_pub_oem",
+                "key_pem": "rsa_key_public_2048_2.pem",
+                "offset": "0x680",
+                "number_id": 2
+            }
+        ]
+    },
+    "config_region": {
+        // "Mode_2"
+        "Secure Boot Mode": "Mode_2",
+        // "RSA2048"
+        "Secure crypto RSA length": "RSA2048",
+        // "SHA256"
+        "Hash mode": "SHA256",
+        "Copy Boot Image to Internal SRAM": true,
+        "Enable image encryption": false
+    },
+    "otp_strap": {
+        "OTPSTRAP[14] Reserved": {
+            "value": false,
+            "otp_protect": true,
+            "ignore": false
+        },
+        "OTPSTRAP[3D] Reserved": {
+            "value": false,
+            "otp_protect": true,
+            "ignore": false
+        },
+        "OTPSTRAP[3F] Reserved": {
+            "value": false,
+            "otp_protect": true,
+            "ignore": false
+        },
+        "OTPSTRAP[1E-1D] Reserved": {
+            "value": false,
+            "otp_protect": true,
+            "ignore": false
+        },
+	"Enable boot SPI or eMMC ABR": {
+            "value": true,
+            "otp_protect": true,
+            "ignore": false
+        },
+        "Boot SPI ABR Mode": {
+            "value": "single",
+            "otp_protect": true,
+            "ignore": false
+        },
+        "Boot SPI flash size": {
+            "value": "128",
+            "otp_protect": true,
+            "ignore": false
+        }
+    },
+    "scu_protect": {
+        "Reserved0": {
+            "protect": true,
+            "ignore": false
+        },
+        "OTPSTRAP[14] Reserved": {
+            "protect": true,
+            "ignore": false
+        },
+        "OTPSTRAP[3D] Reserved": {
+            "protect": true,
+            "ignore": false
+        },
+        "OTPSTRAP[3F] Reserved": {
+            "protect": true,
+            "ignore": false
+        }
+    }
+}

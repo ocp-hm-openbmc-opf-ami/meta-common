@@ -1,7 +1,7 @@
-From 8d135a154da3bf1881ab1b40863d1e25af9b1e86 Mon Sep 17 00:00:00 2001
+From b96dabe5becd49572799ce2c06094544d344bb28 Mon Sep 17 00:00:00 2001
 From: Richard Marian Thomaiyar <richard.marian.thomaiyar@linux.intel.com>
 Date: Mon, 24 Feb 2020 13:37:12 +0530
-Subject: [PATCH 2/2] Use groupmems instead of getgrnam_r due to overlay
+Subject: [PATCH] Use groupmems instead of getgrnam_r due to overlay
 
 With JFFS2 overlay, getgrnam_r during initial time returns the
 old group details as per the lower dir, instead of the overlay one
@@ -22,55 +22,52 @@ in groupmems when the issue is reproduced
 Signed-off-by: Richard Marian Thomaiyar <richard.marian.thomaiyar@linux.intel.com>
 Signed-off-by: jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
 ---
- user_service.cpp | 28 +++++++++++++---------------
- 1 file changed, 13 insertions(+), 15 deletions(-)
+ user_mgr.cpp | 27 +++++++++++++--------------
+ 1 file changed, 13 insertions(+), 14 deletions(-)
 
-diff --git a/user_service.cpp b/user_service.cpp
-index 405b6e9..2a590c8 100644
---- a/user_service.cpp
-+++ b/user_service.cpp
-@@ -147,28 +147,26 @@ class ShadowService : public phosphor::user::UserServiceInterface
-         getUsersInGroup(const std::string& groupName) const override
+diff --git a/user_mgr.cpp b/user_mgr.cpp
+index a2b6a76..aebf6ae 100644
+--- a/user_mgr.cpp
++++ b/user_mgr.cpp
+@@ -1023,25 +1023,24 @@ bool UserMgr::isUserEnabled(const std::string& userName)
+ std::vector<std::string> UserMgr::getUsersInGroup(const std::string& groupName)
+ {
+     std::vector<std::string> usersInGroup;
+-    // Should be more than enough to get the pwd structure.
+-    std::array<char, 4096> buffer{};
+-    struct group grp;
+-    struct group* resultPtr = nullptr;
+-
+-    int status = getgrnam_r(groupName.c_str(), &grp, buffer.data(),
+-                            buffer.max_size(), &resultPtr);
+-
+-    if (!status && (&grp == resultPtr))
++    std::vector<std::string> output;
++    try
      {
-         std::vector<std::string> usersInGroup;
--        // Should be more than enough to get the pwd structure.
--        std::array<char, 4096> buffer{};
--        struct group grp;
--        struct group* grpPtr = &grp;
--        struct group* resultPtr;
--
--        int status = getgrnam_r(groupName.c_str(), grpPtr, buffer.data(),
--                                buffer.max_size(), &resultPtr);
--
--        if (!status && (grpPtr == resultPtr))
-+        std::vector<std::string> output;
-+        try
-         {
--            for (; *(grp.gr_mem) != NULL; ++(grp.gr_mem))
--            {
--                usersInGroup.emplace_back(*(grp.gr_mem));
--            }
-+            output = phosphor::user::executeCmd("/usr/sbin/groupmems", "-l",
-+                                                "-g", groupName.c_str());
-         }
--        else
-+        catch (const phosphor::user::InternalFailure& e)
-         {
-             phosphor::logging::log<phosphor::logging::level::ERR>(
-                 "Group not found",
-                 phosphor::logging::entry("GROUP=%s", groupName.c_str()));
-             // Don't throw error, just return empty usersInGroup - fallback
-+            return usersInGroup;
-+        }
-+        if (!output.empty())
-+        {
-+            boost::algorithm::trim_right(output[0]);
-+            boost::algorithm::split(usersInGroup, output[0],
-+                                    boost::algorithm::is_any_of("\t "),
-+                                    boost::token_compress_on);
-         }
-         return usersInGroup;
+-        for (; *(grp.gr_mem) != NULL; ++(grp.gr_mem))
+-        {
+-            usersInGroup.emplace_back(*(grp.gr_mem));
+-        }
++        output = phosphor::user::executeCmd("/usr/sbin/groupmems", "-l", "-g",
++                                            groupName.c_str());
      }
+-    else
++    catch (const phosphor::user::InternalFailure& e)
+     {
+         lg2::error("Group '{GROUPNAME}' not found", "GROUPNAME", groupName);
+         // Don't throw error, just return empty userList - fallback
++        return usersInGroup;
++    }
++    if (!output.empty())
++    {
++        boost::algorithm::trim_right(output[0]);
++        boost::algorithm::split(usersInGroup, output[0],
++                                boost::algorithm::is_any_of("\t "),
++                                boost::token_compress_on);
+     }
+     return usersInGroup;
+ }
 -- 
-2.17.1
+2.25.1
 

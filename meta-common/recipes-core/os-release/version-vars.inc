@@ -16,10 +16,16 @@ def irun_git(d, oeroot, git_cmd, **kwargs):
     return ret.strip('\n')
 
 def repo_status(d, f, repo, tagargs):
+    import re
     import subprocess
 
+    gen = d.getVar('PRODUCT_GENERATION', True)
+    if gen is None:
+        gen = 'unknown'
+
     cmd_list = [['HEAD', 'rev-parse HEAD'],
-                ['TAG', 'describe {} --dirty --long'.format(tagargs)],
+                ['TAG', 'describe {} --dirty --long'.format(tagargs) +
+                        r' --match {}-[0-9]*.[0-9]*'.format(gen)],
                 ['STATUS', 'status -sb']]
 
     f.write(('\n# REPOSITORY: {} '.format(os.path.basename(repo))).ljust(80, '+') + '\n')
@@ -43,7 +49,8 @@ python() {
 
     corebase = d.getVar('COREBASE', True)
     mibase = os.path.join(corebase, 'openbmc-meta-intel')
-    obmc_vers = irun_git(d, corebase, 'describe --dirty --long')
+    obmc_vers = irun_git(d, corebase, 'describe --dirty --long' +
+                         r' --match {}-[0-9]*.[0-9]*'.format(gen))
     if obmc_vers is None:
         raise bb.build.FuncFailed("Missing version tag for openbmc-openbmc")
     d.setVar('OPENBMC_VERSION', obmc_vers)
@@ -78,7 +85,7 @@ python() {
         d.setVar('VERSION_ID', version_id)
         versionList = version_id.split('-')
         versionList = re.split(r'[-|.]', version_id)
-        version = '{}.{}-{}'.format(versionList[0], versionList[1], versionList[2])
+        version = '{}-{}.{}'.format(versionList[0], versionList[1], versionList[2])
         d.setVar('VERSION', version)
         d.setVar('IPMI_MAJOR', versionList[1])
         d.setVar('IPMI_MINOR', versionList[2])
@@ -87,7 +94,8 @@ python() {
         d.setVar('IPMI_AUX15', '0x{}'.format(meta_hash[2:4]))
         d.setVar('IPMI_AUX16', '0x{}'.format(meta_hash[4:6]))
 
-    build_id = irun_git(d, mibase, 'describe --abbrev=0')
+    build_id = irun_git(d, mibase, 'describe --abbrev=0' +
+                        r' --match {}-[0-9]*.[0-9]*'.format(gen))
     if build_id:
         d.setVar('BUILD_ID', build_id)
 }

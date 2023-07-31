@@ -2,12 +2,13 @@
 # # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/webui-vue.git;branch=master;protocol=https"
-SRCREV = "b24a483eda5ca0b0ecdb4f0c61b90d76d0d8e1e0"
+SRCREV = "2dabfc1bb488f84ec00f19a51aba144b7f71e45d"
 
 FILESEXTRAPATHS:append := "${THISDIR}/${PN}:"
 SRC_URI += " \
     file://login-company-logo.svg \
     file://logo-header.svg \
+    file://0001-Change-loading-event-logs.patch \
     "
 
 do_compile:prepend() {

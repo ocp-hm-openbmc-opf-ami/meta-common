@@ -1,4 +1,4 @@
-From 655a700a8eba1946b71c7f54e6549e9a4d83a253 Mon Sep 17 00:00:00 2001
+From ec6c9e644c7f3fae25acebc1dfe70e6d80b7945c Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Thu, 20 Jan 2022 17:47:29 -0800
 Subject: [PATCH] PSUSensor: support PWM mode control of PSU fan
@@ -23,10 +23,10 @@ Change-Id: Iad5df2cba097922718b3ab3e210e1b9e4eb1695f
  2 files changed, 27 insertions(+), 16 deletions(-)
 
 diff --git a/src/PSUSensorMain.cpp b/src/PSUSensorMain.cpp
-index e485598..abf5eea 100644
+index 5510286..e6351ca 100644
 --- a/src/PSUSensorMain.cpp
 +++ b/src/PSUSensorMain.cpp
-@@ -265,6 +265,12 @@ static void
+@@ -237,6 +237,12 @@ static void
                     sdbusplus::asio::object_server& objectServer,
                     const std::string& psuName)
  {
@@ -39,7 +39,7 @@ index e485598..abf5eea 100644
      for (const auto& [pwmLabel, pwmName] : pwmTable)
      {
          if (pwmLabel != labelHead)
-@@ -272,20 +278,10 @@ static void
+@@ -244,20 +250,10 @@ static void
              continue;
          }
  
@@ -47,8 +47,8 @@ index e485598..abf5eea 100644
 -        const std::string& pwmPathStr =
 -            boost::replace_all_copy(sensorPathStr, "input", "target");
 +        const std::string pwmPathStr =
-+            fs::canonical(sensorPath).parent_path().string()
-+            + "/" + boost::replace_all_copy(pwmLabel, "fan", "pwm");
++            fs::canonical(sensorPath).parent_path().string() + "/" +
++            boost::replace_all_copy(pwmLabel, "fan", "pwm");
          std::ifstream pwmFile(pwmPathStr);
 -        if (!pwmFile.good())
 -        {
@@ -63,7 +63,7 @@ index e485598..abf5eea 100644
  
          std::string name = "Pwm_";
          name += psuName;
-@@ -296,8 +292,23 @@ static void
+@@ -268,8 +264,23 @@ static void
          objPath += "_";
          objPath += pwmName;
  
@@ -90,10 +90,10 @@ index e485598..abf5eea 100644
  }
  
 diff --git a/src/PwmSensor.cpp b/src/PwmSensor.cpp
-index ae7b240..6df2fa7 100644
+index ad54dfe..0707151 100644
 --- a/src/PwmSensor.cpp
 +++ b/src/PwmSensor.cpp
-@@ -23,7 +23,7 @@
+@@ -26,7 +26,7 @@
  #include <string>
  
  static constexpr double sysPwmMax = 255.0;

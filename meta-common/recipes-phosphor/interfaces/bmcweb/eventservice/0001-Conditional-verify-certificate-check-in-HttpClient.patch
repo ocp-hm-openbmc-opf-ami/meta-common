@@ -1,6 +1,6 @@
-From e22d0ce5d0e85a9235d3122ce64c5565d28e8fb0 Mon Sep 17 00:00:00 2001
+From bca49c22369457a2d5e28cafddbd61de23a52943 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
-Date: Thu, 25 Aug 2022 12:47:47 +0000
+Date: Wed, 15 Mar 2023 16:13:46 +0000
 Subject: [PATCH] Conditional verify certificate check in HttpClient
 
 This commit adds the support for conditionally enable the certificate
@@ -25,28 +25,29 @@ for "Event" type. Created Event logs in BMC by doing DC cycle and can
 see all events on redfish-event-listener side.
 
 Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
+Signed-off-by: V-Sanjana <sanjana.v@intel.com>
 Change-Id: Icc71049cd844a4f7ba5def3f43e0d66d522c9bbe
 ---
- http/http_client.hpp                          | 83 ++++++++++++-------
+ http/http_client.hpp                          | 83 +++++++++++--------
  include/ssl_key_handler.hpp                   | 12 ++-
  .../include/event_service_manager.hpp         |  7 +-
- redfish-core/include/redfish_aggregator.hpp   |  6 +-
- 4 files changed, 70 insertions(+), 38 deletions(-)
+ redfish-core/include/redfish_aggregator.hpp   |  4 +-
+ 4 files changed, 67 insertions(+), 39 deletions(-)
 
 diff --git a/http/http_client.hpp b/http/http_client.hpp
-index 11758457..8519f8df 100644
+index 42014990..eb717f25 100644
 --- a/http/http_client.hpp
 +++ b/http/http_client.hpp
-@@ -127,6 +127,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
-     std::string subId;
+@@ -134,6 +134,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
+     std::shared_ptr<ConnectionPolicy> connPolicy;
      std::string host;
      uint16_t port;
 +    bool useSSL;
 +    bool verifyCert;
      uint32_t connId;
  
-     // Retry policy information
-@@ -152,6 +154,31 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
+     // Data buffers
+@@ -155,6 +157,31 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
  
      friend class ConnectionPool;
  
@@ -78,7 +79,7 @@ index 11758457..8519f8df 100644
      void doResolve()
      {
          state = ConnState::resolveInProgress;
-@@ -180,6 +207,16 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
+@@ -183,6 +210,16 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                           << ", id: " << std::to_string(connId);
          state = ConnState::connectInProgress;
  
@@ -95,16 +96,18 @@ index 11758457..8519f8df 100644
          BMCWEB_LOG_DEBUG << "Trying to connect to: " << host << ":"
                           << std::to_string(port)
                           << ", id: " << std::to_string(connId);
-@@ -584,33 +621,12 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
-     explicit ConnectionInfo(boost::asio::io_context& iocIn,
-                             const std::string& idIn,
-                             const std::string& destIPIn, uint16_t destPortIn,
--                            bool useSSL, unsigned int connIdIn) :
-+                            bool useSSLIn, bool verifyCertIn,
-+                            unsigned int connIdIn) :
+@@ -587,35 +624,13 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
+   public:
+     explicit ConnectionInfo(
+         boost::asio::io_context& iocIn, const std::string& idIn,
+-        const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
+-        const std::string& destIPIn, uint16_t destPortIn, bool useSSL,
++        const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn,
++        bool verifyCertIn,
+         unsigned int connIdIn) :
          subId(idIn),
--        host(destIPIn), port(destPortIn), connId(connIdIn), conn(iocIn),
--        timer(iocIn)
+-        connPolicy(connPolicyIn), host(destIPIn), port(destPortIn),
+-        connId(connIdIn), conn(iocIn), timer(iocIn)
 -    {
 -        if (useSSL)
 -        {
@@ -134,7 +137,7 @@ index 11758457..8519f8df 100644
  };
  
  class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
-@@ -621,6 +637,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
+@@ -627,6 +642,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
      std::string destIP;
      uint16_t destPort;
      bool useSSL;
@@ -142,67 +145,65 @@ index 11758457..8519f8df 100644
      std::vector<std::shared_ptr<ConnectionInfo>> connections;
      boost::container::devector<PendingRequest> requestQueue;
  
-@@ -806,7 +823,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
+@@ -802,7 +818,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
          unsigned int newId = static_cast<unsigned int>(connections.size());
  
          auto& ret = connections.emplace_back(std::make_shared<ConnectionInfo>(
--            ioc, id, destIP, destPort, useSSL, newId));
+-            ioc, id, connPolicy, destIP, destPort, useSSL, newId));
 +            ioc, id, destIP, destPort, useSSL, verifyCert, newId));
  
          BMCWEB_LOG_DEBUG << "Added connection "
                           << std::to_string(connections.size() - 1)
-@@ -820,9 +837,10 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
-     explicit ConnectionPool(boost::asio::io_context& iocIn,
-                             const std::string& idIn,
-                             const std::string& destIPIn, uint16_t destPortIn,
--                            bool useSSLIn) :
-+                            bool useSSLIn, bool verifyCertIn) :
+@@ -816,10 +832,10 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
+     explicit ConnectionPool(
+         boost::asio::io_context& iocIn, const std::string& idIn,
+         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
+-        const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn) :
++        const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn, bool verifyCertIn) :
          ioc(iocIn),
--        id(idIn), destIP(destIPIn), destPort(destPortIn), useSSL(useSSLIn)
-+        id(idIn), destIP(destIPIn), destPort(destPortIn), useSSL(useSSLIn),
-+        verifyCert(verifyCertIn)
+         id(idIn), connPolicy(connPolicyIn), destIP(destIPIn),
+-        destPort(destPortIn), useSSL(useSSLIn)
++        destPort(destPortIn), useSSL(useSSLIn), verifyCert(verifyCertIn)
      {
          BMCWEB_LOG_DEBUG << "Initializing connection pool for " << destIP << ":"
                           << std::to_string(destPort);
-@@ -867,14 +885,14 @@ class HttpClient
+@@ -861,12 +877,12 @@ class HttpClient
      // result is not required
-     void sendData(std::string& data, const std::string& id,
-                   const std::string& destIP, uint16_t destPort,
--                  const std::string& destUri, bool useSSL,
-+                  const std::string& destUri, bool useSSL, bool verifyCert,
-                   const boost::beast::http::fields& httpHeader,
-                   const boost::beast::http::verb verb,
-                   const std::string& retryPolicyName)
+     void sendData(std::string& data, const std::string& destIP,
+                   uint16_t destPort, const std::string& destUri, bool useSSL,
+-                  const boost::beast::http::fields& httpHeader,
++                  bool verifyCert, const boost::beast::http::fields& httpHeader,
+                   const boost::beast::http::verb verb)
      {
          const std::function<void(Response&)> cb = genericResHandler;
-         sendDataWithCallback(data, id, destIP, destPort, destUri, useSSL,
--                             httpHeader, verb, retryPolicyName, cb);
-+                             verifyCert, httpHeader, verb, retryPolicyName, cb);
+         sendDataWithCallback(data, destIP, destPort, destUri, useSSL,
+-                             httpHeader, verb, cb);
++                             verifyCert, httpHeader, verb, cb);
      }
  
      // Send request to destIP:destPort and use the provided callback to
-@@ -882,6 +900,7 @@ class HttpClient
-     void sendDataWithCallback(std::string& data, const std::string& id,
-                               const std::string& destIP, uint16_t destPort,
-                               const std::string& destUri, bool useSSL,
+@@ -874,6 +890,7 @@ class HttpClient
+     void sendDataWithCallback(std::string& data, const std::string& destIP,
+                               uint16_t destPort, const std::string& destUri,
+                               bool useSSL,
 +                              bool verifyCert,
                                const boost::beast::http::fields& httpHeader,
                                const boost::beast::http::verb verb,
-                               const std::string& retryPolicyName,
-@@ -898,7 +917,7 @@ class HttpClient
-             // Now actually create the ConnectionPool shared_ptr since it does
-             // not already exist
-             conn = std::make_shared<ConnectionPool>(ioc, id, destIP, destPort,
--                                                    useSSL);
-+                                                    useSSL, verifyCert);
-             BMCWEB_LOG_DEBUG << "Created connection pool for " << clientKey;
+                               const std::function<void(Response&)>& resHandler)
+@@ -886,7 +903,7 @@ class HttpClient
+         if (pool.first->second == nullptr)
+         {
+             pool.first->second = std::make_shared<ConnectionPool>(
+-                ioc, clientKey, connPolicy, destIP, destPort, useSSL);
++                ioc, clientKey, connPolicy, destIP, destPort, useSSL, verifyCert);
          }
-         else
+         // Send the data using either the existing connection pool or the newly
+         // created connection pool
 diff --git a/include/ssl_key_handler.hpp b/include/ssl_key_handler.hpp
-index 838cd708..92950df7 100644
+index acf42f10..7ca65cd7 100644
 --- a/include/ssl_key_handler.hpp
 +++ b/include/ssl_key_handler.hpp
-@@ -478,7 +478,8 @@ inline std::shared_ptr<boost::asio::ssl::context>
+@@ -482,7 +482,8 @@ inline std::shared_ptr<boost::asio::ssl::context>
      return mSslContext;
  }
  
@@ -212,7 +213,7 @@ index 838cd708..92950df7 100644
  {
      boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_client);
  
-@@ -507,8 +508,13 @@ inline std::optional<boost::asio::ssl::context> getSSLClientContext()
+@@ -511,8 +512,13 @@ inline std::optional<boost::asio::ssl::context> getSSLClientContext()
          return std::nullopt;
      }
  
@@ -229,21 +230,21 @@ index 838cd708..92950df7 100644
      {
          BMCWEB_LOG_ERROR << "SSL context set_verify_mode failed";
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index 7f3b43a8..e686da70 100644
+index 0b87555e..1f4b0a3a 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -399,7 +399,7 @@ class Subscription : public persistent_data::UserSubscription
+@@ -408,7 +408,7 @@ class Subscription : public persistent_data::UserSubscription
          bool useSSL = (uriProto == "https");
          // A connection pool will be created if one does not already exist
-         crow::HttpClient::getInstance().sendData(
--            msg, id, host, port, path, useSSL, httpHeaders,
-+            msg, id, host, port, path, useSSL, verifyCertificate, httpHeaders,
-             boost::beast::http::verb::post, retryPolicyName);
+         client.sendData(msg, host, port, path, useSSL, httpHeaders,
+-                        boost::beast::http::verb::post);
++                        verifyCertificate, boost::beast::http::verb::post);
          eventSeqNum++;
  
-@@ -574,6 +574,11 @@ class Subscription : public persistent_data::UserSubscription
+         if (sseConn != nullptr)
+@@ -576,6 +576,11 @@ class Subscription : public persistent_data::UserSubscription
+     std::string uriProto;
      std::shared_ptr<crow::ServerSentEvents> sseConn = nullptr;
-     std::string retryPolicyName = "SubscriptionEvent";
  
 +    // As per DMTF Redfish EventDestination schema, if 'VerifyCertificate'
 +    // is not supported by service, It shall be assumed 'false'. So setting
@@ -254,29 +255,27 @@ index 7f3b43a8..e686da70 100644
      // policy.  2XX is considered acceptable
      static boost::system::error_code retryRespHandler(unsigned int respCode)
 diff --git a/redfish-core/include/redfish_aggregator.hpp b/redfish-core/include/redfish_aggregator.hpp
-index b91498e9..c7ababc8 100644
+index 1d340f77..f32f2827 100644
 --- a/redfish-core/include/redfish_aggregator.hpp
 +++ b/redfish-core/include/redfish_aggregator.hpp
-@@ -544,7 +544,8 @@ class RedfishAggregator
-         crow::HttpClient::getInstance().sendDataWithCallback(
-             data, id, std::string(sat->second.host()),
-             sat->second.port_number(), targetURI, false /*useSSL*/,
--            thisReq.fields, thisReq.method(), retryPolicyName, cb);
-+            false /*verifyCert*/, thisReq.fields, thisReq.method(),
-+            retryPolicyName, cb);
+@@ -565,7 +565,7 @@ class RedfishAggregator
+         std::string data = thisReq.req.body();
+         client.sendDataWithCallback(data, std::string(sat->second.host()),
+                                     sat->second.port_number(), targetURI,
+-                                    false /*useSSL*/, thisReq.fields(),
++                                    false /*verifyCert*/, false /*useSSL*/, thisReq.fields(),
+                                     thisReq.method(), cb);
      }
  
-     // Forward a request for a collection URI to each known satellite BMC
-@@ -563,7 +564,8 @@ class RedfishAggregator
-             crow::HttpClient::getInstance().sendDataWithCallback(
-                 data, id, std::string(sat.second.host()),
-                 sat.second.port_number(), targetURI, false /*useSSL*/,
--                thisReq.fields, thisReq.method(), retryPolicyName, cb);
-+                false /*verifyCert*/, thisReq.fields, thisReq.method(),
-+                retryPolicyName, cb);
+@@ -584,7 +584,7 @@ class RedfishAggregator
+             std::string data = thisReq.req.body();
+             client.sendDataWithCallback(data, std::string(sat.second.host()),
+                                         sat.second.port_number(), targetURI,
+-                                        false /*useSSL*/, thisReq.fields(),
++                                        false /*verifyCert*/, false /*useSSL*/, thisReq.fields(),
+                                         thisReq.method(), cb);
          }
      }
- 
 -- 
-2.25.1
+2.17.1
 

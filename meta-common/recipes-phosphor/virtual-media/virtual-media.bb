@@ -1,8 +1,8 @@
 SUMMARY = "Virtual Media Service"
 DESCRIPTION = "Virtual Media Service"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.virtual-media.git;protocol=ssh;branch=main"
-SRCREV = "cb07a04fe1748e038ce54c54fdc09bfa66dcea4d"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.virtual-media.git;protocol=ssh;branch=main"
+SRCREV = "7cdeecd6f8cfe8393673388e26ee816ba567df04"
 
 S = "${WORKDIR}/git"
 PV = "1.0+git${SRCPV}"
@@ -14,11 +14,11 @@ SYSTEMD_SERVICE:${PN} += "xyz.openbmc_project.VirtualMedia.service"
 
 DEPENDS = "udev boost nlohmann-json systemd sdbusplus"
 
-RDEPENDS:${PN} = "nbd-client nbdkit"
+RDEPENDS:${PN} = "nbd-client (>=3.17) nbdkit"
 
-inherit cmake systemd
+inherit meson systemd pkgconfig
 
-EXTRA_OECMAKE += "-DYOCTO_DEPENDENCIES=ON"
-EXTRA_OECMAKE += "-DLEGACY_MODE_ENABLED=ON"
+EXTRA_OEMESON += " -Dlegacy-mode=enabled"
+EXTRA_OEMESON += " -Dtests=disabled"
 
 FULL_OPTIMIZATION = "-Os -pipe -flto -fno-rtti"

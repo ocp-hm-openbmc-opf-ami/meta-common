@@ -4,7 +4,7 @@ PROJECT_SRC_DIR := "${THISDIR}/${PN}"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-host-ipmid;branch=master;protocol=https"
-SRCREV = "511369844523794fd2dd1655528b48fe38b8e1e5"
+SRCREV = "f84c8314635b93fa003869876ce71db62438944c"
 
 SRC_URI += "file://phosphor-ipmi-host.service \
             file://transporthandler_oem.cpp \
@@ -12,7 +12,6 @@ SRC_URI += "file://phosphor-ipmi-host.service \
             file://0059-Move-Set-SOL-config-parameter-to-host-ipmid.patch \
             file://0060-Move-Get-SOL-config-parameter-to-host-ipmid.patch \
             file://0063-Save-the-pre-timeout-interrupt-in-dbus-property.patch \
-            file://0064-Revert-Extended-support-for-16bit-logic-bus.patch \
             "
 
 PACKAGECONFIG:append = " transport-oem "

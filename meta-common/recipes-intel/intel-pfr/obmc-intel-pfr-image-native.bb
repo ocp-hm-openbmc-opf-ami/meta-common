@@ -8,12 +8,14 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-lice
 inherit native
 
 DEPENDS += " intel-pfr-signing-utility-native \
+             external-signing-utility-native \
              "
 
 SRC_URI = " \
            file://pfr_image.py \
           "
 
+do_install[network] = "1"
 do_install () {
         bbplain "Copying intel pfr image generation scripts and image signing keys"
 
@@ -21,4 +23,8 @@ do_install () {
         install -d ${D}/${datadir}/pfrconfig
         install -m 775 ${WORKDIR}/pfr_image.py ${D}${bindir}/pfr_image.py
 }
+
+do_install[depends] += " \
+                         external-signing-utility-native:do_populate_sysroot \
+                         "
 

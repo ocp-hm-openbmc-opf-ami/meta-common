@@ -1,4 +1,4 @@
-From 1c0780dd22e3edb8bade83c0b7ca99ab3d1e2a88 Mon Sep 17 00:00:00 2001
+From d218e8a72f87e0fc020e2b89f18c7807c9214617 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Tue, 28 Jun 2022 10:40:11 +0000
 Subject: [PATCH] Add SSE style subscription support to eventservice
@@ -46,23 +46,24 @@ Change-Id: I7f4b7a34974080739c4ba968ed570489af0474de
 Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
 Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
+Signed-off-by: V-Sanjana <sanjana.v@intel.com>
 ---
  http/http_connection.hpp                      |  11 +-
  include/eventservice_sse.hpp                  | 210 ++++++++++++++++++
  redfish-core/include/error_messages.hpp       |   9 +
- .../include/event_service_manager.hpp         | 126 ++++++++---
+ .../include/event_service_manager.hpp         | 133 ++++++++---
  redfish-core/include/server_sent_events.hpp   |  16 ++
  redfish-core/lib/event_service.hpp            |   8 +-
  redfish-core/src/error_messages.cpp           |  27 +++
  src/webserver_main.cpp                        |   4 +
- 8 files changed, 370 insertions(+), 41 deletions(-)
+ 8 files changed, 373 insertions(+), 45 deletions(-)
  create mode 100644 include/eventservice_sse.hpp
 
 diff --git a/http/http_connection.hpp b/http/http_connection.hpp
-index 0094d8d8..cbc31ce2 100644
+index d4428df5..9807f190 100644
 --- a/http/http_connection.hpp
 +++ b/http/http_connection.hpp
-@@ -375,11 +375,14 @@ class Connection :
+@@ -244,11 +244,14 @@ class Connection :
              self->completeRequest(thisRes);
          });
  
@@ -74,16 +75,16 @@ index 0094d8d8..cbc31ce2 100644
 +             boost::iequals(
 +                 thisReq.getHeaderValue(boost::beast::http::field::upgrade),
 +                 "websocket")) ||
-+            (req->url == "/redfish/v1/EventService/SSE"))
++            (req->url().encoded_path() == "/redfish/v1/EventService/SSE"))
          {
 +            BMCWEB_LOG_DEBUG << "Request: " << this << " is getting upgraded";
 +
-             handler->handleUpgrade(thisReq, res, std::move(adaptor));
-             // delete lambda with self shared_ptr
-             // to enable connection destruction
+             asyncResp->res.setCompleteRequestHandler(
+                 [self(shared_from_this())](crow::Response& thisRes) {
+                 if (thisRes.result() != boost::beast::http::status::ok)
 diff --git a/include/eventservice_sse.hpp b/include/eventservice_sse.hpp
 new file mode 100644
-index 00000000..f1df878a
+index 00000000..7d17b303
 --- /dev/null
 +++ b/include/eventservice_sse.hpp
 @@ -0,0 +1,210 @@
@@ -111,10 +112,10 @@ index 00000000..f1df878a
 +        return false;
 +    }
 +    BMCWEB_LOG_DEBUG << "Request query param size: "
-+                     << req.urlView.params().size();
++                     << req.url().params().size();
 +
 +    // EventService SSE supports only "$filter" query param.
-+    if (req.urlView.params().size() > 1)
++    if (req.url().params().size() > 1)
 +    {
 +        messages::invalidQueryFilter(res);
 +        res.end();
@@ -122,11 +123,11 @@ index 00000000..f1df878a
 +    }
 +    std::string eventFormatType;
 +    std::string queryFilters;
-+    if (req.urlView.params().size())
++    if (req.url().params().size())
 +    {
 +        boost::urls::params_view::iterator it =
-+            req.urlView.params().find("$filter");
-+        if (it == req.urlView.params().end())
++            req.url().params().find("$filter");
++        if (it == req.url().params().end())
 +        {
 +            messages::invalidQueryFilter(res);
 +            res.end();
@@ -298,10 +299,10 @@ index 00000000..f1df878a
 +} // namespace eventservice_sse
 +} // namespace redfish
 diff --git a/redfish-core/include/error_messages.hpp b/redfish-core/include/error_messages.hpp
-index 04d19c19..daba469a 100644
+index e45ea457..db70ce27 100644
 --- a/redfish-core/include/error_messages.hpp
 +++ b/redfish-core/include/error_messages.hpp
-@@ -1068,6 +1068,15 @@ nlohmann::json operationNotAllowed();
+@@ -1070,6 +1070,15 @@ nlohmann::json operationNotAllowed();
  
  void operationNotAllowed(crow::Response& res);
  
@@ -318,22 +319,27 @@ index 04d19c19..daba469a 100644
  
  } // namespace redfish
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index e686da70..fa1fdd24 100644
+index 17d5e021..47dfc07a 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -34,9 +34,10 @@
- #include <persistent_data.hpp>
- #include <random.hpp>
+@@ -25,7 +25,7 @@
+ #include "registries/base_message_registry.hpp"
+ #include "registries/openbmc_message_registry.hpp"
+ #include "registries/task_event_message_registry.hpp"
+-#include "server_sent_events.hpp"
++#include "server_sent_event.hpp"
+ #include "str_utility.hpp"
+ #include "utility.hpp"
+ #include "utils/json_utils.hpp"
+@@ -38,6 +38,7 @@
+ #include <boost/url/format.hpp>
  #include <sdbusplus/bus/match.hpp>
--#include <server_sent_events.hpp>
-+#include <server_sent_event.hpp>
- #include <utils/json_utils.hpp>
  
 +#include <algorithm>
  #include <cstdlib>
  #include <ctime>
  #include <fstream>
-@@ -52,9 +53,32 @@ using ReadingsObjType =
+@@ -53,29 +54,17 @@ using ReadingsObjType =
  static constexpr const char* eventFormatType = "Event";
  static constexpr const char* metricReportFormatType = "MetricReport";
  
@@ -341,6 +347,26 @@ index e686da70..fa1fdd24 100644
  static constexpr const char* eventServiceFile =
      "/var/lib/bmcweb/eventservice_config.json";
  
+-namespace registries
+-{
+-inline std::span<const MessageEntry>
+-    getRegistryFromPrefix(const std::string& registryName)
+-{
+-    if (task_event::header.registryPrefix == registryName)
+-    {
+-        return {task_event::registry};
+-    }
+-    if (openbmc::header.registryPrefix == registryName)
+-    {
+-        return {openbmc::registry};
+-    }
+-    if (base::header.registryPrefix == registryName)
+-    {
+-        return {base::registry};
+-    }
+-    return {openbmc::registry};
+-}
+-} // namespace registries
 +static constexpr const uint8_t maxNoOfSubscriptions = 20;
 +static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
 +
@@ -348,63 +374,49 @@ index e686da70..fa1fdd24 100644
 +    eventFormatType, metricReportFormatType};
 +static constexpr const std::array<const char*, 2> supportedRegPrefixes = {
 +    "OpenBMC", "TaskEvent"};
-+
-+#ifndef BMCWEB_ENABLE_REDFISH_DBUS_LOG_ENTRIES
-+static std::optional<boost::asio::posix::stream_descriptor> inotifyConn;
-+static constexpr const char* redfishEventLogDir = "/var/log";
-+static constexpr const char* redfishEventLogFile = "/var/log/redfish";
-+static constexpr const size_t iEventSize = sizeof(inotify_event);
-+static int inotifyFd = -1;
-+static int dirWatchDesc = -1;
-+static int fileWatchDesc = -1;
-+
-+// <ID, timestamp, RedfishLogId, registryPrefix, MessageId, MessageArgs>
-+using EventLogObjectsType =
-+    std::tuple<std::string, std::string, std::string, std::string, std::string,
-+               std::vector<std::string>>;
-+
+ 
+ #ifndef BMCWEB_ENABLE_REDFISH_DBUS_LOG_ENTRIES
+ // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+@@ -98,6 +87,23 @@ using EventLogObjectsType =
+ 
  namespace registries
  {
- inline std::span<const MessageEntry>
-@@ -74,24 +98,7 @@ inline std::span<const MessageEntry>
-     }
-     return {openbmc::registry};
- }
--} // namespace registries
--
--#ifndef BMCWEB_ENABLE_REDFISH_DBUS_LOG_ENTRIES
--static std::optional<boost::asio::posix::stream_descriptor> inotifyConn;
--static constexpr const char* redfishEventLogDir = "/var/log";
--static constexpr const char* redfishEventLogFile = "/var/log/redfish";
--static constexpr const size_t iEventSize = sizeof(inotify_event);
--static int inotifyFd = -1;
--static int dirWatchDesc = -1;
--static int fileWatchDesc = -1;
--
--// <ID, timestamp, RedfishLogId, registryPrefix, MessageId, MessageArgs>
--using EventLogObjectsType =
--    std::tuple<std::string, std::string, std::string, std::string, std::string,
--               std::vector<std::string>>;
- 
--namespace registries
--{
++inline std::span<const MessageEntry>
++    getRegistryFromPrefix(const std::string& registryName)
++{
++    if (task_event::header.registryPrefix == registryName)
++    {
++        return {task_event::registry};
++    }
++    if (openbmc::header.registryPrefix == registryName)
++    {
++        return {openbmc::registry};
++    }
++    if (base::header.registryPrefix == registryName)
++    {
++        return {base::registry};
++    }
++    return {openbmc::registry};
++}
  static const Message*
      getMsgFromRegistry(const std::string& messageKey,
                         const std::span<const MessageEntry>& registry)
-@@ -378,10 +385,8 @@ class Subscription : public persistent_data::UserSubscription
-         // Subscription constructor
+@@ -387,11 +393,9 @@ class Subscription : public persistent_data::UserSubscription
+         policy->invalidResp = retryRespHandler;
      }
  
 -    explicit Subscription(
 -        const std::shared_ptr<boost::asio::ip::tcp::socket>& adaptor) :
--        eventSeqNum(1),
+-        policy(std::make_shared<crow::ConnectionPolicy>()),
+-        client(policy),
 -        sseConn(std::make_shared<crow::ServerSentEvents>(adaptor))
 +    Subscription(const std::shared_ptr<crow::SseConnection>& adaptor) :
-+        sseConn(adaptor), eventSeqNum(1)
++        sseConn(adaptor), eventSeqNum(1),
++        policy(std::make_shared<crow::ConnectionPolicy>()), client(policy)
      {}
  
      ~Subscription() = default;
-@@ -396,6 +401,13 @@ class Subscription : public persistent_data::UserSubscription
+@@ -406,16 +410,19 @@ class Subscription : public persistent_data::UserSubscription
              return false;
          }
  
@@ -417,9 +429,8 @@ index e686da70..fa1fdd24 100644
 +
          bool useSSL = (uriProto == "https");
          // A connection pool will be created if one does not already exist
-         crow::HttpClient::getInstance().sendData(
-@@ -403,10 +415,6 @@ class Subscription : public persistent_data::UserSubscription
-             boost::beast::http::verb::post, retryPolicyName);
+         client.sendData(msg, host, port, path, useSSL, httpHeaders,
+                         verifyCertificate, boost::beast::http::verb::post);
          eventSeqNum++;
  
 -        if (sseConn != nullptr)
@@ -429,7 +440,7 @@ index e686da70..fa1fdd24 100644
          return true;
      }
  
-@@ -565,14 +573,39 @@ class Subscription : public persistent_data::UserSubscription
+@@ -567,7 +574,32 @@ class Subscription : public persistent_data::UserSubscription
          return eventSeqNum;
      }
  
@@ -459,18 +470,19 @@ index e686da70..fa1fdd24 100644
 +
    private:
 +    std::shared_ptr<crow::SseConnection> sseConn = nullptr;
-     uint64_t eventSeqNum;
+     uint64_t eventSeqNum = 1;
      std::string host;
      uint16_t port = 0;
+@@ -575,7 +607,7 @@ class Subscription : public persistent_data::UserSubscription
+     crow::HttpClient client;
      std::string path;
      std::string uriProto;
 -    std::shared_ptr<crow::ServerSentEvents> sseConn = nullptr;
-     std::string retryPolicyName = "SubscriptionEvent";
 +    std::string subId;
  
      // As per DMTF Redfish EventDestination schema, if 'VerifyCertificate'
      // is not supported by service, It shall be assumed 'false'. So setting
-@@ -967,18 +1000,49 @@ class EventServiceManager
+@@ -967,18 +999,49 @@ class EventServiceManager
              subscriptionsMap.erase(obj);
              auto obj2 = persistent_data::EventServiceStore::getInstance()
                              .subscriptionsConfigMap.find(id);
@@ -525,10 +537,10 @@ index e686da70..fa1fdd24 100644
      {
          std::vector<std::string> idList;
 diff --git a/redfish-core/include/server_sent_events.hpp b/redfish-core/include/server_sent_events.hpp
-index a92fb7e3..f0793341 100644
+index 1592d507..75f4cd20 100644
 --- a/redfish-core/include/server_sent_events.hpp
 +++ b/redfish-core/include/server_sent_events.hpp
-@@ -104,6 +104,14 @@ class ServerSentEvents : public std::enable_shared_from_this<ServerSentEvents>
+@@ -110,6 +110,14 @@ class ServerSentEvents : public std::enable_shared_from_this<ServerSentEvents>
              return;
          }
  
@@ -543,7 +555,7 @@ index a92fb7e3..f0793341 100644
          sseConn->async_write_some(
              boost::asio::buffer(outBuffer.data(), outBuffer.size()),
              [self(shared_from_this())](
-@@ -161,6 +169,14 @@ class ServerSentEvents : public std::enable_shared_from_this<ServerSentEvents>
+@@ -167,6 +175,14 @@ class ServerSentEvents : public std::enable_shared_from_this<ServerSentEvents>
          response->body().size = 0;
          response->body().more = true;
  
@@ -559,7 +571,7 @@ index a92fb7e3..f0793341 100644
              *sseConn, *serializer,
              [this, response,
 diff --git a/redfish-core/lib/event_service.hpp b/redfish-core/lib/event_service.hpp
-index 88264091..8b1a72bf 100644
+index f74f2153..d2662dcb 100644
 --- a/redfish-core/lib/event_service.hpp
 +++ b/redfish-core/lib/event_service.hpp
 @@ -28,10 +28,6 @@
@@ -592,10 +604,10 @@ index 88264091..8b1a72bf 100644
              "/redfish/v1/EventService/Subscriptions";
          asyncResp->res
 diff --git a/redfish-core/src/error_messages.cpp b/redfish-core/src/error_messages.cpp
-index bce58ecf..c26266e3 100644
+index 5f802462..16816680 100644
 --- a/redfish-core/src/error_messages.cpp
 +++ b/redfish-core/src/error_messages.cpp
-@@ -1822,6 +1822,33 @@ nlohmann::json invalidUpload(std::string_view arg1, std::string_view arg2)
+@@ -1804,6 +1804,33 @@ nlohmann::json invalidUpload(std::string_view arg1, std::string_view arg2)
      return ret;
  }
  
@@ -630,18 +642,18 @@ index bce58ecf..c26266e3 100644
  
  } // namespace redfish
 diff --git a/src/webserver_main.cpp b/src/webserver_main.cpp
-index 05c10cc0..e7f3ffe6 100644
+index a7f06b8e..dd19f7c7 100644
 --- a/src/webserver_main.cpp
 +++ b/src/webserver_main.cpp
-@@ -6,6 +6,7 @@
- #include <cors_preflight.hpp>
- #include <dbus_monitor.hpp>
- #include <dbus_singleton.hpp>
-+#include <eventservice_sse.hpp>
- #include <google/google_service_root.hpp>
- #include <hostname_monitor.hpp>
- #include <ibm/management_console_rest.hpp>
-@@ -80,6 +81,9 @@ static int run()
+@@ -4,6 +4,7 @@
+ #include "cors_preflight.hpp"
+ #include "dbus_monitor.hpp"
+ #include "dbus_singleton.hpp"
++#include "eventservice_sse.hpp"
+ #include "hostname_monitor.hpp"
+ #include "ibm/management_console_rest.hpp"
+ #include "image_upload.hpp"
+@@ -81,6 +82,9 @@ static int run()
      crow::obmc_kvm::requestRoutes(app);
  #endif
  

@@ -1,0 +1,110 @@
+From b763ca77a40a691b6e4258585a4b0fc9189a1770 Mon Sep 17 00:00:00 2001
+From: V-Sanjana <sanjana.v@intel.com>
+Date: Tue, 21 Mar 2023 20:46:37 +0530
+Subject: [PATCH] Image dir made as configurable parameter
+
+The existing '/tmp/images' image directory has been made as
+configurable parameter, so that the Oems can choose to store the
+images to different directories.
+
+By configuring the image directory in .bbappend files,
+the image can be stored to that respective location.
+
+Files modified:
+bmcweb_%.bbappend
+phosphor-software-manager_%.bbappend
+fwupd-restricted.sh
+
+Tested:
+
+Tested and verified that the image directory is configurable,
+and the image can be stored to required directories by
+configuring it in the .bbappend files.
+Signed-off-by: V-Sanjana <sanjana.v@intel.com>
+---
+ config/bmcweb_config.h.in           | 2 ++
+ config/meson.build                  | 1 +
+ include/image_upload.hpp            | 4 +++-
+ meson_options.txt                   | 8 ++++++++
+ redfish-core/lib/update_service.hpp | 2 +-
+ 5 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/config/bmcweb_config.h.in b/config/bmcweb_config.h.in
+index ae98675d..aef08022 100644
+--- a/config/bmcweb_config.h.in
++++ b/config/bmcweb_config.h.in
+@@ -16,4 +16,6 @@ constexpr const char* mesonInstallPrefix = "@MESON_INSTALL_PREFIX@";
+ constexpr const bool bmcwebInsecureEnableHttpPushStyleEventing = @BMCWEB_INSECURE_ENABLE_HTTP_PUSH_STYLE_EVENTING@ == 1;
+ 
+ constexpr const char* bmcwebLoggingLevel = "@BMCWEB_LOGGING_LEVEL@";
++
++constexpr const char* imageUploadDir = "@IMAGE_UPLOAD_DIR@";
+ // clang-format on
+diff --git a/config/meson.build b/config/meson.build
+index b13a0234..d97a1652 100644
+--- a/config/meson.build
++++ b/config/meson.build
+@@ -2,6 +2,7 @@
+ 
+ conf_data = configuration_data()
+ conf_data.set('BMCWEB_HTTP_REQ_BODY_LIMIT_MB', get_option('http-body-limit'))
++conf_data.set('IMAGE_UPLOAD_DIR', get_option('image-upload-dir'))
+ xss_enabled = get_option('insecure-disable-xss')
+ conf_data.set10('BMCWEB_INSECURE_DISABLE_XSS_PREVENTION', xss_enabled.enabled())
+ enable_redfish_query = get_option('insecure-enable-redfish-query')
+diff --git a/include/image_upload.hpp b/include/image_upload.hpp
+index 18a0c09b..0f5aa301 100644
+--- a/include/image_upload.hpp
++++ b/include/image_upload.hpp
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include "bmcweb_config.h"
++
+ #include "app.hpp"
+ #include "dbus_singleton.hpp"
+ #include "dbus_utility.hpp"
+@@ -94,7 +96,7 @@ inline void
+         callback);
+ 
+     std::string filepath(
+-        "/tmp/images/" +
++        imageUploadDir +
+         boost::uuids::to_string(boost::uuids::random_generator()()));
+     BMCWEB_LOG_DEBUG << "Writing file to " << filepath;
+     std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
+diff --git a/meson_options.txt b/meson_options.txt
+index 0bf2c350..4aeddd72 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -199,6 +199,14 @@ option(
+     description: 'Specifies the http request body length limit'
+ )
+ 
++option(
++    'image-upload-dir',
++    type: 'string',
++    value: '/tmp/images/',
++    description: 'Directory where downloaded software images are placed.'
++)
++
++
+ option(
+     'redfish-new-powersubsystem-thermalsubsystem',
+     type: 'feature',
+diff --git a/redfish-core/lib/update_service.hpp b/redfish-core/lib/update_service.hpp
+index f5be721f..674cc066 100644
+--- a/redfish-core/lib/update_service.hpp
++++ b/redfish-core/lib/update_service.hpp
+@@ -637,7 +637,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
+ inline void uploadImageFile(crow::Response& res, std::string_view body)
+ {
+     std::filesystem::path filepath(
+-        "/tmp/images/" +
++        imageUploadDir +
+         boost::uuids::to_string(boost::uuids::random_generator()()));
+     BMCWEB_LOG_DEBUG << "Writing file to " << filepath;
+     std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
+-- 
+2.25.1
+

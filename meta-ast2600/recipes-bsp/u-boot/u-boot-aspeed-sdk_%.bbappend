@@ -4,12 +4,17 @@ FILESEXTRAPATHS:append:intel-ast2600:= "${THISDIR}/files:"
 # Temporary pin to fix sync build. TODO: Need to update to new u-boot.
 SRCREV = "ed55c4e7c3c4abacecaadda149656129f8b22965"
 
+# Temporary disable of SOCSEC_SIGN_ENABLE to fix sync build. TODO: Need
+# to figure out what this is and enable properly.
+SOCSEC_SIGN_ENABLE = "0"
+
 # the meta-phosphor layer adds this patch, which conflicts
 # with the intel layout for environment
 
 SRC_URI:append:intel-ast2600 = " \
     file://intel.cfg \
     file://0001-Add-ast2600-intel-as-a-new-board.patch \
+    file://0001-Add-ESPI-IRQ-and-timer-support.patch \
     file://0002-AST2600-Enable-host-searial-port-clock-configuration.patch \
     file://0003-ast2600-intel-layout-environment-addr.patch \
     file://0004-AST2600-Adjust-default-GPIO-settings.patch \
@@ -42,6 +47,8 @@ SRC_URI:append:intel-ast2600 = " \
     file://0038-Allow-checking-of-U-Boot-shell-before-FFUJ-check.patch \
     file://0044-eSPI-add-common-defines-used-by-optional-features.patch \
     file://0045-Enable-WDT2-for-causing-reset-in-Kernel-u-boot-hang.patch \
+    file://0047-MMBI-initialization-in-u-boot.patch \
+    file://0048-USB-device-enumeration-failed-with-yellow-bang.patch \
     "
 
 # CVE-2020-10648 vulnerability fix

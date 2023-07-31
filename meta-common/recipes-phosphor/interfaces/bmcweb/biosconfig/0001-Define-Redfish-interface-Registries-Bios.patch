@@ -1,4 +1,4 @@
-From e4de373c68d7d5da94cb35fa4524323ff480503d Mon Sep 17 00:00:00 2001
+From 22a34911c9642f6db1a0939e684820d817cacf9d Mon Sep 17 00:00:00 2001
 From: Kuiying Wang <kuiying.wang@intel.com>
 Date: Fri, 4 Sep 2020 19:24:25 +0800
 Subject: [PATCH] Define Redfish interface "/Registries/Bios" and enable
@@ -237,10 +237,10 @@ Signed-off-by: Priyanka Chikane <priyanka.chikane@intel.com>
  create mode 100644 redfish-core/include/registries/bios_registry.hpp
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index 2bbef2c2..6fced16b 100644
+index d74663d5..45fe9233 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
-@@ -167,6 +167,8 @@ class RedfishService
+@@ -182,6 +182,8 @@ class RedfishService
          requestRoutesSystemActionsReset(app);
          requestRoutesSystemResetActionInfo(app);
          requestRoutesBiosService(app);
@@ -296,7 +296,7 @@ index 00000000..bcf6b738
 +constexpr std::array<MessageEntry, 0> registry = {};
 +} // namespace redfish::registries::bios
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index f580f965..386f2fca 100644
+index 11535165..342088b5 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
 @@ -7,6 +7,137 @@
@@ -541,7 +541,7 @@ index f580f965..386f2fca 100644
 +        asyncResp->res.jsonValue["Name"] = "Bios Settings Version 1";
 +        asyncResp->res.jsonValue["Id"] = "BiosSettingsV1";
 +        asyncResp->res.jsonValue["AttributeRegistry"] = "BiosAttributeRegistry";
-+        asyncResp->res.jsonValue["Attributes"] = {};
++        asyncResp->res.jsonValue["Attributes"] = nlohmann::json::array();
 +
 +        crow::connections::systemBus->async_method_call(
 +            [asyncResp](const boost::system::error_code ec,
@@ -783,18 +783,18 @@ index f580f965..386f2fca 100644
   * BiosReset class supports handle POST method for Reset bios.
   * The class retrieves and sends data directly to D-Bus.
 diff --git a/redfish-core/lib/message_registries.hpp b/redfish-core/lib/message_registries.hpp
-index 9d6f1093..7ee435ef 100644
+index 41464bc9..efe35d54 100644
 --- a/redfish-core/lib/message_registries.hpp
 +++ b/redfish-core/lib/message_registries.hpp
-@@ -17,6 +17,7 @@
- 
+@@ -19,6 +19,7 @@
+ #include "query.hpp"
  #include "registries.hpp"
  #include "registries/base_message_registry.hpp"
 +#include "registries/bios_registry.hpp"
  #include "registries/openbmc_message_registry.hpp"
+ #include "registries/privilege_registry.hpp"
  #include "registries/resource_event_message_registry.hpp"
- #include "registries/task_event_message_registry.hpp"
-@@ -104,6 +105,11 @@ inline void handleMessageRoutesMessageRegistryFileGet(
+@@ -103,6 +104,11 @@ inline void handleMessageRoutesMessageRegistryFileGet(
          header = &registries::resource_event::header;
          url = registries::resource_event::url;
      }
@@ -806,7 +806,7 @@ index 9d6f1093..7ee435ef 100644
      else
      {
          messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-@@ -150,7 +156,6 @@ inline void handleMessageRegistryGet(
+@@ -149,7 +155,6 @@ inline void handleMessageRegistryGet(
      crow::App& app, const crow::Request& req,
      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
      const std::string& registry, const std::string& registryMatch)
@@ -814,7 +814,7 @@ index 9d6f1093..7ee435ef 100644
  {
      if (!redfish::setUpRedfishRoute(app, req, asyncResp))
      {
-@@ -193,6 +198,14 @@ inline void handleMessageRegistryGet(
+@@ -192,6 +197,14 @@ inline void handleMessageRegistryGet(
              registryEntries.emplace_back(&entry);
          }
      }

@@ -6,8 +6,8 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-lice
 
 inherit systemd meson pkgconfig
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.domain-mapperd.git;protocol=ssh;branch=main"
-SRCREV = "fe77fe68f65bd5f62a91236e0930a80358f7827f"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.domain-mapperd.git;protocol=ssh;branch=main"
+SRCREV = "88018e2dbda9cf8682000c29bb7cf40b2693ee19"
 
 S = "${WORKDIR}/git"
 PV = "1.0+git${SRCPV}"

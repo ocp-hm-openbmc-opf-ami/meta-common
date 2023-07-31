@@ -303,19 +303,19 @@ index 0000000..9219ad0
 +  Interface exposed by MCTP daemon for SMBus binding
 +
 +properties:
-+    - name: ArpMasterSupport
++    - name: ArpControllerSupport
 +      type: boolean
 +      description: >
-+        The SMBus binding can also run ARP Master protocol and
++        The SMBus binding can also run ARP Controller protocol and
 +        assign SMBus addresses to the devices on the bus.
 +
 +    - name: BusNumber
 +      type: byte
 +      description: I2C bus number of the medium used
 +
-+    - name: SlaveAddress
++    - name: TargetAddress
 +      type: byte
-+      description: Slave address to be used for this medium
++      description: Target address to be used for this medium
 diff --git a/yaml/xyz/openbmc_project/MCTP/BusOwner.interface.yaml b/yaml/xyz/openbmc_project/MCTP/BusOwner.interface.yaml
 new file mode 100644
 index 0000000..d46298e
@@ -345,7 +345,7 @@ index 8cb0f13..abb3ac9 100644
 +++ b/yaml/xyz/openbmc_project/MCTP/Endpoint.interface.yaml
 @@ -6,6 +6,11 @@ description: >
      MCTP-capable management controllers and managed devices.
- 
+
  properties:
 +    - name: Mode
 +      type: enum[xyz.openbmc_project.MCTP.Base.BindingModeTypes]
@@ -397,6 +397,6 @@ index 0000000..fa447ee
 +    - name: VDIANA
 +      type: boolean
 +      description: Indicates support availability
--- 
+--
 2.25.1
 

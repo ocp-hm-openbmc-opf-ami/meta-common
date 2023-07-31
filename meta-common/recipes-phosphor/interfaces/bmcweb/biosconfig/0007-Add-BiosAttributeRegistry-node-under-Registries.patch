@@ -1,4 +1,4 @@
-From 7213cbf2cdcccd937d7a23748adafeb65e4a137a Mon Sep 17 00:00:00 2001
+From b348047b191f26911549dc83f019d86cf3176426 Mon Sep 17 00:00:00 2001
 From: Snehalatha Venkatesh <snehalathax.v@intel.com>
 Date: Tue, 28 Dec 2021 11:05:50 +0000
 Subject: [PATCH] Add BiosAttributeRegistry node under Registries.
@@ -42,10 +42,10 @@ Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/redfish-core/lib/message_registries.hpp b/redfish-core/lib/message_registries.hpp
-index 062c911e..25435987 100644
+index 97b28920..a67a3d5d 100644
 --- a/redfish-core/lib/message_registries.hpp
 +++ b/redfish-core/lib/message_registries.hpp
-@@ -48,11 +48,11 @@ inline void handleMessageRegistryFileCollectionGet(
+@@ -49,11 +49,11 @@ inline void handleMessageRegistryFileCollectionGet(
      asyncResp->res.jsonValue["Name"] = "MessageRegistryFile Collection";
      asyncResp->res.jsonValue["Description"] =
          "Collection of MessageRegistryFiles";
@@ -58,7 +58,7 @@ index 062c911e..25435987 100644
 +         std::to_array({"Base", "TaskEvent", "ResourceEvent", "BiosAttributeRegistry", "OpenBMC"}))
      {
          nlohmann::json::object_t member;
-         member["@odata.id"] = crow::utility::urlFromPieces(
+         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
 -- 
 2.25.1
 

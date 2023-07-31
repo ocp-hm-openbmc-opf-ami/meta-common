@@ -1,12 +1,16 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/bmcweb.git;branch=master;protocol=https"
-SRCREV = "2c9efc3cb140e5c1d4d57b73f0a511880ac7a11f"
-
-DEPENDS += "boost-url"
+SRCREV = "3e72c2027aa4e64b9892ab0d3970358ba446f1fa"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
+# Enable new power and thermal subsystem
+EXTRA_OEMESON += " -Dredfish-new-powersubsystem-thermalsubsystem=enabled"
+EXTRA_OEMESON += " -Dredfish-allow-deprecated-power-thermal=disabled"
+
+# Enable Content-Type validation
+EXTRA_OEMESON += " -Dinsecure-ignore-content-type=disabled"
 
 SRC_URI += " \
             file://0001-Firmware-update-configuration-changes.patch \
@@ -14,7 +18,6 @@ SRC_URI += " \
             file://0010-managers-add-attributes-for-Manager.CommandShell.patch \
             file://0011-bmcweb-Add-PhysicalContext-to-Thermal-resources.patch \
             file://0012-Log-RedFish-event-for-Invalid-login-attempt.patch \
-            file://0013-Add-UART-routing-logic-into-host-console-connection-.patch \
             file://0014-recommended-fixes-by-crypto-review-team.patch \
             file://0015-Add-state-sensor-messages-to-the-registry.patch \
             file://0016-Fix-bmcweb-crashes-if-socket-directory-not-present.patch \
@@ -24,11 +27,12 @@ SRC_URI += " \
             file://0024-Add-count-sensor-type.patch \
             file://0026-Revert-Delete-the-copy-constructor-on-the-Request.patch \
             file://0029-Added-support-for-patching-sensors-under-Chassis-Sen.patch \
-            file://0030-Add-validation-of-Content-type-header.patch \
-            file://0031-Added-seperate-variable-for-mtls-session.patch \
             file://0032-systems-Add-pfr-and-cpld-postcode.patch \
-            file://0033-mtls-removed-checking-cookie.patch \
             file://0034-Add-Model-to-ProcessorSummary.patch \
+            file://0035-ExtendTimer-increased-to-6-mins-for-IFWI-update.patch \
+	    file://0036-Add-Support-for-getting-PowerSuplies-under-PowerSubsystem.patch \
+	    file://0038-Image-Directory-made-as-Configurable-Parameter.patch \
+	    file://0039-Revert-Remove-redfish-post-to-old-updateservice.patch \
 "
 
 # OOB Bios Config:
@@ -45,10 +49,9 @@ SRC_URI += " \
 # Virtual Media: Backend code is not upstreamed so downstream only patches.
 SRC_URI += " \
             file://vm/0001-Revert-Disable-nbd-proxy-from-the-build.patch \
-            file://vm/0002-Squashed-reworked-commits.patch \
-            file://vm/0003-Add-handlers-for-patch-put-delete.patch \
-            file://vm/0004-Apply-async-dbus-API.patch \
-            file://vm/0005-Restore-AsyncResp-in-openhandler.patch \
+            file://vm/0003-Apply-async-dbus-API.patch \
+            file://vm/0004-Combined-two-defect-fixes.patch \
+            file://vm/0005-Add-handlers-for-patch-put-delete.patch \
 "
 
 # EventService: Temporary pulled to downstream. See eventservice\README for details
@@ -60,8 +63,8 @@ SRC_URI += " \
             file://eventservice/0005-Input-parameter-validation-for-Event-Subscription.patch \
             file://eventservice/0006-Delete-Terminated-Event-Subscription.patch \
             file://eventservice/0007-Add-Configure-Self-support-for-Event-Subscriptions.patch \
+            file://eventservice/0008-Adopt-upstream-ConnectionPolicy.patch \
 "
-
 
 # Temporary downstream mirror of upstream patches, see telemetry\README for details
 SRC_URI += " file://telemetry/0001-Revert-Remove-LogService-from-TelemetryService.patch \
@@ -70,14 +73,11 @@ SRC_URI += " file://telemetry/0001-Revert-Remove-LogService-from-TelemetryServic
              file://telemetry/0004-Add-PUT-and-PATCH-for-MetricReportDefinition.patch \
              file://telemetry/0005-Add-support-for-POST-on-TriggersCollection.patch \
              file://telemetry/0006-Improved-telemetry-service-error-handling.patch \
-             file://telemetry/0007-temporary-fix-for-dbus-method-name.patch \
 "
 
-
 # Temporary downstream patch for routing and privilege changes
-SRC_URI += "file://http_routing/0001-Add-asyncResp-support-to-handleUpgrade.patch \
+SRC_URI += " \
             file://http_routing/0002-Move-privileges-to-separate-entity.patch \
-            file://http_routing/0003-Add-Support-for-privilege-check-in-handleUpgrade.patch \
             file://http_routing/0004-Add-Privileges-to-Websockets.patch \
             file://http_routing/0005-Add-Privileges-to-SseSockets.patch \
 "
@@ -99,12 +99,13 @@ EXTRA_OEMESON += " -Dvm-nbdproxy=enabled"
 # Disable dependency on external nbd-proxy application
 EXTRA_OEMESON += " -Dvm-websocket=disabled"
 EXTRA_OEMESON += " -Dredfish-host-logger=disabled"
+EXTRA_OEMESON += " -Dredfish-post-to-old-updateservice=enabled"
 
 # This will set the max size of image file which can be uploaded
-# to bmcweb over https. Curently its set to 64MB for allowing
-# IFWI full SPI flash binary.
-EXTRA_OEMESON += " -Dhttp-body-limit=64"
-
+# to bmcweb over https. 
+# Max size of the image file is set to 128MB. 
+EXTRA_OEMESON += " -Dhttp-body-limit=128"
+EXTRA_OEMESON += " -Dimage-upload-dir=/tmp/images/"
 RDEPENDS:${PN}:remove = " jsnbd"
 
 do_install:append(){

@@ -1,7 +1,7 @@
 SUMMARY = "libespi"
 DESCRIPTION = "Provides APIs for sending and receiving eSPI commands"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.libraries.libespi.git;protocol=ssh;branch=main"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.libraries.libespi.git;protocol=ssh;branch=main"
 SRCREV = "7bce6014714b78b1719c39899c80560c4eb804ab"
 
 S = "${WORKDIR}/git"

@@ -1,4 +1,4 @@
-From 74260f7914d4fe48de89098ecfd694c3ee9bb689 Mon Sep 17 00:00:00 2001
+From 4527d318d473354a9c6ec7a84a3330a131bee596 Mon Sep 17 00:00:00 2001
 From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Date: Mon, 18 Oct 2021 23:02:00 +0530
 Subject: [PATCH] Add Privileges to SseSockets
@@ -23,16 +23,17 @@ Tested:
 
 Change-Id: I41739401893b1c2bf718e11ec7676d69f954c98f
 Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Signed-off-by: A Sri Anjaneyulu <srix.anjaneyulu.alapati@intel.com>
 ---
  http/routing.hpp             | 4 +++-
  include/eventservice_sse.hpp | 2 ++
  2 files changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/http/routing.hpp b/http/routing.hpp
-index 42375c3..a74008d 100644
+index 43621045..fc938d5c 100644
 --- a/http/routing.hpp
 +++ b/http/routing.hpp
-@@ -443,7 +443,9 @@ class WebSocketRule :
+@@ -408,7 +408,9 @@ class WebSocketRule :
      std::function<void(crow::websocket::Connection&)> errorHandler;
  };
  
@@ -44,10 +45,10 @@ index 42375c3..a74008d 100644
      using self_t = SseSocketRule;
  
 diff --git a/include/eventservice_sse.hpp b/include/eventservice_sse.hpp
-index 018f773..257d1e7 100644
+index 7d17b303..c872eab8 100644
 --- a/include/eventservice_sse.hpp
 +++ b/include/eventservice_sse.hpp
-@@ -190,6 +190,8 @@ inline void requestRoutes(App& app)
+@@ -192,6 +192,8 @@ inline void requestRoutes(App& app)
  {
      BMCWEB_ROUTE(app, "/redfish/v1/EventService/SSE/")
          .serverSentEvent()

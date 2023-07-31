@@ -1,4 +1,4 @@
-From 8060f5269bc54a645aa79f411a2e44ad740d4a21 Mon Sep 17 00:00:00 2001
+From bcd09995ffa2b6f86dcf69c9eacbc6315703acde Mon Sep 17 00:00:00 2001
 From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Date: Mon, 11 Jul 2022 00:07:00 +0530
 Subject: [PATCH] Delete Terminated Event Subscriptions
@@ -21,17 +21,19 @@ Tested:
  - Once the Event listener was stopped, the Subscription was
    removed/deleted after retries.
 
-Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Change-Id: I641e37b39885705d751c56bdf65e2ff25cb42790
+Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Signed-off-by: Priyanka Chikane <priyanka.chikane@intel.com>
+Signed-off-by: V-Sanjana <sanjana.v@intel.com>
 ---
- .../include/event_service_manager.hpp         | 32 +++++++++++++++++--
- 1 file changed, 30 insertions(+), 2 deletions(-)
+ .../include/event_service_manager.hpp         | 34 +++++++++++++++++--
+ 1 file changed, 32 insertions(+), 2 deletions(-)
 
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index b20946a6..1a1b8137 100644
+index d0e0e497..761f265e 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -55,6 +55,9 @@ static constexpr const char* metricReportFormatType = "MetricReport";
+@@ -58,6 +58,9 @@ static constexpr const char* subscriptionTypeSSE = "SSE";
  static constexpr const char* eventServiceFile =
      "/var/lib/bmcweb/eventservice_config.json";
  
@@ -41,7 +43,7 @@ index b20946a6..1a1b8137 100644
  static constexpr const uint8_t maxNoOfSubscriptions = 20;
  static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
  
-@@ -396,11 +399,30 @@ class Subscription : public persistent_data::UserSubscription
+@@ -417,10 +420,30 @@ class Subscription : public persistent_data::UserSubscription
              return true;
          }
  
@@ -66,15 +68,15 @@ index b20946a6..1a1b8137 100644
 +
          bool useSSL = (uriProto == "https");
          // A connection pool will be created if one does not already exist
--        crow::HttpClient::getInstance().sendData(
-+        crow::HttpClient::getInstance().sendDataWithCallback(
-             msg, id, host, port, path, useSSL, verifyCertificate, httpHeaders,
--            boost::beast::http::verb::post, retryPolicyName);
-+            boost::beast::http::verb::post, retryPolicyName, sendEventCallback);
+-        client.sendData(msg, host, port, path, useSSL, httpHeaders,
+-                        verifyCertificate, boost::beast::http::verb::post);
++        client.sendDataWithCallback(
++            msg, host, port, path, useSSL, verifyCertificate, httpHeaders,
++            boost::beast::http::verb::post, sendEventCallback);
          eventSeqNum++;
  
          return true;
-@@ -601,6 +623,12 @@ class EventServiceManager
+@@ -641,6 +664,12 @@ class EventServiceManager
  
      EventServiceManager()
      {
@@ -87,6 +89,14 @@ index b20946a6..1a1b8137 100644
          // Load config from persist store.
          initConfig();
      }
+@@ -950,6 +979,7 @@ class EventServiceManager
+             return "";
+         }
+ 
++        subValue->id = id;
+         std::shared_ptr<persistent_data::UserSubscription> newSub =
+             std::make_shared<persistent_data::UserSubscription>();
+         newSub->id = id;
 -- 
 2.17.1
 

@@ -13,9 +13,6 @@ DEPENDS += "dtc-native"
 
 FEATURE_PACKAGES_obmc-sensors = ""
 #FEATURE_PACKAGES_obmc-debug-collector = ""
-FEATURE_PACKAGES:optee-ast2600 = ""
-
-IMAGE_FEATURES[validitems] += "optee-ast2600"
 
 fix_shadow_perms() {
     chgrp shadow ${IMAGE_ROOTFS}${sysconfdir}/shadow

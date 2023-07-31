@@ -2,7 +2,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/x86-power-control.git;branch=master;protocol=https"
-SRCREV = "fa2b6448a5169b5e981a24ae4ca0c03b80a07149"
+SRCREV = "891bbde7eb6506a68b690b52b25dfa4f08904e88"
 
 FILESEXTRAPATHS:append := "${THISDIR}/${PN}:"
 

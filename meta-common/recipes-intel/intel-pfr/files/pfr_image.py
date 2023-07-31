@@ -95,7 +95,7 @@ class pfm_i2c(object):
         self.i2c_bus_id = bus_id
         self.i2c_rule_id = rule_id
         self.i2c_address = address
-        self.i2c_cmd_whitelist = cmd_map
+        self.i2c_cmd_allowlist = cmd_map
 
 class pfr_bmc_image(object):
 
@@ -152,8 +152,8 @@ class pfr_bmc_image(object):
 
         self.i2c_rules = []
         for i in self.manifest['i2c-rules']:
-            # the json should have in the order- bus-id, rule-id, address, size and cmd-whitelist
-            self.i2c_rules.append((i['bus-id'], i['rule-id'], i['address'], i['cmd-whitelist']))
+            # the json should have in the order- bus-id, rule-id, address, size and cmd-allowlist
+            self.i2c_rules.append((i['bus-id'], i['rule-id'], i['address'], i['cmd-allowlist']))
 
         # I2C rules PFM array
         self.pfm_i2c_rules = []
@@ -242,23 +242,23 @@ class pfr_bmc_image(object):
         bus_id = i[0]  # I2C Bus number
         rule_id = i[1] # I2C rule number
         addr = i[2]    # I2C device address
-        cmds = i[3]    # I2C white listed commands for which i2c write to be allowed
-        whitelist_map = bytearray(32)
+        cmds = i[3]    # I2C allow listed commands for which i2c write to be allowed
+        allowlist_map = bytearray(32)
 
         self.pfm_bytes += PFM_I2C_SIZE # add upto PFM size
 
         for c in cmds:
             if c == "all":
                 for i in range(32):
-                    whitelist_map[i] = 0xff
+                    allowlist_map[i] = 0xff
                 break
             else:
-                idx = int(c,16) // 8 # index in the 32 bytes of white list i2c cmds
+                idx = int(c,16) // 8 # index in the 32 bytes of allow list i2c cmds
                 bit = int(c,16) % 8 # bit position to set
-                whitelist_map[idx] |= (1 << bit)
+                allowlist_map[idx] |= (1 << bit)
 
         # append to I2C rules in PFM
-        self.pfm_i2c_rules.append(pfm_i2c(bus_id, rule_id, addr, whitelist_map))
+        self.pfm_i2c_rules.append(pfm_i2c(bus_id, rule_id, addr, allowlist_map))
 
     def build_i2c_rules(self):
         for i in self.i2c_rules:
@@ -378,7 +378,7 @@ class pfr_bmc_image(object):
                 f.write(struct.pack('<B', int(r.i2c_bus_id)))
                 f.write(struct.pack('<B', int(r.i2c_rule_id)))
                 f.write(struct.pack('<B', int(r.i2c_address, 16)))
-                f.write(r.i2c_cmd_whitelist)
+                f.write(r.i2c_cmd_allowlist)
 
             # write the padding bytes at the end
             f.write(b'\xff' * padding_bytes)

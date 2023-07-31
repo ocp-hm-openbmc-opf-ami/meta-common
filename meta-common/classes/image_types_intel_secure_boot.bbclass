@@ -1,8 +1,10 @@
 inherit obmc-phosphor-full-fitimage
 inherit image_types_phosphor_auto_secure_boot
-DEPENDS += "obmc-intel-pfr-image-native \
+DEPENDS += "secureboot \
+            obmc-intel-pfr-image-native \
             intel-pfr-signing-utility-native \
             external-signing-utility-native \
+            otp-capsule-generator-native \
             "
 
 require recipes-core/os-release/version-vars.inc
@@ -32,6 +34,27 @@ PFM_OFFSET_PAGE_B = "66048"
 
 # PFM SVN VERSION NUMBER
 PFM_SVN = "1"
+
+# OTP Image directory
+OTP_IMAGE_DIR = "${DEPLOY_DIR_IMAGE}/otp_image"
+
+generate_otp_capsule() {
+    local pfm_manifest_json="pfm_manifest${bld_suffix}.json"
+    local pfmconfig_xml="pfm_config${bld_suffix}.xml"
+    local otpconfig_xml="otp_config${bld_suffix}.xml"
+    local SIGN_UTILITY=${SECBOOT_SCRIPT_DIR}/intel-pfr-signing-utility
+
+    otp-capsule-generator -m ${SECBOOT_CFG_DIR}/${pfm_manifest_json} -i ${OTP_IMAGE_DIR}/otp-all.image -n ${build_version} -b ${build_number} \
+            -h ${build_hash} -s ${SHA}
+
+    ${SIGN_UTILITY} -c ${SECBOOT_CFG_DIR}/${pfmconfig_xml} -o ${OTP_IMAGE_DIR}/pfm_signed.bin ${SECBOOT_IMAGES_DIR}/pfm_header.bin -v
+
+    dd if=${OTP_IMAGE_DIR}/pfm_signed.bin bs=1k >> ${OTP_IMAGE_DIR}/otp_unsigned_cap.bin
+
+    dd if=${OTP_IMAGE_DIR}/otp-all.image bs=1k >> ${OTP_IMAGE_DIR}/otp_unsigned_cap.bin
+
+    ${SIGN_UTILITY} -c ${SECBOOT_CFG_DIR}/${otpconfig_xml} -o ${OTP_IMAGE_DIR}/otp_signed_cap.bin ${OTP_IMAGE_DIR}/otp_unsigned_cap.bin -v
+}
 
 do_image_secboot_internal () {
     local manifest_json="pfr_manifest${bld_suffix}.json"
@@ -129,6 +152,7 @@ do_image_secboot () {
     # First, Build default image.
     bld_suffix=""
     do_image_secboot_internal
+    generate_otp_capsule
 }
 
 # Include 'do_image_secboot_internal' in 'vardepsexclude';Else Taskhash mismatch error will occur.
@@ -138,6 +162,7 @@ do_image_secboot[depends] += " \
                          obmc-intel-pfr-image-native:do_populate_sysroot \
                          intel-pfr-signing-utility-native:do_populate_sysroot \
                          external-signing-utility-native:do_populate_sysroot \
+                         otp-capsule-generator-native:do_populate_sysroot \
                         "
 
 python() {

@@ -1,6 +1,6 @@
-From 327eb716daeb7cec753682cd465b69cc09a46663 Mon Sep 17 00:00:00 2001
-From: Vikram Bodireddy <vikram.bodireddy@intel.com>
-Date: Fri, 3 Dec 2021 05:25:02 +0530
+From 12dd806ffa44c79487da70a829ad97d89213e279 Mon Sep 17 00:00:00 2001
+From: AppaRao Puli <apparao.puli@intel.com>
+Date: Wed, 15 Mar 2023 13:27:37 +0000
 Subject: [PATCH] Firmware update configuration changes
 
 This commit will provide user to PATCH the below firmware update
@@ -39,22 +39,24 @@ Tested:
 
  - Successfully ran redfish validater with no new errors.
 
+Change-Id: Ie671ba575386bd2296df13869cde8c7356778e3d
 Signed-off-by: Vikram Bodireddy <vikram.bodireddy@intel.com>
 Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
 ---
- redfish-core/lib/update_service.hpp           | 321 ++++++++++++++++--
+ redfish-core/lib/update_service.hpp           | 316 ++++++++++++++++--
  static/redfish/v1/$metadata/index.xml         |   3 +
  .../JsonSchemas/OemUpdateService/index.json   |  69 ++++
  .../redfish/v1/schema/OemUpdateService_v1.xml |  40 +++
- 4 files changed, 409 insertions(+), 24 deletions(-)
+ 4 files changed, 407 insertions(+), 21 deletions(-)
  create mode 100644 static/redfish/v1/JsonSchemas/OemUpdateService/index.json
  create mode 100644 static/redfish/v1/schema/OemUpdateService_v1.xml
 
 diff --git a/redfish-core/lib/update_service.hpp b/redfish-core/lib/update_service.hpp
-index 72907ba3..b1bbfb3a 100644
+index 7c8ce01a..659b463e 100644
 --- a/redfish-core/lib/update_service.hpp
 +++ b/redfish-core/lib/update_service.hpp
-@@ -28,7 +28,9 @@
+@@ -39,7 +39,9 @@
  
  namespace redfish
  {
@@ -63,11 +65,11 @@ index 72907ba3..b1bbfb3a 100644
 +std::vector<std::string> httpPushUriTargets;
 +bool httpPushUriTargetBusy = false;
  // Match signals added on software path
+ // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
  static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
- static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateErrorMatcher;
-@@ -36,6 +38,17 @@ static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateErrorMatcher;
- static bool fwUpdateInProgress = false;
+@@ -51,6 +53,17 @@ static bool fwUpdateInProgress = false;
  // Timer for software available
+ // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
  static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
 +static constexpr const char* versionIntf =
 +    "xyz.openbmc_project.Software.Version";
@@ -83,7 +85,7 @@ index 72907ba3..b1bbfb3a 100644
  
  inline static void cleanUp()
  {
-@@ -44,27 +57,112 @@ inline static void cleanUp()
+@@ -59,27 +72,112 @@ inline static void cleanUp()
      fwUpdateErrorMatcher = nullptr;
  }
  inline static void activateImage(const std::string& objPath,
@@ -115,7 +117,7 @@ index 72907ba3..b1bbfb3a 100644
 +    // to multiple targets for single image in future. For now,
 +    // consider first target alone.
      crow::connections::systemBus->async_method_call(
--        [](const boost::system::error_code errorCode) {
+-        [](const boost::system::error_code& errorCode) {
 -        if (errorCode)
 +        [objPath, service, imgTarget{imgUriTargets[0]}](
 +            const boost::system::error_code ec,
@@ -205,13 +207,13 @@ index 72907ba3..b1bbfb3a 100644
                             sdbusplus::message_t& m, task::Payload&& payload)
  {
      dbus::utility::DBusInteracesMap interfacesProperties;
-@@ -73,23 +171,26 @@ static void
+@@ -88,26 +186,29 @@ static void
  
      m.read(objPath, interfacesProperties);
  
 -    BMCWEB_LOG_DEBUG << "obj path = " << objPath.str;
 +    BMCWEB_LOG_DEBUG << "Software Interface Added. obj path = " << objPath.str;
-     for (auto& interface : interfacesProperties)
+     for (const auto& interface : interfacesProperties)
      {
          BMCWEB_LOG_DEBUG << "interface = " << interface.first;
  
@@ -219,11 +221,14 @@ index 72907ba3..b1bbfb3a 100644
 +        if (interface.first == activationIntf)
          {
              // Retrieve service and activate
-             crow::connections::systemBus->async_method_call(
+             constexpr std::array<std::string_view, 1> interfaces = {
+                 "xyz.openbmc_project.Software.Activation"};
+             dbus::utility::getDbusObject(
+                 objPath.str, interfaces,
 -                [objPath, asyncResp, payload(std::move(payload))](
 +                [objPath, asyncResp, imgTargets{imgUriTargets},
 +                 payload(std::move(payload))](
-                     const boost::system::error_code errorCode,
+                     const boost::system::error_code& errorCode,
                      const std::vector<
                          std::pair<std::string, std::vector<std::string>>>&
                          objInfo) mutable {
@@ -236,7 +241,7 @@ index 72907ba3..b1bbfb3a 100644
                      BMCWEB_LOG_DEBUG << "error msg = " << errorCode.message();
                      if (asyncResp)
                      {
-@@ -115,7 +216,7 @@ static void
+@@ -133,7 +234,7 @@ static void
                  // is added
                  fwAvailableTimer = nullptr;
  
@@ -245,16 +250,16 @@ index 72907ba3..b1bbfb3a 100644
                  if (asyncResp)
                  {
                      std::shared_ptr<task::TaskData> task =
-@@ -260,7 +361,7 @@ static void
+@@ -269,7 +370,7 @@ static void
  static void monitorForSoftwareAvailable(
      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
      const crow::Request& req, const std::string& url,
 -    int timeoutTimeSeconds = 25)
-+    const std::vector<std::string>& imgUriTargets, int timeoutTimeSeconds = 10)
++    const std::vector<std::string>& imgUriTargets, int timeoutTimeSeconds = 15)
  {
      // Only allow one FW update at a time
      if (fwUpdateInProgress)
-@@ -299,9 +400,10 @@ static void monitorForSoftwareAvailable(
+@@ -308,9 +409,10 @@ static void monitorForSoftwareAvailable(
          }
      });
      task::Payload payload(req);
@@ -267,7 +272,7 @@ index 72907ba3..b1bbfb3a 100644
      };
  
      fwUpdateInProgress = true;
-@@ -484,12 +586,15 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
+@@ -493,12 +595,15 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
          std::string fwFile = imageURI.substr(separator + 1);
          BMCWEB_LOG_DEBUG << "Server: " << tftpServer + " File: " << fwFile;
  
@@ -284,7 +289,7 @@ index 72907ba3..b1bbfb3a 100644
  
          // TFTP can take up to 10 minutes depending on image size and
          // connection speed. Return to caller as soon as the TFTP operation
-@@ -531,7 +636,8 @@ inline void
+@@ -684,7 +789,8 @@ inline void
      BMCWEB_LOG_DEBUG << "doPost...";
  
      // Setup callback for when new software detected
@@ -292,11 +297,11 @@ index 72907ba3..b1bbfb3a 100644
 +    monitorForSoftwareAvailable(asyncResp, req, "/redfish/v1/UpdateService",
 +                                httpPushUriTargets);
  
-     std::string filepath(
-         "/tmp/images/" +
-@@ -573,6 +679,9 @@ inline void requestRoutesUpdateService(App& app)
- 
-         asyncResp->res.jsonValue["HttpPushUri"] =
+     MultipartParser parser;
+     ParserError ec = parser.parse(req);
+@@ -727,6 +833,9 @@ inline void requestRoutesUpdateService(App& app)
+             "/redfish/v1/UpdateService/update";
+         asyncResp->res.jsonValue["MultipartHttpPushUri"] =
              "/redfish/v1/UpdateService/update";
 +        asyncResp->res.jsonValue["HttpPushUriTargets"] = httpPushUriTargets;
 +        asyncResp->res.jsonValue["HttpPushUriTargetsBusy"] =
@@ -304,7 +309,7 @@ index 72907ba3..b1bbfb3a 100644
  
          // UpdateService cannot be disabled
          asyncResp->res.jsonValue["ServiceEnabled"] = true;
-@@ -621,6 +730,31 @@ inline void requestRoutesUpdateService(App& app)
+@@ -775,6 +884,31 @@ inline void requestRoutesUpdateService(App& app)
                      "OnReset";
              }
              });
@@ -336,7 +341,7 @@ index 72907ba3..b1bbfb3a 100644
          });
      BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/")
          .privileges(redfish::privileges::patchUpdateService)
-@@ -634,12 +768,58 @@ inline void requestRoutesUpdateService(App& app)
+@@ -788,12 +922,58 @@ inline void requestRoutesUpdateService(App& app)
          BMCWEB_LOG_DEBUG << "doPatch...";
  
          std::optional<nlohmann::json> pushUriOptions;
@@ -396,7 +401,7 @@ index 72907ba3..b1bbfb3a 100644
          if (pushUriOptions)
          {
              std::optional<nlohmann::json> pushUriApplyTime;
-@@ -700,6 +880,100 @@ inline void requestRoutesUpdateService(App& app)
+@@ -818,6 +998,100 @@ inline void requestRoutesUpdateService(App& app)
                  }
              }
          }
@@ -421,7 +426,7 @@ index 72907ba3..b1bbfb3a 100644
 +                           "true before setting httpPushUriTargets";
 +                    messages::invalidObject(
 +                        asyncResp->res,
-+                        crow::utility::urlFromPieces("HttpPushUriTargetsBusy"));
++                        boost::urls::format("HttpPushUriTargetsBusy"));
 +                    return;
 +                }
 +                if ((*imgTargets).size() != 0)
@@ -435,7 +440,7 @@ index 72907ba3..b1bbfb3a 100644
 +                    {
 +                        messages::invalidObject(
 +                            asyncResp->res,
-+                            crow::utility::urlFromPieces("HttpPushUriTargets"));
++                            boost::urls::format("HttpPushUriTargets"));
 +                        return;
 +                    }
 +                    crow::connections::systemBus->async_method_call(
@@ -470,8 +475,8 @@ index 72907ba3..b1bbfb3a 100644
 +                        if (!swInvObjFound)
 +                        {
 +                            messages::invalidObject(
-+                                asyncResp->res, crow::utility::urlFromPieces(
-+                                                    "HttpPushUriTargets"));
++                                asyncResp->res,
++                                boost::urls::format("HttpPushUriTargets"));
 +                            return;
 +                        }
 +                        httpPushUriTargetBusy = targetBusy;
@@ -496,31 +501,12 @@ index 72907ba3..b1bbfb3a 100644
 +        }
          });
  
- // The "old" behavior of the update service URI causes redfish-service validator
-@@ -787,7 +1061,7 @@ inline void requestRoutesSoftwareInventoryCollection(App& app)
-             "/xyz/openbmc_project/object_mapper",
-             "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-             "/xyz/openbmc_project/software", static_cast<int32_t>(0),
--            std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
-+            std::array<const char*, 1>{versionIntf});
-         });
- }
- /* Fill related item links (i.e. bmc, bios) in for inventory */
-@@ -960,8 +1234,7 @@ inline void requestRoutesSoftwareInventory(App& app)
-             "xyz.openbmc_project.ObjectMapper",
-             "/xyz/openbmc_project/object_mapper",
-             "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
--            static_cast<int32_t>(0),
--            std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
-+            static_cast<int32_t>(0), std::array<const char*, 1>{versionIntf});
-         });
- }
- 
+     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update/")
 diff --git a/static/redfish/v1/$metadata/index.xml b/static/redfish/v1/$metadata/index.xml
-index ed5aac30..d4375538 100644
+index deb0e302..407be0aa 100644
 --- a/static/redfish/v1/$metadata/index.xml
 +++ b/static/redfish/v1/$metadata/index.xml
-@@ -2894,6 +2894,9 @@
+@@ -3080,6 +3080,9 @@
      <edmx:Reference Uri="/redfish/v1/schema/OemComputerSystem_v1.xml">
          <edmx:Include Namespace="OemComputerSystem"/>
      </edmx:Reference>

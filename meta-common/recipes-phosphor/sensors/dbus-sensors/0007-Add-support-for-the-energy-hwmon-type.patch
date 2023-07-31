@@ -1,4 +1,4 @@
-From 8c24fbe2e2e7f84e6b067255c19ce310e63da433 Mon Sep 17 00:00:00 2001
+From 62804c2468b43202b9d55d30ad5f77cc8a8e7e80 Mon Sep 17 00:00:00 2001
 From: Szymon Dompke <szymon.dompke@intel.com>
 Date: Tue, 18 May 2021 05:22:33 +0200
 Subject: [PATCH] Add support for the energy hwmon type
@@ -31,62 +31,17 @@ Tested:
 Authored-by: Zbigniew Kurzynski <zbigniew.kurzynski@intel.com>
 Signed-off-by: Szymon Dompke <szymon.dompke@intel.com>
 ---
- include/IntelCPUSensor.hpp | 13 ++++++--
  src/IntelCPUSensor.cpp     | 61 ++++++++++++--------------------------
+ src/IntelCPUSensor.hpp     | 13 ++++++--
  src/IntelCPUSensorMain.cpp | 30 ++++++++++++++++---
  3 files changed, 56 insertions(+), 48 deletions(-)
 
-diff --git a/include/IntelCPUSensor.hpp b/include/IntelCPUSensor.hpp
-index d6ab241..296ae27 100644
---- a/include/IntelCPUSensor.hpp
-+++ b/include/IntelCPUSensor.hpp
-@@ -16,6 +16,15 @@
- #include <variant>
- #include <vector>
- 
-+struct SensorProperties
-+{
-+    std::string path;
-+    std::string units;
-+    double max;
-+    double min;
-+    unsigned int scaleFactor;
-+};
-+
- class IntelCPUSensor :
-     public Sensor,
-     public std::enable_shared_from_this<IntelCPUSensor>
-@@ -27,7 +36,7 @@ class IntelCPUSensor :
-                    boost::asio::io_service& io, const std::string& sensorName,
-                    std::vector<thresholds::Threshold>&& thresholds,
-                    const std::string& configuration, int cpuId, bool show,
--                   double dtsOffset);
-+                   double dtsOffset, const SensorProperties& sensorProperties);
- 
-     // Create a CPUSensor without a path to sensor value
-     IntelCPUSensor(const std::string& objectType,
-@@ -38,7 +47,6 @@ class IntelCPUSensor :
-                    const std::string& sensorConfiguration);
- 
-     ~IntelCPUSensor() override;
--    static constexpr unsigned int sensorScaleFactor = 1000;
-     static constexpr unsigned int sensorPollMs = 1000;
-     static constexpr size_t warnAfterErrorCount = 10;
-     static constexpr const char* labelTcontrol = "Tcontrol";
-@@ -58,6 +66,7 @@ class IntelCPUSensor :
-     bool loggedInterfaceDown = false;
-     uint8_t minMaxReadCounter{0};
-     int fd{};
-+    unsigned int scaleFactor;
-     void handleResponse(const boost::system::error_code& err);
-     void checkThresholds(void) override;
-     void updateMinMaxValues(void);
 diff --git a/src/IntelCPUSensor.cpp b/src/IntelCPUSensor.cpp
-index 3203773..18c106b 100644
+index 4ead302..17e7592 100644
 --- a/src/IntelCPUSensor.cpp
 +++ b/src/IntelCPUSensor.cpp
 @@ -41,52 +41,31 @@ IntelCPUSensor::IntelCPUSensor(
-     boost::asio::io_service& io, const std::string& sensorName,
+     boost::asio::io_context& io, const std::string& sensorName,
      std::vector<thresholds::Threshold>&& thresholdsIn,
      const std::string& sensorConfiguration, int cpuId, bool show,
 -    double dtsOffset) :
@@ -184,11 +139,56 @@ index 3203773..18c106b 100644
                      {
                          if (!std::equal(thresholds.begin(), thresholds.end(),
                                          newThresholds.begin(),
+diff --git a/src/IntelCPUSensor.hpp b/src/IntelCPUSensor.hpp
+index 37ff05e..9bdd73f 100644
+--- a/src/IntelCPUSensor.hpp
++++ b/src/IntelCPUSensor.hpp
+@@ -17,6 +17,15 @@
+ #include <variant>
+ #include <vector>
+ 
++struct SensorProperties
++{
++    std::string path;
++    std::string units;
++    double max;
++    double min;
++    unsigned int scaleFactor;
++};
++
+ class IntelCPUSensor :
+     public Sensor,
+     public std::enable_shared_from_this<IntelCPUSensor>
+@@ -28,7 +37,7 @@ class IntelCPUSensor :
+                    boost::asio::io_context& io, const std::string& sensorName,
+                    std::vector<thresholds::Threshold>&& thresholds,
+                    const std::string& configuration, int cpuId, bool show,
+-                   double dtsOffset);
++                   double dtsOffset, const SensorProperties& sensorProperties);
+ 
+     // Create a CPUSensor without a path to sensor value
+     IntelCPUSensor(const std::string& objectType,
+@@ -39,7 +48,6 @@ class IntelCPUSensor :
+                    const std::string& sensorConfiguration);
+ 
+     ~IntelCPUSensor() override;
+-    static constexpr unsigned int sensorScaleFactor = 1000;
+     static constexpr unsigned int sensorPollMs = 1000;
+     static constexpr size_t warnAfterErrorCount = 10;
+     static constexpr const char* labelTcontrol = "Tcontrol";
+@@ -59,6 +67,7 @@ class IntelCPUSensor :
+     bool loggedInterfaceDown = false;
+     uint8_t minMaxReadCounter{0};
+     int fd{};
++    unsigned int scaleFactor;
+     void handleResponse(const boost::system::error_code& err);
+     void checkThresholds(void) override;
+     void updateMinMaxValues(void);
 diff --git a/src/IntelCPUSensorMain.cpp b/src/IntelCPUSensorMain.cpp
-index a24598a..a76d489 100644
+index f7b92b1..8219abe 100644
 --- a/src/IntelCPUSensorMain.cpp
 +++ b/src/IntelCPUSensorMain.cpp
-@@ -97,6 +97,18 @@ static constexpr auto sensorTypes{std::to_array<const char*>({"XeonCPU"})};
+@@ -92,6 +92,18 @@ static constexpr auto sensorTypes{std::to_array<const char*>({"XeonCPU"})};
  static constexpr auto hiddenProps{std::to_array<const char*>(
      {IntelCPUSensor::labelTcontrol, "Tthrottle", "Tjmax"})};
  
@@ -205,9 +205,9 @@ index a24598a..a76d489 100644
 +          sensor_paths::unitDegreesC, 127.0, -128.0, 1000}}};
 +
  void detectCpuAsync(
-     boost::asio::deadline_timer& pingTimer,
-     boost::asio::deadline_timer& creationTimer, boost::asio::io_service& io,
-@@ -299,7 +311,8 @@ bool createSensors(boost::asio::io_service& io,
+     boost::asio::steady_timer& pingTimer,
+     boost::asio::steady_timer& creationTimer, boost::asio::io_context& io,
+@@ -294,7 +306,8 @@ bool createSensors(boost::asio::io_context& io,
  
          auto directory = hwmonNamePath.parent_path();
          std::vector<fs::path> inputPaths;
@@ -217,7 +217,7 @@ index a24598a..a76d489 100644
                         inputPaths, 0))
          {
              std::cerr << "No temperature sensors in system\n";
-@@ -367,6 +380,16 @@ bool createSensors(boost::asio::io_service& io,
+@@ -362,6 +375,16 @@ bool createSensors(boost::asio::io_context& io,
                  }
              }
  
@@ -234,7 +234,7 @@ index a24598a..a76d489 100644
              std::vector<thresholds::Threshold> sensorThresholds;
              std::string labelHead = label.substr(0, label.find(' '));
              parseThresholdsFromConfig(*sensorData, sensorThresholds,
-@@ -374,8 +397,7 @@ bool createSensors(boost::asio::io_service& io,
+@@ -369,8 +392,7 @@ bool createSensors(boost::asio::io_context& io,
              if (sensorThresholds.empty())
              {
                  if (!parseThresholdsFromAttr(sensorThresholds, inputPathStr,
@@ -244,7 +244,7 @@ index a24598a..a76d489 100644
                  {
                      std::cerr << "error populating thresholds for "
                                << sensorName << "\n";
-@@ -387,7 +409,7 @@ bool createSensors(boost::asio::io_service& io,
+@@ -382,7 +404,7 @@ bool createSensors(boost::asio::io_context& io,
              sensorPtr = std::make_shared<IntelCPUSensor>(
                  inputPathStr, sensorType, objectServer, dbusConnection, io,
                  sensorName, std::move(sensorThresholds), *interfacePath, cpuId,

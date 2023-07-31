@@ -1,4 +1,4 @@
-From 156ec05294444f61add96239eeb4fca060f67bd2 Mon Sep 17 00:00:00 2001
+From c0012eb784039e3d7a102f1cb3cce536ba954fe7 Mon Sep 17 00:00:00 2001
 From: Iwona Winiarska <iwona.winiarska@intel.com>
 Date: Tue, 13 Jul 2021 15:16:16 +0200
 Subject: [PATCH] CPUSensor: Create CPUConfig for each PECI adapter
@@ -28,10 +28,10 @@ Signed-off-by: Iwona Winiarska <iwona.winiarska@intel.com>
  1 file changed, 90 insertions(+)
 
 diff --git a/src/IntelCPUSensorMain.cpp b/src/IntelCPUSensorMain.cpp
-index a76d489..fcea6b3 100644
+index ae13ef5..061509f 100644
 --- a/src/IntelCPUSensorMain.cpp
 +++ b/src/IntelCPUSensorMain.cpp
-@@ -33,6 +33,7 @@
+@@ -32,6 +32,7 @@
  #include <fstream>
  #include <functional>
  #include <memory>
@@ -39,7 +39,7 @@ index a76d489..fcea6b3 100644
  #include <regex>
  #include <sstream>
  #include <stdexcept>
-@@ -665,6 +666,91 @@ void detectCpuAsync(
+@@ -659,6 +660,91 @@ void detectCpuAsync(
      });
  }
  
@@ -130,8 +130,8 @@ index a76d489..fcea6b3 100644
 +
  bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                    boost::container::flat_set<CPUConfig>& cpuConfigs,
-                   ManagedObjectType& sensorConfigs, boost::asio::io_service& io,
-@@ -796,7 +882,11 @@ bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
+                   ManagedObjectType& sensorConfigs, boost::asio::io_context& io,
+@@ -787,7 +873,11 @@ bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                      std::cout << "name: " << name << "\n";
                      std::cout << "type: " << type << "\n";
                  }

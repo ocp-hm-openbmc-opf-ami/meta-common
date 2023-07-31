@@ -3,7 +3,7 @@ inherit obmc-phosphor-systemd
 SUMMARY = "At Scale Debug Service"
 DESCRIPTION = "At Scale Debug Service exposes remote JTAG target debug capabilities"
 
-LICENSE = "BSD"
+LICENSE = "BSD-3-Clause"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=8929d33c051277ca2294fe0f5b062f38"
 
 
@@ -12,15 +12,15 @@ DEPENDS = "sdbusplus openssl libpam libgpiod safec"
 
 do_configure[depends] += "virtual/kernel:do_shared_workdir"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.at-scale-debug.git;protocol=ssh;branch=main"
-SRCREV = "91e0e88319ec6c2d815526c8986746b9d919628c"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.at-scale-debug.git;protocol=ssh;branch=main"
+SRCREV = "b6f19c1c02467126f5f632be8ad7ff7cd76fd752"
 
 inherit useradd
 
 USERADD_PACKAGES = "${PN}"
 
 # add a special user asdbg
-USERADD_PARAM:${PN} = "-u 9999 asd"
+USERADD_PARAM:${PN} = "-u 999 asdbg"
 
 S = "${WORKDIR}/git"
 
@@ -39,19 +39,3 @@ do_configure:prepend() {
     cp -r ${WORKDIR}/asm ${S}/asm
 }
 CFLAGS:append = " -I ${S}"
-
-FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
-SRC_URI += "file://CtlASD.sh"
-
-localdir = "/usr/local"
-mybindir = "${localdir}/bin"
-
-FILES:${PN} += "${localdir}/* ${mybindir}/* "
-
-do_install:append() {
-    install -m 0755 -d ${D}${localdir}
-    install -m 0755 -d ${D}${mybindir}
-    cp ${WORKDIR}/CtlASD.sh ${D}${mybindir}
-}
-
-

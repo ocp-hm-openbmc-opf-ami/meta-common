@@ -18,4 +18,5 @@ do_install:append() {
         ${D}${datadir}/ipmi-providers/channel_config.json
     install -m 0644 -D ${WORKDIR}/master_write_read_white_list.json \
         ${D}${datadir}/ipmi-providers/master_write_read_white_list.json
+    rm -f ${D}${datadir}/ipmi-providers/entity-map.json
 }

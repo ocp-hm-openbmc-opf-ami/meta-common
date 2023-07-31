@@ -1,4 +1,4 @@
-From d066a5adcf96a5c29dded67708e7ee137ccb594b Mon Sep 17 00:00:00 2001
+From a59c2b33ea2e1c28300e15872d4f472684c350f2 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@linux.intel.com>
 Date: Thu, 2 Apr 2020 17:06:07 +0530
 Subject: [PATCH] Adding channel specific privilege to network
@@ -20,25 +20,25 @@ Signed-off-by: Yong Li <yong.b.li@linux.intel.com>
 Signed-off-by: Johnathan Mantey <johnathanx.mantey@intel.com>
 Signed-off-by: Ramya Narayana <ramyax.narayana@intel.com>
 ---
- src/ethernet_interface.cpp | 125 +++++++++++++++++++++++++++++++++++++
+ src/ethernet_interface.cpp | 126 +++++++++++++++++++++++++++++++++++++
  src/ethernet_interface.hpp |  38 ++++++++++-
  src/network_manager.cpp    | 102 ++++++++++++++++++++++++++++++
  src/network_manager.hpp    |  11 ++++
- 4 files changed, 275 insertions(+), 1 deletion(-)
+ 4 files changed, 276 insertions(+), 1 deletion(-)
 
 diff --git a/src/ethernet_interface.cpp b/src/ethernet_interface.cpp
-index 102173f..6df2b24 100644
+index ef0355a..9547f45 100644
 --- a/src/ethernet_interface.cpp
 +++ b/src/ethernet_interface.cpp
-@@ -14,6 +14,7 @@
+@@ -20,6 +20,7 @@
  
  #include <algorithm>
  #include <filesystem>
 +#include <fstream>
- #include <phosphor-logging/elog-errors.hpp>
- #include <phosphor-logging/log.hpp>
- #include <stdplus/raw.hpp>
-@@ -45,6 +46,10 @@ constexpr auto TIMESYNCD_SERVICE_PATH = "/org/freedesktop/timesync1";
+ #include <string>
+ #include <unordered_map>
+ #include <variant>
+@@ -46,6 +47,10 @@ constexpr auto TIMESYNCD_SERVICE_PATH = "/org/freedesktop/timesync1";
  
  constexpr auto METHOD_GET = "Get";
  
@@ -49,7 +49,7 @@ index 102173f..6df2b24 100644
  template <typename Func>
  inline decltype(std::declval<Func>()())
      ignoreError(std::string_view msg, stdplus::zstring_view intf,
-@@ -147,6 +152,8 @@ void EthernetInterface::updateInfo(const InterfaceInfo& info, bool skipSignal)
+@@ -149,6 +154,8 @@ void EthernetInterface::updateInfo(const InterfaceInfo& info, bool skipSignal)
          EthernetInterfaceIntf::autoNeg(ethInfo.autoneg, skipSignal);
          EthernetInterfaceIntf::speed(ethInfo.speed, skipSignal);
      }
@@ -58,8 +58,8 @@ index 102173f..6df2b24 100644
  }
  
  bool EthernetInterface::originIsManuallyAssigned(IP::AddressOrigin origin)
-@@ -927,5 +934,123 @@ void EthernetInterface::VlanProperties::delete_()
-     eth.manager.reloadConfigs();
+@@ -929,5 +936,124 @@ void EthernetInterface::VlanProperties::delete_()
+     eth.get().manager.get().reloadConfigs();
  }
  
 +nlohmann::json EthernetInterface::readJsonFile(const std::string& configFile)
@@ -145,15 +145,16 @@ index 102173f..6df2b24 100644
 +{
 +    std::string intfName = interfaceName();
 +
-+    if (manager.supportedPrivList.empty())
++    if (manager.get().supportedPrivList.empty())
 +    {
 +        // Populate the supported privilege list
-+        manager.initSupportedPrivilges();
++        manager.get().initSupportedPrivilges();
 +    }
 +
-+    if (!priv.empty() && (std::find(manager.supportedPrivList.begin(),
-+                                    manager.supportedPrivList.end(),
-+                                    priv) == manager.supportedPrivList.end()))
++    if (!priv.empty() &&
++        (std::find(manager.get().supportedPrivList.begin(),
++                   manager.get().supportedPrivList.end(),
++                   priv) == manager.get().supportedPrivList.end()))
 +    {
 +        log<level::ERR>("Invalid privilege");
 +        elog<InvalidArgument>(Argument::ARGUMENT_NAME("Privilege"),
@@ -183,10 +184,10 @@ index 102173f..6df2b24 100644
  } // namespace network
  } // namespace phosphor
 diff --git a/src/ethernet_interface.hpp b/src/ethernet_interface.hpp
-index a1e9975..e07fc84 100644
+index 87cfd68..d60a461 100644
 --- a/src/ethernet_interface.hpp
 +++ b/src/ethernet_interface.hpp
-@@ -2,11 +2,14 @@
+@@ -2,10 +2,13 @@
  #include "ipaddress.hpp"
  #include "neighbor.hpp"
  #include "types.hpp"
@@ -195,13 +196,12 @@ index a1e9975..e07fc84 100644
  #include "xyz/openbmc_project/Network/Neighbor/CreateStatic/server.hpp"
  
 +#include <nlohmann/json.hpp>
- #include <optional>
  #include <sdbusplus/bus.hpp>
 +#include <sdbusplus/bus/match.hpp>
  #include <sdbusplus/server/object.hpp>
+ #include <stdplus/pinned.hpp>
  #include <stdplus/zstring_view.hpp>
- #include <string>
-@@ -27,7 +30,8 @@ using Ifaces = sdbusplus::server::object_t<
+@@ -29,7 +32,8 @@ using Ifaces = sdbusplus::server::object_t<
      sdbusplus::xyz::openbmc_project::Network::server::MACAddress,
      sdbusplus::xyz::openbmc_project::Network::IP::server::Create,
      sdbusplus::xyz::openbmc_project::Network::Neighbor::server::CreateStatic,
@@ -211,7 +211,7 @@ index a1e9975..e07fc84 100644
  
  using VlanIfaces = sdbusplus::server::object_t<
      sdbusplus::xyz::openbmc_project::Object::server::Delete,
-@@ -41,10 +45,14 @@ using EthernetInterfaceIntf =
+@@ -43,10 +47,14 @@ using EthernetInterfaceIntf =
      sdbusplus::xyz::openbmc_project::Network::server::EthernetInterface;
  using MacAddressIntf =
      sdbusplus::xyz::openbmc_project::Network::server::MACAddress;
@@ -226,7 +226,7 @@ index a1e9975..e07fc84 100644
  class Manager;
  
  class TestEthernetInterface;
-@@ -199,6 +207,14 @@ class EthernetInterface : public Ifaces
+@@ -198,6 +206,14 @@ class EthernetInterface : public Ifaces
       */
      std::string defaultGateway6(std::string gateway) override;
  
@@ -241,7 +241,7 @@ index a1e9975..e07fc84 100644
      using EthernetInterfaceIntf::interfaceName;
      using EthernetInterfaceIntf::linkUp;
      using EthernetInterfaceIntf::mtu;
-@@ -251,6 +267,26 @@ class EthernetInterface : public Ifaces
+@@ -252,6 +268,26 @@ class EthernetInterface : public Ifaces
       *  @returns true/false value if the address is static
       */
      bool originIsManuallyAssigned(IP::AddressOrigin origin);
@@ -269,10 +269,10 @@ index a1e9975..e07fc84 100644
  
  } // namespace network
 diff --git a/src/network_manager.cpp b/src/network_manager.cpp
-index 557e826..457c529 100644
+index 72e0d03..dadb22b 100644
 --- a/src/network_manager.cpp
 +++ b/src/network_manager.cpp
-@@ -33,6 +33,13 @@ using namespace phosphor::logging;
+@@ -35,6 +35,13 @@ using namespace phosphor::logging;
  using namespace sdbusplus::xyz::openbmc_project::Common::Error;
  using Argument = xyz::openbmc_project::Common::InvalidArgument;
  
@@ -286,7 +286,7 @@ index 557e826..457c529 100644
  static constexpr const char enabledMatch[] =
      "type='signal',sender='org.freedesktop.network1',path_namespace='/org/"
      "freedesktop/network1/"
-@@ -152,6 +159,101 @@ Manager::Manager(sdbusplus::bus_t& bus, DelayedExecutor& reload,
+@@ -153,6 +160,101 @@ Manager::Manager(stdplus::PinnedRef<sdbusplus::bus_t> bus,
          bus, (this->objPath / "config").str);
      dhcpConf = std::make_unique<phosphor::network::dhcp::Configuration>(
          bus, (this->objPath / "dhcp").str, *this);
@@ -341,12 +341,12 @@ index 557e826..457c529 100644
 +    std::string userServiceName = getUserServiceName();
 +    if (!userServiceName.empty())
 +    {
-+        auto method = bus.new_method_call(
++        auto method = bus.get().new_method_call(
 +            getUserServiceName().c_str(), userMgrObjBasePath,
 +            "org.freedesktop.DBus.Properties", "Get");
 +        method.append(userMgrInterface, propNameAllPrivileges);
 +
-+        auto reply = bus.call(method);
++        auto reply = bus.get().call(method);
 +        if (reply.is_method_error())
 +        {
 +            log<level::DEBUG>("get-property AllPrivileges failed",
@@ -389,7 +389,7 @@ index 557e826..457c529 100644
  
  void Manager::createInterface(const AllIntfInfo& info, bool enabled)
 diff --git a/src/network_manager.hpp b/src/network_manager.hpp
-index 890a837..b2ba382 100644
+index 2643d52..45bea07 100644
 --- a/src/network_manager.hpp
 +++ b/src/network_manager.hpp
 @@ -123,11 +123,18 @@ class Manager : public ManagerIface
@@ -430,5 +430,5 @@ index 890a837..b2ba382 100644
  
  } // namespace network
 -- 
-2.38.1
+2.25.1
 

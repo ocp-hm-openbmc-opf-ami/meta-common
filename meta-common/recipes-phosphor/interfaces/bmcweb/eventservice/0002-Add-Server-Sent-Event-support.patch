@@ -1,4 +1,4 @@
-From d9076fc60bbb86d6ed9618af9c0a43b7b2aa5cf6 Mon Sep 17 00:00:00 2001
+From 2b1a7a3f23f3e2dc3ec36edffde8c6884cf8e319 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Tue, 28 Jun 2022 09:23:55 +0000
 Subject: [PATCH] Add Server-Sent-Event support
@@ -28,13 +28,13 @@ Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
 ---
  http/http_response.hpp     |   5 +
- http/routing.hpp           |  71 +++++++++
+ http/routing.hpp           |  74 ++++++++++
  http/server_sent_event.hpp | 290 +++++++++++++++++++++++++++++++++++++
- 3 files changed, 366 insertions(+)
+ 3 files changed, 369 insertions(+)
  create mode 100644 http/server_sent_event.hpp
 
 diff --git a/http/http_response.hpp b/http/http_response.hpp
-index dd1f37ae..1157ed50 100644
+index 5cbdb28e..8d6d9209 100644
 --- a/http/http_response.hpp
 +++ b/http/http_response.hpp
 @@ -16,10 +16,15 @@ namespace crow
@@ -54,18 +54,18 @@ index dd1f37ae..1157ed50 100644
          boost::beast::http::response<boost::beast::http::string_body>;
  
 diff --git a/http/routing.hpp b/http/routing.hpp
-index 870a62c9..0d0ce330 100644
+index 18d3c2af..1ecbfc5f 100644
 --- a/http/routing.hpp
 +++ b/http/routing.hpp
-@@ -7,6 +7,7 @@
+@@ -8,6 +8,7 @@
  #include "http_response.hpp"
  #include "logging.hpp"
  #include "privileges.hpp"
 +#include "server_sent_event.hpp"
  #include "sessions.hpp"
  #include "utility.hpp"
- #include "websocket.hpp"
-@@ -423,6 +424,68 @@ class WebSocketRule : public BaseRule
+ #include "utils/dbus_utils.hpp"
+@@ -376,6 +377,71 @@ class WebSocketRule : public BaseRule
      std::function<void(crow::websocket::Connection&)> errorHandler;
  };
  
@@ -82,12 +82,14 @@ index 870a62c9..0d0ce330 100644
 +
 +    void handle(const Request& /*req*/,
 +                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-+                const RoutingParams& /*params*/) override
++                const std::vector<std::string>& /*params*/) override
 +    {
 +        asyncResp->res.result(boost::beast::http::status::not_found);
 +    }
 +
-+    void handleUpgrade(const Request& req, Response& /*res*/,
++#ifndef BMCWEB_ENABLE_SSL
++    void handleUpgrade(const Request& req,
++                       const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
 +                       boost::asio::ip::tcp::socket&& adaptor) override
 +    {
 +        std::shared_ptr<crow::SseConnectionImpl<boost::asio::ip::tcp::socket>>
@@ -96,8 +98,9 @@ index 870a62c9..0d0ce330 100644
 +                req, std::move(adaptor), openHandler, closeHandler);
 +        myConnection->start();
 +    }
-+#ifdef BMCWEB_ENABLE_SSL
-+    void handleUpgrade(const Request& req, Response& /*res*/,
++#else
++    void handleUpgrade(const Request& req,
++                       const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
 +                       boost::beast::ssl_stream<boost::asio::ip::tcp::socket>&&
 +                           adaptor) override
 +    {
@@ -134,7 +137,7 @@ index 870a62c9..0d0ce330 100644
  template <typename T>
  struct RuleParameterTraits
  {
-@@ -435,6 +498,14 @@ struct RuleParameterTraits
+@@ -389,6 +455,14 @@ struct RuleParameterTraits
          return *p;
      }
  
@@ -146,7 +149,7 @@ index 870a62c9..0d0ce330 100644
 +        return *p;
 +    }
 +
-     self_t& name(const std::string_view name) noexcept
+     self_t& methods(boost::beast::http::verb method)
      {
          self_t* self = static_cast<self_t*>(this);
 diff --git a/http/server_sent_event.hpp b/http/server_sent_event.hpp
@@ -446,5 +449,5 @@ index 00000000..7a7ce515
 +};
 +} // namespace crow
 -- 
-2.17.1
+2.25.1
 

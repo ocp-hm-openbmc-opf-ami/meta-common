@@ -1,4 +1,4 @@
-From 6c1e8546cbb80405d0bba74d82f703200fb5a694 Mon Sep 17 00:00:00 2001
+From b4f10429940100bef187df77b7f00ee19b3c25ef Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Tue, 11 May 2021 11:14:55 -0700
 Subject: [PATCH] CPUSensor: create RequiredTempSensor if defined
@@ -22,33 +22,13 @@ failure case. More work will follow to support a more generic
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 ---
- include/IntelCPUSensor.hpp |  9 +++++
  src/IntelCPUSensor.cpp     | 68 ++++++++++++++++++++++++++++++++++++++
+ src/IntelCPUSensor.hpp     |  9 +++++
  src/IntelCPUSensorMain.cpp | 54 +++++++++++++++++++++++++-----
  3 files changed, 123 insertions(+), 8 deletions(-)
 
-diff --git a/include/IntelCPUSensor.hpp b/include/IntelCPUSensor.hpp
-index 844c861..d6ab241 100644
---- a/include/IntelCPUSensor.hpp
-+++ b/include/IntelCPUSensor.hpp
-@@ -28,6 +28,15 @@ class IntelCPUSensor :
-                    std::vector<thresholds::Threshold>&& thresholds,
-                    const std::string& configuration, int cpuId, bool show,
-                    double dtsOffset);
-+
-+    // Create a CPUSensor without a path to sensor value
-+    IntelCPUSensor(const std::string& objectType,
-+                   sdbusplus::asio::object_server& objectServer,
-+                   std::shared_ptr<sdbusplus::asio::connection>& conn,
-+                   boost::asio::io_service& io, const std::string& sensorName,
-+                   std::vector<thresholds::Threshold>&& thresholdsIn,
-+                   const std::string& sensorConfiguration);
-+
-     ~IntelCPUSensor() override;
-     static constexpr unsigned int sensorScaleFactor = 1000;
-     static constexpr unsigned int sensorPollMs = 1000;
 diff --git a/src/IntelCPUSensor.cpp b/src/IntelCPUSensor.cpp
-index c4ac9e3..3203773 100644
+index 9c5e9ef..b8c8499 100644
 --- a/src/IntelCPUSensor.cpp
 +++ b/src/IntelCPUSensor.cpp
 @@ -93,6 +93,74 @@ IntelCPUSensor::IntelCPUSensor(
@@ -61,7 +41,7 @@ index c4ac9e3..3203773 100644
 +IntelCPUSensor::IntelCPUSensor(
 +    const std::string& objectType, sdbusplus::asio::object_server& objectServer,
 +    std::shared_ptr<sdbusplus::asio::connection>& conn,
-+    boost::asio::io_service& io, const std::string& sensorName,
++    boost::asio::io_context& io, const std::string& sensorName,
 +    std::vector<thresholds::Threshold>&& thresholdsIn,
 +    const std::string& sensorConfiguration) :
 +    Sensor(escapeName(sensorName), std::move(thresholdsIn), sensorConfiguration,
@@ -126,11 +106,31 @@ index c4ac9e3..3203773 100644
  IntelCPUSensor::~IntelCPUSensor()
  {
      // close the input dev to cancel async operations
+diff --git a/src/IntelCPUSensor.hpp b/src/IntelCPUSensor.hpp
+index b23c0dc..2eb5f90 100644
+--- a/src/IntelCPUSensor.hpp
++++ b/src/IntelCPUSensor.hpp
+@@ -29,6 +29,15 @@ class IntelCPUSensor :
+                    std::vector<thresholds::Threshold>&& thresholds,
+                    const std::string& configuration, int cpuId, bool show,
+                    double dtsOffset);
++
++    // Create a CPUSensor without a path to sensor value
++    IntelCPUSensor(const std::string& objectType,
++                   sdbusplus::asio::object_server& objectServer,
++                   std::shared_ptr<sdbusplus::asio::connection>& conn,
++                   boost::asio::io_context& io, const std::string& sensorName,
++                   std::vector<thresholds::Threshold>&& thresholdsIn,
++                   const std::string& sensorConfiguration);
++
+     ~IntelCPUSensor() override;
+     static constexpr unsigned int sensorScaleFactor = 1000;
+     static constexpr unsigned int sensorPollMs = 1000;
 diff --git a/src/IntelCPUSensorMain.cpp b/src/IntelCPUSensorMain.cpp
-index 9e0a01a..e70470f 100644
+index 944e9ad..aeebe55 100644
 --- a/src/IntelCPUSensorMain.cpp
 +++ b/src/IntelCPUSensorMain.cpp
-@@ -334,10 +334,9 @@ bool createSensors(boost::asio::io_service& io,
+@@ -330,10 +330,9 @@ bool createSensors(boost::asio::io_context& io,
              {
                  if (debug)
                  {
@@ -143,7 +143,7 @@ index 9e0a01a..e70470f 100644
              }
  
              // check hidden properties
-@@ -643,9 +642,9 @@ void detectCpuAsync(
+@@ -638,9 +637,9 @@ void detectCpuAsync(
      });
  }
  
@@ -151,11 +151,11 @@ index 9e0a01a..e70470f 100644
 +bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                    boost::container::flat_set<CPUConfig>& cpuConfigs,
 -                  ManagedObjectType& sensorConfigs,
-+                  ManagedObjectType& sensorConfigs, boost::asio::io_service& io,
++                  ManagedObjectType& sensorConfigs, boost::asio::io_context& io,
                    sdbusplus::asio::object_server& objectServer)
  {
      bool useCache = false;
-@@ -705,6 +704,45 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
+@@ -699,6 +698,45 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                      iface->register_property("Present", *present);
                      iface->initialize();
                      inventoryIfaces[name] = std::move(iface);
@@ -201,7 +201,7 @@ index 9e0a01a..e70470f 100644
                  }
  
                  auto findBus = cfg.find("Bus");
-@@ -733,7 +771,6 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
+@@ -727,7 +765,6 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                      std::cout << "name: " << name << "\n";
                      std::cout << "type: " << type << "\n";
                  }
@@ -209,7 +209,7 @@ index 9e0a01a..e70470f 100644
                  cpuConfigs.emplace(bus, addr, name, State::OFF);
              }
          }
-@@ -768,7 +805,8 @@ int main()
+@@ -763,7 +800,8 @@ int main()
              return; // we're being canceled
          }
  
@@ -219,7 +219,7 @@ index 9e0a01a..e70470f 100644
          {
              detectCpuAsync(pingTimer, creationTimer, io, objectServer,
                             systemBus, cpuConfigs, sensorConfigs);
-@@ -796,7 +834,7 @@ int main()
+@@ -791,7 +829,7 @@ int main()
                  return; // we're being canceled
              }
  

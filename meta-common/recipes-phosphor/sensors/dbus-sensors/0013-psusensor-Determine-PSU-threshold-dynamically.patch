@@ -1,4 +1,4 @@
-From 717b002ab52748713aa40764daae578d6d632fe0 Mon Sep 17 00:00:00 2001
+From cade8c1df93ed7848ce27f42fb338abb4b6469a9 Mon Sep 17 00:00:00 2001
 From: Vikash Chandola <vikash.chandola@intel.com>
 Date: Wed, 27 Jul 2022 10:07:25 +0000
 Subject: [PATCH] psusensor: Determine PSU threshold dynamically
@@ -29,43 +29,29 @@ contain "ThresholdLabel" and "ScaleFactor" then "Value" was used.
 
 Signed-off-by: Vikash Chandola <vikash.chandola@intel.com>
 ---
- include/Thresholds.hpp |  3 +-
- src/PSUSensorMain.cpp  |  2 +-
- src/Thresholds.cpp     | 65 ++++++++++++++++++++++++++++++++++++++----
- 3 files changed, 62 insertions(+), 8 deletions(-)
+ src/PSUSensorMain.cpp |  2 +-
+ src/Thresholds.cpp    | 65 ++++++++++++++++++++++++++++++++++++++-----
+ src/Thresholds.hpp    |  3 +-
+ 3 files changed, 61 insertions(+), 9 deletions(-)
 
-diff --git a/include/Thresholds.hpp b/include/Thresholds.hpp
-index d32aaf0..517160d 100644
---- a/include/Thresholds.hpp
-+++ b/include/Thresholds.hpp
-@@ -116,7 +116,8 @@ struct ThresholdTimer
- bool parseThresholdsFromConfig(
-     const SensorData& sensorData,
-     std::vector<thresholds::Threshold>& thresholdVector,
--    const std::string* matchLabel = nullptr, const int* sensorIndex = nullptr);
-+    const std::string* matchLabel = nullptr, const int* sensorIndex = nullptr,
-+    const std::string* sensorPathStr = nullptr);
- 
- bool parseThresholdsFromAttr(
-     std::vector<thresholds::Threshold>& thresholdVector,
 diff --git a/src/PSUSensorMain.cpp b/src/PSUSensorMain.cpp
-index e485598..f6e8d99 100644
+index e6351ca..4ba7612 100644
 --- a/src/PSUSensorMain.cpp
 +++ b/src/PSUSensorMain.cpp
-@@ -859,7 +859,7 @@ static void createSensorsCallback(
+@@ -843,7 +843,7 @@ static void createSensorsCallback(
  
              std::vector<thresholds::Threshold> sensorThresholds;
              if (!parseThresholdsFromConfig(*sensorData, sensorThresholds,
 -                                           &labelHead))
-+                                           &labelHead ,nullptr, &sensorPathStr))
++                                           &labelHead, nullptr, &sensorPathStr))
              {
                  std::cerr << "error populating thresholds for "
                            << sensorNameSubStr << "\n";
 diff --git a/src/Thresholds.cpp b/src/Thresholds.cpp
-index ad1ee35..9c8db50 100644
+index dad28b4..0994081 100644
 --- a/src/Thresholds.cpp
 +++ b/src/Thresholds.cpp
-@@ -43,11 +43,48 @@ Direction findThresholdDirection(const std::string& direct)
+@@ -45,11 +45,48 @@ Direction findThresholdDirection(const std::string& direct)
      }
      return Direction::ERROR;
  }
@@ -115,7 +101,7 @@ index ad1ee35..9c8db50 100644
  {
      for (const auto& [intf, cfg] : sensorData)
      {
-@@ -95,10 +132,9 @@ bool parseThresholdsFromConfig(
+@@ -97,11 +134,9 @@ bool parseThresholdsFromConfig(
                  std::visit(VariantToDoubleVisitor(), hysteresisFind->second);
          }
  
@@ -123,12 +109,13 @@ index ad1ee35..9c8db50 100644
          auto severityFind = cfg.find("Severity");
 -        auto valueFind = cfg.find("Value");
 -        if (valueFind == cfg.end() || severityFind == cfg.end() ||
+-            directionFind == cfg.end())
 +        auto directionFind = cfg.find("Direction");
-+        if (severityFind == cfg.end() ||
-             directionFind == cfg.end())
++        if (severityFind == cfg.end() || directionFind == cfg.end())
          {
              std::cerr << "Malformed threshold on configuration interface "
-@@ -118,8 +154,25 @@ bool parseThresholdsFromConfig(
+                       << intf << "\n";
+@@ -120,8 +155,24 @@ bool parseThresholdsFromConfig(
          {
              continue;
          }
@@ -136,8 +123,7 @@ index ad1ee35..9c8db50 100644
 -
 +        double val = 0;
 +        auto valueFind = cfg.find("Value");
-+        auto labelValueOption =
-+            parseThresholdFromLabel(sensorPathStr, cfg);
++        auto labelValueOption = parseThresholdFromLabel(sensorPathStr, cfg);
 +        if (labelValueOption.has_value())
 +        {
 +            val = labelValueOption.value();
@@ -156,6 +142,20 @@ index ad1ee35..9c8db50 100644
          thresholdVector.emplace_back(level, direction, val, hysteresis);
      }
      return true;
+diff --git a/src/Thresholds.hpp b/src/Thresholds.hpp
+index 7b45276..86f1bf7 100644
+--- a/src/Thresholds.hpp
++++ b/src/Thresholds.hpp
+@@ -118,7 +118,8 @@ struct ThresholdTimer
+ bool parseThresholdsFromConfig(
+     const SensorData& sensorData,
+     std::vector<thresholds::Threshold>& thresholdVector,
+-    const std::string* matchLabel = nullptr, const int* sensorIndex = nullptr);
++    const std::string* matchLabel = nullptr, const int* sensorIndex = nullptr,
++    const std::string* sensorPathStr = nullptr);
+ 
+ bool parseThresholdsFromAttr(
+     std::vector<thresholds::Threshold>& thresholdVector,
 -- 
 2.25.1
 

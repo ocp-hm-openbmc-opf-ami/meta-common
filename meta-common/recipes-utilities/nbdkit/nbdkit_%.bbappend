@@ -2,7 +2,6 @@ FILESEXTRAPATHS:append := "${THISDIR}/${PN}:"
 
 SRC_URI += " \
     file://0001-Force-nbdkit-to-send-PATCH-as-upload-method.patch \
-    file://0002-curl-Fix-verification-of-CURLOPT_TLS13_CIPHERS.patch \
     "
 
 do_install:append() {

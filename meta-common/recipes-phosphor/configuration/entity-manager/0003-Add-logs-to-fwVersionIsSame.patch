@@ -1,4 +1,4 @@
-From cb393aa15fb3b230ad5f9548a555b257545aa91b Mon Sep 17 00:00:00 2001
+From 314b07fb245248136f9e37fe76559a8d68db8c92 Mon Sep 17 00:00:00 2001
 From: Helen Huang <he.huang@intel.com>
 Date: Mon, 19 Apr 2021 16:06:15 +0800
 Subject: [PATCH] Add logs to fwVersionIsSame()
@@ -21,13 +21,13 @@ hash value of versionFile of last boot is:834871226
 Change-Id: I5306917329d2e2e015af58cad1e9c59881f0b217
 Signed-off-by: Helen Huang <he.huang@intel.com>
 ---
- include/utils.hpp | 9 +++++++++
+ src/utils.hpp | 9 +++++++++
  1 file changed, 9 insertions(+)
 
-diff --git a/include/utils.hpp b/include/utils.hpp
-index bc8ac1b..5bd0b85 100644
---- a/include/utils.hpp
-+++ b/include/utils.hpp
+diff --git a/src/utils.hpp b/src/utils.hpp
+index 99e2f85..2ae1381 100644
+--- a/src/utils.hpp
++++ b/src/utils.hpp
 @@ -121,13 +121,22 @@ inline bool fwVersionIsSame(void)
  
          if (expectedHash == hashString)

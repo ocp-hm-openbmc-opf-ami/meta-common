@@ -1,7 +1,7 @@
 SUMMARY = "Power supply manager for Intel based platform"
 DESCRIPTION = "Power supply manager which include PSU Cold Redundancy service"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.psu-manager.git;protocol=ssh;branch=main"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.psu-manager.git;protocol=ssh;branch=main"
 SRCREV = "faee016c8a51aa918df39a32447737de15b96543"
 
 S = "${WORKDIR}/git"

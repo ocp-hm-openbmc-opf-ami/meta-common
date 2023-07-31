@@ -2,7 +2,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/entity-manager.git;branch=master;protocol=https"
-SRCREV = "10612f3fe552ea8141ed1960a6c2df088cff0b92"
+SRCREV = "aca73883ca6bcee3dde8cbc8cf7d4e51f2959b73"
 
 RDEPENDS:${PN} += " default-fru"
 
@@ -16,6 +16,5 @@ SRC_URI += " \
              file://0005-Allow-MUX-idle-state-to-be-configured-as-DISCONNECT.patch \
              file://0006-Change-HSBP-FRU-address-and-add-MUX-mode-configurati.patch \
              file://0007-dynamic-threshold-configuration-for-SOLUM-PSU.patch \
-             file://0008-Revert-Fru-device-Extended-support-for-16bit-logic.patch \
            "
 

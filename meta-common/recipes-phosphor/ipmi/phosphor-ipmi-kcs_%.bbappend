@@ -13,7 +13,7 @@ SYSTEMD_SERVICE:${PN}:append = " ${PN}@${SMM_DEVICE}.service "
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/kcsbridge.git;branch=master;protocol=https"
-SRCREV = "314604455606f9baee1e4f5d7fe645d1ebf3c295"
+SRCREV = "e8d514f1fddf52d5546f7f64fccbe9d411bd6f2d"
 
 SRC_URI += "file://99-ipmi-kcs.rules"
 

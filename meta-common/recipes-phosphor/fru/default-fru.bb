@@ -19,5 +19,5 @@ RDEPENDS:${PN} = "bash"
 do_install:append() {
     install -d ${D}${bindir}
     install -m 0755 ${S}/checkFru.sh ${D}${bindir}/checkFru.sh
-    install -m 0755 ${S}/decodeBoardID.sh ${D}${bindir}/decodeBoardID.sh
+    install -m 0644 ${S}/decodeBoardID.sh ${D}${bindir}/decodeBoardID.sh
 }

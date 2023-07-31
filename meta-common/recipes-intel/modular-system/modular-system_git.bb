@@ -1,7 +1,7 @@
 SUMMARY = "Modular System"
 DESCRIPTION = "Modular System which can combine two or four 2-Socket systems to one 4S or 8S system"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.modular-system.git;protocol=ssh;branch=main"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.modular-system.git;protocol=ssh;branch=main"
 SRCREV = "370fcb3a74c3bd44d55d24b414fe86cbb948ce97"
 
 S = "${WORKDIR}/git"

@@ -6,20 +6,12 @@ EXTRA_OECMAKE += "-DUSING_ENTITY_MANAGER_DECORATORS=OFF"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/intel-ipmi-oem.git;branch=master;protocol=https"
-SRCREV = "7f819e8bff935f539086ceda2dcb6faa2cb57195"
-
-# THIS IS TEMPORARY - remove this when upstream sync is fixed!
-DEPENDS = "boost phosphor-ipmi-host phosphor-logging systemd phosphor-dbus-interfaces libgpiod"
+SRCREV = "b37abfb27f14c05f8cb366c5e382fe66595dd5bf"
 
 inherit pkgconfig
 FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 
 SRC_URI += " \
         file://0007-Adding-the-ACPI-agent-support-to-Mdrv2-OEM-commands.patch \
-        "
-
-# Apply patches for restricted features
-# Seamless Features:
-SRC_URI += " \
-        file://seamless/0006-Process-MPWR-events-sent-by-BIOS-via-AddSelEntry.patch \
+        file://0008-Skip-finding-tinyxml.patch \
         "

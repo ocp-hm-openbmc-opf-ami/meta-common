@@ -1,4 +1,4 @@
-From 648b764dcadfa1ccf2077acf5cdb72671485c503 Mon Sep 17 00:00:00 2001
+From c31b8e8b3416157303753f8fa5895f289ea18380 Mon Sep 17 00:00:00 2001
 From: Arun Thomas Baby <arunx.thomas.baby.baby.mathew@intel.com>
 Date: Tue, 4 Oct 2022 22:58:14 -0700
 Subject: [PATCH] Adding acpi LogService.
@@ -14,10 +14,10 @@ Signed-off-by: Arun Thomas Baby <arunx.thomas.baby.baby.mathew@intel.com>
  2 files changed, 168 insertions(+)
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index 236b7a90..0f1bcc30 100644
+index 22483b65..afa0b534 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
-@@ -159,6 +159,11 @@ class RedfishService
+@@ -171,6 +171,11 @@ class RedfishService
          requestRoutesCrashdumpCollect(app);
  #endif // BMCWEB_ENABLE_REDFISH_CPU_LOG
  
@@ -30,20 +30,20 @@ index 236b7a90..0f1bcc30 100644
          requestRoutesProcessor(app);
          requestRoutesOperatingConfigCollection(app);
 diff --git a/redfish-core/lib/log_services.hpp b/redfish-core/lib/log_services.hpp
-index 33440fb1..0028b4e0 100644
+index 3bc4322c..72f5c1be 100644
 --- a/redfish-core/lib/log_services.hpp
 +++ b/redfish-core/lib/log_services.hpp
-@@ -63,6 +63,8 @@ constexpr char const* crashdumpOnDemandInterface =
+@@ -66,6 +66,8 @@ constexpr const char* crashdumpOnDemandInterface =
      "com.intel.crashdump.OnDemand";
- constexpr char const* crashdumpTelemetryInterface =
+ constexpr const char* crashdumpTelemetryInterface =
      "com.intel.crashdump.Telemetry";
 +static char const* acpiFilePath = "/var/lib/acpi/acpi2";
 +static char const* acpiFileName = "acpi2";
  
  enum class DumpCreationProgress
  {
-@@ -1074,6 +1076,10 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
-         logServiceArray.push_back(std::move(crashdump));
+@@ -1117,6 +1119,10 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
+         logServiceArray.emplace_back(std::move(crashdump));
  #endif
  
 +        nlohmann::json::object_t acpilogger;
@@ -53,7 +53,7 @@ index 33440fb1..0028b4e0 100644
  #ifdef BMCWEB_ENABLE_REDFISH_HOST_LOGGER
          nlohmann::json::object_t hostlogger;
          hostlogger["@odata.id"] =
-@@ -4015,4 +4021,161 @@ inline void requestRoutesPostCodesEntry(App& app)
+@@ -4098,4 +4104,161 @@ inline void requestRoutesPostCodesEntry(App& app)
          });
  }
  
@@ -80,7 +80,7 @@ index 33440fb1..0028b4e0 100644
 +    logEntry["@odata.id"] =
 +        "/redfish/v1/Systems/system/LogServices/acpi/Entries/0";
 +    logEntry["Name"] = "Acpi Log";
-+    logEntry["Id"] = 0;
++    logEntry["Id"] = "0";
 +    logEntry["EntryType"] = "Oem";
 +    logEntry["AdditionalDataURI"] = std::move(AcpiLogURI);
 +    logEntry["DiagnosticDataType"] = "OEM";
@@ -121,7 +121,7 @@ index 33440fb1..0028b4e0 100644
 +            "#LogService.v1_2_0.LogService";
 +        asyncResp->res.jsonValue["Name"] = "Open BMC Oem Acpi LogService";
 +        asyncResp->res.jsonValue["Description"] = "Oem Acpi LogService";
-+        asyncResp->res.jsonValue["Id"] = "Oem Acpi Log";
++        asyncResp->res.jsonValue["Id"] = "acpi";
 +        asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
 +        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1;
 +
@@ -196,12 +196,12 @@ index 33440fb1..0028b4e0 100644
 +                   const std::string& fileName) {
 +        if (fileName != acpiFileName)
 +        {
-+            messages::resourceMissingAtURI(asyncResp->res, req.urlView);
++            messages::resourceMissingAtURI(asyncResp->res, req.url());
 +            return;
 +        }
 +        if (!std::filesystem::exists(acpiFilePath))
 +        {
-+            messages::resourceMissingAtURI(asyncResp->res, req.urlView);
++            messages::resourceMissingAtURI(asyncResp->res, req.url());
 +            return;
 +        }
 +        std::ifstream ifs(acpiFilePath, std::ios::in | std::ios::binary);

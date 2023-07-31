@@ -1,4 +1,4 @@
-From 1dfb0714f98576590137fea4140adfcaca086111 Mon Sep 17 00:00:00 2001
+From 331745784ee169ff0e8547cd155538d609590a53 Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Tue, 22 Jun 2021 11:35:12 -0700
 Subject: [PATCH] Fix missing de-assert event when threshold changes
@@ -40,49 +40,16 @@ Tested:
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 ---
- include/Thresholds.hpp |  2 +-
- include/sensor.hpp     |  2 ++
- src/Thresholds.cpp     | 20 ++++++++++++++++----
- 3 files changed, 19 insertions(+), 5 deletions(-)
+ src/Thresholds.cpp | 21 +++++++++++++++++----
+ src/Thresholds.hpp |  2 +-
+ src/sensor.hpp     |  2 ++
+ 3 files changed, 20 insertions(+), 5 deletions(-)
 
-diff --git a/include/Thresholds.hpp b/include/Thresholds.hpp
-index 94480bb..f384c81 100644
---- a/include/Thresholds.hpp
-+++ b/include/Thresholds.hpp
-@@ -52,7 +52,7 @@ struct Threshold
- 
- void assertThresholds(Sensor* sensor, double assertValue,
-                       thresholds::Level level, thresholds::Direction direction,
--                      bool assert);
-+                      bool assert, bool force = false);
- 
- struct TimerUsed
- {
-diff --git a/include/sensor.hpp b/include/sensor.hpp
-index 2c7a020..b3974c0 100644
---- a/include/sensor.hpp
-+++ b/include/sensor.hpp
-@@ -79,6 +79,7 @@ struct Sensor
-     std::shared_ptr<sdbusplus::asio::dbus_interface> valueMutabilityInterface;
-     double value = std::numeric_limits<double>::quiet_NaN();
-     double rawValue = std::numeric_limits<double>::quiet_NaN();
-+    bool hadValidValue = false;
-     bool overriddenState = false;
-     bool internalSet = false;
-     double hysteresisTrigger;
-@@ -500,6 +501,7 @@ struct Sensor
-         {
-             markFunctional(true);
-             markAvailable(true);
-+            hadValidValue = true;
-         }
-     }
- 
 diff --git a/src/Thresholds.cpp b/src/Thresholds.cpp
-index 5fa82aa..8958ebc 100644
+index b751c67..b9762ff 100644
 --- a/src/Thresholds.cpp
 +++ b/src/Thresholds.cpp
-@@ -381,10 +381,19 @@ bool checkThresholds(Sensor* sensor)
+@@ -380,10 +380,19 @@ bool checkThresholds(Sensor* sensor)
  {
      bool status = true;
      std::vector<ChangeParam> changes = checkThresholds(sensor, sensor->value);
@@ -103,7 +70,7 @@ index 5fa82aa..8958ebc 100644
          if (change.threshold.level == thresholds::Level::CRITICAL &&
              change.asserted)
          {
-@@ -406,6 +415,7 @@ void checkThresholdsPowerDelay(const std::weak_ptr<Sensor>& weakSensor,
+@@ -405,6 +414,7 @@ void checkThresholdsPowerDelay(const std::weak_ptr<Sensor>& weakSensor,
  
      Sensor* sensor = sensorPtr.get();
      std::vector<ChangeParam> changes = checkThresholds(sensor, sensor->value);
@@ -111,12 +78,13 @@ index 5fa82aa..8958ebc 100644
      for (const auto& change : changes)
      {
          // When CPU is powered off, some volatges are expected to
-@@ -430,13 +440,13 @@ void checkThresholdsPowerDelay(const std::weak_ptr<Sensor>& weakSensor,
+@@ -429,13 +439,14 @@ void checkThresholdsPowerDelay(const std::weak_ptr<Sensor>& weakSensor,
              }
          }
          assertThresholds(sensor, change.assertValue, change.threshold.level,
 -                         change.threshold.direction, change.asserted);
-+                         change.threshold.direction, change.asserted, forceAssert);
++                         change.threshold.direction, change.asserted,
++                         forceAssert);
      }
  }
  
@@ -127,7 +95,7 @@ index 5fa82aa..8958ebc 100644
  {
      std::shared_ptr<sdbusplus::asio::dbus_interface> interface =
          sensor->getThresholdInterface(level);
-@@ -453,7 +463,9 @@ void assertThresholds(Sensor* sensor, double assertValue,
+@@ -452,7 +463,9 @@ void assertThresholds(Sensor* sensor, double assertValue,
          std::cout << "Alarm property is empty \n";
          return;
      }
@@ -138,6 +106,39 @@ index 5fa82aa..8958ebc 100644
      {
          try
          {
+diff --git a/src/Thresholds.hpp b/src/Thresholds.hpp
+index a89c1dc..7b45276 100644
+--- a/src/Thresholds.hpp
++++ b/src/Thresholds.hpp
+@@ -54,7 +54,7 @@ struct Threshold
+ 
+ void assertThresholds(Sensor* sensor, double assertValue,
+                       thresholds::Level level, thresholds::Direction direction,
+-                      bool assert);
++                      bool assert, bool force = false);
+ 
+ struct TimerUsed
+ {
+diff --git a/src/sensor.hpp b/src/sensor.hpp
+index d2ba8af..4097b38 100644
+--- a/src/sensor.hpp
++++ b/src/sensor.hpp
+@@ -99,6 +99,7 @@ struct Sensor
+     std::shared_ptr<sdbusplus::asio::dbus_interface> valueMutabilityInterface;
+     double value = std::numeric_limits<double>::quiet_NaN();
+     double rawValue = std::numeric_limits<double>::quiet_NaN();
++    bool hadValidValue = false;
+     bool overriddenState = false;
+     bool internalSet = false;
+     double hysteresisTrigger;
+@@ -507,6 +508,7 @@ struct Sensor
+         {
+             markFunctional(true);
+             markAvailable(true);
++            hadValidValue = true;
+         }
+     }
+ 
 -- 
-2.17.1
+2.25.1
 

@@ -4,7 +4,7 @@ PROJECT_SRC_DIR := "${THISDIR}/${PN}"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/dbus-sensors.git;branch=master;protocol=https"
-SRCREV = "1e3842541db673c850625bfae4227fb88767a2a9"
+SRCREV = "88a32137fb8173970e2bda25c41561b837f89f7d"
 
 SRC_URI += "\
     file://intrusionsensor-depend-on-networkd.conf \
@@ -21,6 +21,7 @@ SRC_URI += "\
     file://0010-Add-support-for-Get-PMBUS-Readings-method.patch \
     file://0012-Ignore-VR-sensor-readings-if-content-is-0xFF.patch \
     file://0013-psusensor-Determine-PSU-threshold-dynamically.patch \
+    file://0014-intelcpusensor-use-yield-context-in-sensor-polling.patch \
     "
 
 DEPENDS:append = " libgpiod libmctp"
@@ -37,14 +38,8 @@ PACKAGECONFIG += " \
     psusensor \
 "
 
-PACKAGECONFIG[nvmesensor] = "-Dnvme=enabled, -Dnvme=disabled"
-
 # Enable Validation unsecure based on IMAGE_FEATURES
 EXTRA_OEMESON += "${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'validation-unsecure', '-Dvalidate-unsecure-feature=enabled', '', d)}"
-
-SYSTEMD_SERVICE:${PN} += "${@bb.utils.contains('PACKAGECONFIG', 'nvmesensor', \
-                                               'xyz.openbmc_project.nvmesensor.service', \
-                                               '', d)}"
 
 do_install:append() {
     svc="xyz.openbmc_project.intrusionsensor.service"

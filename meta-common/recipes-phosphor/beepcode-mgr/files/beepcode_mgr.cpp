@@ -21,6 +21,7 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <chrono>
 #include <iostream>
+#include <list>
 #include <phosphor-logging/log.hpp>
 #include <sdbusplus/asio/object_server.hpp>
 

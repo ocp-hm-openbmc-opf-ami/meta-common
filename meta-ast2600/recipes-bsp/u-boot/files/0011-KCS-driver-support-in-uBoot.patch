@@ -1,4 +1,4 @@
-From b26b11483b006f603e0134551bfb1238e0980972 Mon Sep 17 00:00:00 2001
+From c4fa8ba651866d4c23fefb77e4c3bed31296de0f Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@linux.intel.com>
 Date: Mon, 20 Apr 2020 11:08:22 -0700
 Subject: [PATCH] KCS driver support in uBoot
@@ -38,17 +38,15 @@ Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
  create mode 100644 board/aspeed/ast2600_intel/ast-kcs.h
 
 diff --git a/board/aspeed/ast2600_intel/Makefile b/board/aspeed/ast2600_intel/Makefile
-index 37d2f0064f38..d049922719f3 100644
+index 1f9fcc73c7..bd20204479 100644
 --- a/board/aspeed/ast2600_intel/Makefile
 +++ b/board/aspeed/ast2600_intel/Makefile
-@@ -2,3 +2,4 @@ obj-y += intel.o
- obj-y += ast-espi.o
- obj-y += ast-irq.o
- obj-y += ast-timer.o
+@@ -1 +1,2 @@
+ obj-y += intel.o
 +obj-y += ast-kcs.o
 diff --git a/board/aspeed/ast2600_intel/ast-kcs.c b/board/aspeed/ast2600_intel/ast-kcs.c
 new file mode 100644
-index 000000000000..a03b7e725370
+index 0000000000..a03b7e7253
 --- /dev/null
 +++ b/board/aspeed/ast2600_intel/ast-kcs.c
 @@ -0,0 +1,418 @@
@@ -472,7 +470,7 @@ index 000000000000..a03b7e725370
 +}
 diff --git a/board/aspeed/ast2600_intel/ast-kcs.h b/board/aspeed/ast2600_intel/ast-kcs.h
 new file mode 100644
-index 000000000000..e9b949eccf69
+index 0000000000..e9b949eccf
 --- /dev/null
 +++ b/board/aspeed/ast2600_intel/ast-kcs.h
 @@ -0,0 +1,112 @@
@@ -589,10 +587,10 @@ index 000000000000..e9b949eccf69
 +	u8 data_out[MAX_KCS_PKT_SIZE];
 +};
 diff --git a/board/aspeed/ast2600_intel/intel.c b/board/aspeed/ast2600_intel/intel.c
-index 7c005fb323e6..b3d2fb313561 100644
+index 3312ae180c..82484a19fd 100644
 --- a/board/aspeed/ast2600_intel/intel.c
 +++ b/board/aspeed/ast2600_intel/intel.c
-@@ -281,6 +281,7 @@ int board_early_init_r(void)
+@@ -282,6 +282,7 @@ int board_early_init_r(void)
  }
  
  extern void espi_init(void);
@@ -600,7 +598,7 @@ index 7c005fb323e6..b3d2fb313561 100644
  extern void timer_enable(int n, u32 interval_us, interrupt_handler_t *handler,
  			 void *cookie);
  int board_late_init(void)
-@@ -290,6 +291,9 @@ int board_late_init(void)
+@@ -291,6 +292,9 @@ int board_late_init(void)
  	timer_enable(0, ONE_SEC_IN_USEC, timer_callback, (void *)0);
  	espi_init();
  
@@ -611,5 +609,5 @@ index 7c005fb323e6..b3d2fb313561 100644
  }
  
 -- 
-2.17.1
+2.25.1
 

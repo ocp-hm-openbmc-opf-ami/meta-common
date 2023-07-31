@@ -8,9 +8,9 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/Apache-2.0;md5
 
 DEPENDS = "pkgconfig-native openssl-native libxml2-native "
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.intel-pfr-signing-utility.git;protocol=ssh;branch=main"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.intel-pfr-signing-utility.git;protocol=ssh;branch=main"
 
-SRCREV = "7ad7cb3f3d7f408fd9ac454c242e77c8fbc6d61b"
+SRCREV = "7479c00543881f2b49ea0f6d76c6a453f857d3ad"
 
 S = "${WORKDIR}/git"
 

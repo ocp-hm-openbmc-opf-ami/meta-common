@@ -1,4 +1,4 @@
-From 337baa056a1f1f5a83e485529766151733299834 Mon Sep 17 00:00:00 2001
+From 2cbfe32a5311b9fc13a679a42f6726d35538c160 Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Fri, 11 Feb 2022 17:50:14 -0800
 Subject: [PATCH] eSPI: add common defines used by optional features.
@@ -9,13 +9,13 @@ different build options.
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 ---
- board/aspeed/ast2600_intel/ast-espi.c | 25 ++++++++++++++++++++++---
+ arch/arm/mach-aspeed/ast2600/ast-espi.c | 25 ++++++++++++++++++++++---
  1 file changed, 22 insertions(+), 3 deletions(-)
 
-diff --git a/board/aspeed/ast2600_intel/ast-espi.c b/board/aspeed/ast2600_intel/ast-espi.c
+diff --git a/arch/arm/mach-aspeed/ast2600/ast-espi.c b/arch/arm/mach-aspeed/ast2600/ast-espi.c
 index 71604c4a7f..04afdf4f6b 100644
---- a/board/aspeed/ast2600_intel/ast-espi.c
-+++ b/board/aspeed/ast2600_intel/ast-espi.c
+--- a/arch/arm/mach-aspeed/ast2600/ast-espi.c
++++ b/arch/arm/mach-aspeed/ast2600/ast-espi.c
 @@ -9,6 +9,9 @@
  #define AST_SCU_BASE			0x1e6e2000
  #define AST_SCU_HW_STRAP2		0x510
@@ -70,5 +70,5 @@ index 71604c4a7f..04afdf4f6b 100644
  {
  	/* IRQ only serviced if strapped, so no strap check */
 -- 
-2.17.1
+2.25.1
 

@@ -1,17 +1,16 @@
-From 11cec1ee966eb2bb523f0486c2d094dae80b880c Mon Sep 17 00:00:00 2001
+From c34d9a1483d90c3dc7041c01e8264130083d45fd Mon Sep 17 00:00:00 2001
 From: Arun Lal K M <arun.lal@intel.com>
-Date: Mon, 30 May 2022 20:34:46 +0000
+Date: Wed, 3 May 2023 13:11:00 +0000
 Subject: [PATCH] Add fix for broken feature 'Pending Attributes'.
 
-Fix is added for the following:
-1) GET to 'redfish/v1/Systems/system/Bios'.
-2) PATCH to 'redfish/v1/Systems/system/Bios/Settings'.
-3) GET to 'redfish/v1/Systems/system/Bios/Settings'.
-4) Fix for incremental duplicate values in BiosAttributeRegistry.
-5) POST to '/redfish/v1/Systems/system/Bios/Actions
-            /Bios.ChangePassword/'.
-6) Add support for Enumeration.
-7) Support DMTF standard of displaying "Value" in BIOS attribute registries.
+Fix is added for the following: 1) GET to
+ 'redfish/v1/Systems/system/Bios'. 2) PATCH to
+ 'redfish/v1/Systems/system/Bios/Settings'. 3) GET to
+ 'redfish/v1/Systems/system/Bios/Settings'. 4) Fix for incremental duplicate
+ values in BiosAttributeRegistry. 5) POST to
+ '/redfish/v1/Systems/system/Bios/Actions             /Bios.ChangePassword/'.
+ 6) Add support for Enumeration. 7) Support DMTF standard of displaying
+ "Value" in BIOS attribute registries.
 
 Tested:
 By giving PATCH to 'redfish/v1/Systems/system/Bios/Settings'
@@ -135,14 +134,23 @@ Validation has succeeded.
 Signed-off-by: Arun Lal K M <arun.lal@intel.com>
 Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
 ---
- redfish-core/lib/bios.hpp | 403 +++++++++++++++++++++++++++-----------
- 1 file changed, 285 insertions(+), 118 deletions(-)
+ redfish-core/lib/bios.hpp | 419 +++++++++++++++++++++++++++-----------
+ 1 file changed, 295 insertions(+), 124 deletions(-)
 
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index 4c5b8a37a..fedbcef3c 100644
+index de66896d..dd6c19a1 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
-@@ -13,13 +13,15 @@ map{attributeName,struct{attributeType,readonlyStatus,displayname,
+@@ -5,6 +5,8 @@
+ #include "registries/privilege_registry.hpp"
+ #include "utils/sw_utils.hpp"
+ 
++#include <boost/url/format.hpp>
++
+ namespace redfish
+ {
+ 
+@@ -13,22 +15,32 @@ map{attributeName,struct{attributeType,readonlyStatus,displayname,
                description,menuPath,current,default,
                array{struct{optionstring,optionvalue}}}}
  */
@@ -153,30 +161,41 @@ index 4c5b8a37a..fedbcef3c 100644
      std::tuple<
          std::string, bool, std::string, std::string, std::string,
          std::variant<int64_t, std::string>, std::variant<int64_t, std::string>,
-         std::vector<
+-        std::vector<
 -            std::tuple<std::string, std::variant<int64_t, std::string>>>>>>;
-+            std::tuple<std::string, std::variant<int64_t, std::string>>>>>;
++        std::vector<std::tuple<std::string, std::variant<int64_t, std::string>,
++                               std::string>>>>;
 +
  using BiosBaseTableItemType = std::pair<
      std::string,
      std::tuple<
-@@ -30,6 +32,13 @@ using BiosBaseTableItemType = std::pair<
+         std::string, bool, std::string, std::string, std::string,
+         std::variant<int64_t, std::string>, std::variant<int64_t, std::string>,
+-        std::vector<
+-            std::tuple<std::string, std::variant<int64_t, std::string>>>>>;
++        std::vector<std::tuple<std::string, std::variant<int64_t, std::string>,
++                               std::string>>>>;
++
  using OptionsItemType =
-     std::tuple<std::string, std::variant<int64_t, std::string>>;
- 
+-    std::tuple<std::string, std::variant<int64_t, std::string>>;
++    std::tuple<std::string, std::variant<int64_t, std::string>, std::string>;
++
 +using PendingAttributesType = boost::container::flat_map<
 +    std::string, std::tuple<std::string, std::variant<int64_t, std::string>>>;
 +
 +using PendingAttributesItemType =
 +    std::pair<std::string,
 +              std::tuple<std::string, std::variant<int64_t, std::string>>>;
-+
+ 
  enum BiosBaseTableIndex
  {
-     biosBaseAttrType = 0,
-@@ -46,17 +55,7 @@ enum OptionsItemIndex
+@@ -44,19 +56,10 @@ enum BiosBaseTableIndex
+ enum OptionsItemIndex
+ {
      optItemType = 0,
-     optItemValue
+-    optItemValue
++    optItemValue,
++    optItemText
  };
 -/*
 - The Pending attribute name and new value.
@@ -193,7 +212,7 @@ index 4c5b8a37a..fedbcef3c 100644
  enum PendingAttributesIndex
  {
      pendingAttrType = 0,
-@@ -65,30 +64,20 @@ enum PendingAttributesIndex
+@@ -65,30 +68,20 @@ enum PendingAttributesIndex
  static std::string mapAttrTypeToRedfish(const std::string_view typeDbus)
  {
      std::string ret;
@@ -228,7 +247,7 @@ index 4c5b8a37a..fedbcef3c 100644
      }
      else
      {
-@@ -97,29 +86,7 @@ static std::string mapAttrTypeToRedfish(const std::string_view typeDbus)
+@@ -97,29 +90,7 @@ static std::string mapAttrTypeToRedfish(const std::string_view typeDbus)
  
      return ret;
  }
@@ -258,7 +277,7 @@ index 4c5b8a37a..fedbcef3c 100644
  static std::string mapBoundTypeToRedfish(const std::string_view typeDbus)
  {
      std::string ret;
-@@ -205,6 +172,15 @@ inline void
+@@ -212,6 +183,15 @@ inline void
  
              return;
          }
@@ -274,7 +293,7 @@ index 4c5b8a37a..fedbcef3c 100644
          const std::string& service = getObjectType.begin()->first;
  
          crow::connections::systemBus->async_method_call(
-@@ -222,7 +198,7 @@ inline void
+@@ -229,7 +209,7 @@ inline void
                  asyncResp->res.jsonValue["Attributes"];
              if (baseBiosTable == nullptr)
              {
@@ -283,7 +302,7 @@ index 4c5b8a37a..fedbcef3c 100644
                  messages::internalError(asyncResp->res);
                  return;
              }
-@@ -232,7 +208,7 @@ inline void
+@@ -239,7 +219,7 @@ inline void
                  const std::string& itemType =
                      std::get<biosBaseAttrType>(item.second);
                  std::string attrType = mapAttrTypeToRedfish(itemType);
@@ -292,7 +311,7 @@ index 4c5b8a37a..fedbcef3c 100644
                  {
                      const std::string* currValue = std::get_if<std::string>(
                          &std::get<biosBaseCurrValue>(item.second));
-@@ -249,7 +225,6 @@ inline void
+@@ -256,7 +236,6 @@ inline void
                  else
                  {
                      BMCWEB_LOG_ERROR << "Unsupported attribute type.";
@@ -300,7 +319,7 @@ index 4c5b8a37a..fedbcef3c 100644
                  }
              }
              },
-@@ -278,8 +253,9 @@ inline void requestRoutesBiosService(App& app)
+@@ -285,8 +264,9 @@ inline void requestRoutesBiosService(App& app)
   */
  inline void requestRoutesBiosChangePassword(App& app)
  {
@@ -312,7 +331,7 @@ index 4c5b8a37a..fedbcef3c 100644
          .methods(boost::beast::http::verb::post)(
              [](const crow::Request& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-@@ -346,8 +322,7 @@ inline void requestRoutesBiosSettings(App& app)
+@@ -353,8 +333,7 @@ inline void requestRoutesBiosSettings(App& app)
              [](const crow::Request&,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
          asyncResp->res.jsonValue["@odata.id"] =
@@ -322,7 +341,7 @@ index 4c5b8a37a..fedbcef3c 100644
          asyncResp->res.jsonValue["@odata.type"] = "#Bios.v1_1_0.Bios";
          asyncResp->res.jsonValue["Name"] = "Bios Settings Version 1";
          asyncResp->res.jsonValue["Id"] = "BiosSettingsV1";
-@@ -365,6 +340,15 @@ inline void requestRoutesBiosSettings(App& app)
+@@ -372,6 +351,15 @@ inline void requestRoutesBiosSettings(App& app)
  
                  return;
              }
@@ -338,7 +357,7 @@ index 4c5b8a37a..fedbcef3c 100644
              std::string service = getObjectType.begin()->first;
  
              crow::connections::systemBus->async_method_call(
-@@ -378,40 +362,65 @@ inline void requestRoutesBiosSettings(App& app)
+@@ -385,40 +373,65 @@ inline void requestRoutesBiosSettings(App& app)
                          asyncResp->res, "Systems/system/Bios", "Settings");
                      return;
                  }
@@ -419,7 +438,7 @@ index 4c5b8a37a..fedbcef3c 100644
                      }
                  }
                  },
-@@ -427,7 +436,7 @@ inline void requestRoutesBiosSettings(App& app)
+@@ -434,7 +447,7 @@ inline void requestRoutesBiosSettings(App& app)
          });
  
      BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings")
@@ -428,7 +447,7 @@ index 4c5b8a37a..fedbcef3c 100644
          .methods(boost::beast::http::verb::patch)(
              [](const crow::Request& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-@@ -436,58 +445,142 @@ inline void requestRoutesBiosSettings(App& app)
+@@ -443,58 +456,142 @@ inline void requestRoutesBiosSettings(App& app)
          if (!redfish::json_util::readJsonPatch(req, asyncResp->res, "data",
                                                 inpJson))
          {
@@ -455,7 +474,7 @@ index 4c5b8a37a..fedbcef3c 100644
 -            if (!json_util::readJson(attrInfo, asyncResp->res, "AttributeValue",
 -                                     attrValue))
 +            messages::invalidObject(asyncResp->res,
-+                                    crow::utility::urlFromPieces("data"));
++                                    boost::urls::format("data"));
 +            BMCWEB_LOG_ERROR << "No input in req!";
 +            return;
 +        }
@@ -563,8 +582,8 @@ index 4c5b8a37a..fedbcef3c 100644
 +                if (pendingAttributes.empty())
 +                {
 +                    BMCWEB_LOG_ERROR << "pendingAttributes is empty.";
-+                    messages::invalidObject(
-+                        asyncResp->res, crow::utility::urlFromPieces("data"));
++                    messages::invalidObject(asyncResp->res,
++                                            boost::urls::format("data"));
 +                }
 +
 +                crow::connections::systemBus->async_method_call(
@@ -604,7 +623,7 @@ index 4c5b8a37a..fedbcef3c 100644
          });
  }
  /**
-@@ -527,6 +620,15 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
+@@ -534,6 +631,15 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
  
                  return;
              }
@@ -620,7 +639,7 @@ index 4c5b8a37a..fedbcef3c 100644
              std::string service = getObjectType.begin()->first;
  
              crow::connections::systemBus->async_method_call(
-@@ -545,7 +647,6 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
+@@ -552,7 +658,6 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
                      std::get_if<BiosBaseTableType>(&retBiosTable);
                  nlohmann::json& attributeArray =
                      asyncResp->res.jsonValue["RegistryEntries"]["Attributes"];
@@ -628,7 +647,7 @@ index 4c5b8a37a..fedbcef3c 100644
                  if (baseBiosTable == nullptr)
                  {
                      BMCWEB_LOG_ERROR << "baseBiosTable == nullptr ";
-@@ -559,9 +660,8 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
+@@ -566,9 +671,8 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
                      std::string attrType = mapAttrTypeToRedfish(itemType);
                      if (attrType == "UNKNOWN")
                      {
@@ -640,7 +659,7 @@ index 4c5b8a37a..fedbcef3c 100644
                      }
                      nlohmann::json attributeItem;
                      attributeItem["AttributeName"] = item.first;
-@@ -575,12 +675,30 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
+@@ -582,12 +686,30 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
                      attributeItem["MenuPath"] =
                          std::get<biosBaseMenuPath>(item.second);
  
@@ -672,7 +691,7 @@ index 4c5b8a37a..fedbcef3c 100644
                          attributeItem["CurrentValue"] =
                              currValue != nullptr ? *currValue : "";
                          attributeItem["DefaultValue"] =
-@@ -590,8 +708,26 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
+@@ -597,8 +719,26 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
                      {
                          const int64_t* currValue = std::get_if<int64_t>(
                              &std::get<biosBaseCurrValue>(item.second));
@@ -699,7 +718,7 @@ index 4c5b8a37a..fedbcef3c 100644
                          attributeItem["CurrentValue"] =
                              currValue != nullptr ? *currValue : 0;
                          attributeItem["DefaultValue"] =
-@@ -599,11 +735,11 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
+@@ -606,11 +746,11 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
                      }
                      else
                      {
@@ -714,7 +733,7 @@ index 4c5b8a37a..fedbcef3c 100644
                      const std::vector<OptionsItemType>& optionsVector =
                          std::get<biosBaseOptions>(item.second);
                      for (const OptionsItemType& optItem : optionsVector)
-@@ -615,27 +751,58 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
+@@ -622,27 +762,58 @@ inline void requestRoutesBiosAttributeRegistry(App& app)
                              mapBoundTypeToRedfish(strOptItemType);
                          if (optItemTypeRedfish == "UNKNOWN")
                          {
@@ -743,7 +762,7 @@ index 4c5b8a37a..fedbcef3c 100644
 +                            }
 +
 +                            optItemJson["ValueDisplayName"] =
-+                                currValue != nullptr ? *currValue : "";
++                                std::get<optItemText>(optItem);
 +                            optItemJson["ValueName"] =
                                  currValue != nullptr ? *currValue : "";
                          }
@@ -778,6 +797,15 @@ index 4c5b8a37a..fedbcef3c 100644
                      }
  
                      attributeItem["Value"] = optionsArray;
+@@ -692,7 +863,7 @@ inline void
+         [asyncResp](const boost::system::error_code& ec) {
+         if (ec)
+         {
+-	    BMCWEB_LOG_ERROR << "doPost bios reset got error " << ec;
++            BMCWEB_LOG_ERROR << "doPost bios reset got error " << ec;
+             messages::internalError(asyncResp->res);
+             return;
+         }
 -- 
 2.25.1
 

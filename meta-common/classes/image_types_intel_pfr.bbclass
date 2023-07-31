@@ -5,6 +5,7 @@ inherit image_types_phosphor_auto
 DEPENDS += "obmc-intel-pfr-image-native \
             python3-native \
             intel-pfr-signing-utility-native \
+            external-signing-utility-native\
             "
 
 require recipes-core/os-release/version-vars.inc
@@ -131,12 +132,10 @@ do_image_pfr () {
     bld_suffix=""
     do_image_pfr_internal
 
-    if [ ${PRODUCT_GENERATION} = "wht" ]; then
-        #Build additional component images also, for whitley generation, if needed.
-        if ! [ -z ${BUILD_SEGD} ] && [ ${BUILD_SEGD} = "yes" ]; then
-            bld_suffix="_d"
-            do_image_pfr_internal
-        fi
+    #Build additional component images also, for KVL generation, if needed.
+    if ${@bb.utils.contains("EXTRA_IMAGE_FEATURES", "SEGD", "true", "false", d)}; then
+        bld_suffix="_d"
+        do_image_pfr_internal
     fi
 }
 
@@ -146,6 +145,7 @@ do_image_pfr[vardepsexclude] += "IPMI_MAJOR IPMI_MINOR IPMI_AUX13 IPMI_AUX14 IPM
 do_image_pfr[depends] += " \
                          obmc-intel-pfr-image-native:do_populate_sysroot \
                          intel-pfr-signing-utility-native:do_populate_sysroot \
+                         external-signing-utility-native:do_populate_sysroot \
                          "
 
 python() {

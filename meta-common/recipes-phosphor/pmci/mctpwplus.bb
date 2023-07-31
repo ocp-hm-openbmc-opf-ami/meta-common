@@ -4,8 +4,8 @@ DESCRIPTION = "Implementation of MCTP Wrapper Library Plus"
 LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=615045c30a05cde5c0e924854d43c327"
 
-SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.libraries.mctpwplus.git;protocol=ssh;branch=main"
-SRCREV = "1a2fa9ec77899907d4e9198c692b0dc767b89e16"
+SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.libraries.mctpwplus.git;protocol=ssh;branch=main"
+SRCREV = "a3c7bb75c1927b650aad628cc875a63bf2f8e6f8"
 
 S = "${WORKDIR}/git"
 

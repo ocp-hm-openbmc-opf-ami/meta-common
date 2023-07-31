@@ -5,7 +5,7 @@ EXTRA_OEMESON += "-Dfwupd-script=enabled"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-bmc-code-mgmt;branch=master;protocol=https"
-SRCREV = "780c930e242eb1e5c69dfcd69c96c9e6ca0b54cf"
+SRCREV = "cce26eb063488a4fe3403e55979cac7f8f6a7547"
 
 SYSTEMD_SERVICE:${PN}-updater += "fwupd@.service"
 
@@ -28,18 +28,6 @@ SRC_URI_PFR = " \
     file://0016-Process-PLDM-image-type.patch \
     file://0018-Fix-delete-image-by-ID-and-inhibit-removal-of-bmc_ac.patch \
     file://0019-Add-support-for-different-headers.patch \
-    "
-
-# Apply patches for restricted features
-# Seamless Features:
-SRC_URI_PFR += " \
-    file://seamless/0001-Add-Support-for-SMM-Runtime-Update.patch \
-    "
-
-# Testability Features:
-SRC_URI_PFR:append:bhs-features = " \
-    file://testability/0001-Add-retimer-image-type.patch \
-    file://testability/0002-IFWI-full-SPI-flash-update-support.patch \
     "
 
 SRC_URI += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', SRC_URI_PFR, '', d)}"

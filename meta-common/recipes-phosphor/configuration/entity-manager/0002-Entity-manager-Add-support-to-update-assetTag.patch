@@ -1,4 +1,4 @@
-From c87d52002229109f87e532efa310108adec04c35 Mon Sep 17 00:00:00 2001
+From 8a87b9d8eedc9ece3d2badbdd8b4c6069156b2ba Mon Sep 17 00:00:00 2001
 From: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
 Date: Tue, 31 May 2022 04:13:34 +0000
 Subject: [PATCH] Entity-manager: Add support to update assetTag
@@ -14,12 +14,12 @@ The new value is preserved after BMC resets.
 
 Signed-off-by: mansijos <mansi.joshi@intel.com>
 ---
- src/entity_manager.cpp | 82 +++++++++++++++++++++++++++++++++++++++---
- src/perform_scan.cpp   |  5 +++
- 2 files changed, 83 insertions(+), 4 deletions(-)
+ src/entity_manager.cpp | 74 ++++++++++++++++++++++++++++++++++++++++--
+ src/perform_scan.cpp   |  3 ++
+ 2 files changed, 75 insertions(+), 2 deletions(-)
 
 diff --git a/src/entity_manager.cpp b/src/entity_manager.cpp
-index bfda895..1e7100d 100644
+index 12c57c5..ea24901 100644
 --- a/src/entity_manager.cpp
 +++ b/src/entity_manager.cpp
 @@ -51,6 +51,13 @@ constexpr const char* lastConfiguration = "/tmp/configuration/last.json";
@@ -100,7 +100,7 @@ index bfda895..1e7100d 100644
              val = newVal;
              if (!setJsonFromPointer(jsonPointerString, val,
                                      systemConfiguration))
-@@ -613,6 +666,9 @@ void postToDbus(const nlohmann::json& newConfiguration,
+@@ -613,18 +666,35 @@ void postToDbus(const nlohmann::json& newConfiguration,
          populateInterfaceFromJson(systemConfiguration, jsonPointerPath,
                                    boardIface, boardValues, objServer);
          jsonPointerPath += "/";
@@ -108,62 +108,49 @@ index bfda895..1e7100d 100644
 +        std::string foundPath;
 +
          // iterate through board properties
-         for (auto& [propName, propValue] : boardValues.items())
+         for (const auto& [propName, propValue] : boardValues.items())
          {
-@@ -622,9 +678,27 @@ void postToDbus(const nlohmann::json& newConfiguration,
++            if (propName == "FoundProbePath")
++            {
++                foundPath = propValue;
++            }
++
+             if (propValue.type() == nlohmann::json::value_t::object)
+             {
+                 std::shared_ptr<sdbusplus::asio::dbus_interface> iface =
                      createInterface(objServer, boardName, propName,
                                      boardKeyOrig);
  
--                populateInterfaceFromJson(systemConfiguration,
--                                          jsonPointerPath + propName, iface,
--                                          propValue, objServer);
-+                if (propName == "FoundProbe")
-+                {
-+                    foundPath = propValue["Path"];
-+                }
++                auto perm = sdbusplus::asio::PropertyPermission::readOnly;
 +                if (propName ==
 +                    "xyz.openbmc_project.Inventory.Decorator.AssetTag")
 +                {
 +                    foundData["foundPath"] = foundPath;
 +                    mapFoundData[jsonPointerPath + propName] = foundData;
++                    perm = sdbusplus::asio::PropertyPermission::readWrite;
++                }
 +
-+                    populateInterfaceFromJson(
-+                        systemConfiguration, jsonPointerPath + propName, iface,
-+                        propValue, objServer,
-+                        sdbusplus::asio::PropertyPermission::readWrite);
-+                }
-+                else
-+                {
-+                    populateInterfaceFromJson(systemConfiguration,
-+                                              jsonPointerPath + propName, iface,
-+                                              propValue, objServer);
-+                }
+                 populateInterfaceFromJson(systemConfiguration,
+                                           jsonPointerPath + propName, iface,
+-                                          propValue, objServer);
++                                          propValue, objServer, perm);
              }
          }
  
 diff --git a/src/perform_scan.cpp b/src/perform_scan.cpp
-index 559b822..15066d1 100644
+index 44f284c..bb0f633 100644
 --- a/src/perform_scan.cpp
 +++ b/src/perform_scan.cpp
-@@ -38,6 +38,8 @@ constexpr const int32_t maxMapperDepth = 0;
- 
- constexpr const bool debug = false;
- 
-+constexpr const char* foundObject = "FoundProbe";
-+
- struct DBusInterfaceInstance
- {
-     std::string busName;
-@@ -540,6 +542,9 @@ void PerformScan::updateSystemConfiguration(const nlohmann::json& recordRef,
+@@ -543,6 +543,9 @@ void PerformScan::updateSystemConfiguration(const nlohmann::json& recordRef,
          getName.value() = deviceName;
          usedNames.insert(deviceName);
  
 +        // Save the dbus path info of the device
-+        record[foundObject]["Path"] = path;
++        record["FoundProbePath"] = path;
 +
          for (auto keyPair = record.begin(); keyPair != record.end(); keyPair++)
          {
              if (keyPair.key() != "Name")
 -- 
-2.25.1
+2.38.1
 

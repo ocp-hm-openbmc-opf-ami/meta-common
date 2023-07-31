@@ -1,4 +1,4 @@
-From b3216c63a077cae0d493d7203158c6d916950c9a Mon Sep 17 00:00:00 2001
+From 057af1a36aca0b1d7fc43f2b0b72e36cca60d439 Mon Sep 17 00:00:00 2001
 From: Nidhin MS <nidhin.ms@intel.com>
 Date: Wed, 14 Apr 2021 11:28:44 +0530
 Subject: [PATCH] Fix: bmcweb crashes if socket directory not present
@@ -18,26 +18,26 @@ Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
  1 file changed, 10 insertions(+)
 
 diff --git a/include/nbd_proxy.hpp b/include/nbd_proxy.hpp
-index 4431662d..913fe301 100644
+index e3d4c4b2..8ca2ae7d 100644
 --- a/include/nbd_proxy.hpp
 +++ b/include/nbd_proxy.hpp
-@@ -380,6 +380,16 @@ inline void requestRoutes(App& app)
-                 // If the socket file exists (i.e. after bmcweb crash),
-                 // we cannot reuse it.
-                 std::remove((*socketValue).c_str());
-+                std::filesystem::path socketPath(*socketValue);
-+                std::error_code fsErr;
-+                if (!std::filesystem::exists(socketPath.parent_path(), fsErr))
-+                {
-+                    BMCWEB_LOG_ERROR
-+                        << "VirtualMedia socket directory not present. "
-+                        << socketPath.parent_path();
-+                    conn.close("Unable to create unix socket");
-+                    return;
-+                }
+@@ -318,6 +318,16 @@ inline void
+     // we cannot reuse it.
+     std::remove((*socketValue).c_str());
  
-                 sessions[&conn] = std::make_shared<NbdProxyServer>(
-                     conn, *socketValue, *endpointValue, *endpointObjectPath);
++    std::filesystem::path socketPath(*socketValue);
++    std::error_code fsErr;
++    if (!std::filesystem::exists(socketPath.parent_path(), fsErr))
++    {
++        BMCWEB_LOG_ERROR << "VirtualMedia socket directory not present. "
++                         << socketPath.parent_path();
++        conn.close("Unable to create unix socket");
++        return;
++    }
++
+     sessions[&conn] = std::make_shared<NbdProxyServer>(
+         conn, *socketValue, *endpointValue, *endpointObjectPath);
+ 
 -- 
 2.25.1
 

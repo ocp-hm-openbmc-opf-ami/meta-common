@@ -1,92 +1,91 @@
-# meta-common
+# firmware.bmc.openbmc.yocto.openbmc-meta-intel
+This repo contains the openbmc-meta-intel layer that is used to build Intel`s
+OpenBMC firmware supporting Intel's reference platforms.
 
+This repo will be updated based on Intel Best-Known Configuration (BKC)
+releases. Each release will be provided as a single squashed commit. The
+compatible version of the [Linux Foundation (LF) OpenBMC repo][1] will be
+included in each commit message.
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
+## How to build Intel-BMC
+1. `git clone` the [LF OpenBMC repo][1] into a folder named `openbmc-openbmc`
+2. `git clone` this repo into a folder named
+`openbmc-openbmc/openbmc-meta-intel`
+3. In `openbmc-openbmc/openbmc-meta-intel`, `git checkout` the BKC version to
+build and check the commit message for the compatible LF OpenBMC version
+4. In `openbmc-openbmc`, `git checkout` the compatible LF OpenBMC version
+5. Set TEMPLATECONF to the layer for the desired platform. For example, to
+build meta-bhs use:
+```sh
+export TEMPLATECONF=openbmc-meta-intel/meta-bhs/conf/templates/default
 ```
-cd existing_repo
-git remote add origin https://git.ami.com/core/ami-bmc/one-tree/core/meta-common.git
-git branch -M main
-git push -uf origin main
+6. Source the init script
+```sh
+source oe-init-build-env
+```
+7. Edit the `openbmc-openbmc/build/conf/local.conf` file as desired, see
+[these-instructions](#How-to-prepare-localconf) for examples
+8. If building a signed image, see [these instructions](#how-to-prepare-keys)
+to prepare keys
+9. Build with
+```sh
+bitbake intel-platforms
 ```
 
-## Integrate with your tools
+When completed, the binaries will be available under
+`openbmc-openbmc/build/tmp/deploy/images/<machine>/pfr_images`. The full SPI
+ROM image will be under a symlink named `image-mtd-pfr.bin`, and the Redfish
+update image will be under a symlink named `bmc_signed_cap.bin`
 
-- [ ] [Set up project integrations](https://git.ami.com/core/ami-bmc/one-tree/core/meta-common/-/settings/integrations)
+If enabled, there will also be D-segment equivalent images present.
 
-## Collaborate with your team
+## How to prepare local.conf
+The local.conf file contains various options to configure the build. Here are
+some common configuration changes that may be desired:
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+* Enable `debug-tweaks` for debug features and default credentials
+* Comment out `optee` feature lines if the source is inaccessible
+* Remove any inaccessible `advanced features` from the
+`EXTRA_IMAGE_FEATURES:append` list
 
-## Test and Deploy
+## How to prepare keys
+When building Intel-BMC, the common configurations will require keys to sign
+the image. The keys are not included with the source, so they must be made
+available locally during the build.
 
-Use the built-in continuous integration in GitLab.
+### Adding keys for Intel Platform Firmware Resiliency (PFR) builds
+A common configuration of Intel-BMC is a PFR-enabled build. This build requires
+two key-pairs and a certificate. In platforms where PFR is provisioned, these
+keys must match the platform keys.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Otherwise, local keys can be generated to complete the build. The build may be
+configured to automatically generate and include local keys. If the build
+doesn't support this, local keys can be manually included as follows:
 
-***
+Generate local keys using these commands:
+```sh
+mkdir -p openbmc-openbmc/openbmc-meta-intel/keys
+cd openbmc-openbmc/openbmc-meta-intel
+openssl ecparam -out keys/csk_prv.pem -name secp384r1 -genkey
+openssl ec -in keys/csk_prv.pem -pubout -out keys/csk_pub.pem
+openssl ecparam -out keys/rk_prv.pem -name secp384r1 -genkey
+openssl ec -in keys/rk_prv.pem -pubout -out keys/rk_pub.pem
+openssl req -new -key keys/rk_prv.pem -x509 -nodes -days 365 -out keys/rk_cert.pem
+```
 
-# Editing this README
+Include these local keys in the build by providing the path to the key file in
+the call to `external-signing-utility`. These calls are found in the following files
+in the meta-layer you are building:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+* recipes-intel/intel-pfr/obmc-intel-pfr-image-native.bbappend
+* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/bmc_config.xml
+* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/pfm_config.xml
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+If enabled, you will also need to set the local keys for D-segment:
 
-## Name
-Choose a self-explaining name for your project.
+* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/bmc_config_d.xml
+* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/pfm_config_d.xml
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+[1]: https://github.com/openbmc/openbmc

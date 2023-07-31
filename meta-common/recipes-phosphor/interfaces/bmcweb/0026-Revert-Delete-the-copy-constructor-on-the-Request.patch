@@ -1,4 +1,4 @@
-From 1503fcc9e5fb8d85cfceb03b38a52a519fb63210 Mon Sep 17 00:00:00 2001
+From d4f46396454e629f0a6c111517cf310dce5492f6 Mon Sep 17 00:00:00 2001
 From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Date: Tue, 4 Jan 2022 06:49:58 +0530
 Subject: [PATCH] Revert "Delete the copy constructor on the Request object"
@@ -8,19 +8,17 @@ to removal of the copy constructor.
 
 This reverts commit 597d2b142362bafa90f24fc8c30750afab91f78f.
 ---
- http/http_request.hpp | 6 ------
- 1 file changed, 6 deletions(-)
+ http/http_request.hpp | 4 ----
+ 1 file changed, 4 deletions(-)
 
 diff --git a/http/http_request.hpp b/http/http_request.hpp
-index be1c2a2..be84f18 100644
+index 3fd9d4d7..fe0cd451 100644
 --- a/http/http_request.hpp
 +++ b/http/http_request.hpp
-@@ -45,12 +45,6 @@ struct Request
-         }
-     }
+@@ -54,10 +54,6 @@ struct Request
+     Request(const Request& other) = default;
+     Request(Request&& other) = default;
  
--    Request(const Request&) = delete;
--    Request(const Request&&) = delete;
 -    Request& operator=(const Request&) = delete;
 -    Request& operator=(const Request&&) = delete;
 -    ~Request() = default;

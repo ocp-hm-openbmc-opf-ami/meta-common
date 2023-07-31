@@ -1,4 +1,4 @@
-From b94c023b0cff324244721b6ed6561b7f1d1f93f2 Mon Sep 17 00:00:00 2001
+From 75406de3c19ad8408f788692ae8f3ef6303423a7 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@linux.intel.com>
 Date: Wed, 6 Oct 2021 22:27:20 +0000
 Subject: [PATCH] Add support to ResetBios action
@@ -18,10 +18,10 @@ Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
  1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index 48f766b1..08506676 100644
+index 33ac56e4..09f1fb46 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
-@@ -852,17 +852,23 @@ inline void
+@@ -619,17 +619,23 @@ inline void
          return;
      }
  
@@ -29,7 +29,7 @@ index 48f766b1..08506676 100644
 +        "xyz.openbmc_project.BIOSConfig.Manager.ResetFlag.FactoryDefaults";
 +
      crow::connections::systemBus->async_method_call(
-         [asyncResp](const boost::system::error_code ec) {
+         [asyncResp](const boost::system::error_code& ec) {
          if (ec)
          {
 -            BMCWEB_LOG_ERROR << "Failed to reset bios: " << ec;

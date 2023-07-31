@@ -1,13 +1,13 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-LINUX_VERSION = "5.15.69"
+LINUX_VERSION = "6.1.15"
 
 KBUILD_DEFCONFIG = "intel_bmc_defconfig"
-KBRANCH = "dev-5.15-intel"
-KSRC = "git://git@github.com/intel-collab/os.linux.kernel.openbmc.linux.git;protocol=ssh;branch=${KBRANCH}"
+KBRANCH = "dev-6.1-intel"
+KSRC = "git://git@github.com/intel-bmc/os.linux.kernel.openbmc.linux.git;protocol=ssh;branch=${KBRANCH}"
 # Include this as a comment only for downstream auto-bump
-# SRC_URI = "git://git@github.com/intel-collab/os.linux.kernel.openbmc.linux.git;protocol=ssh;branch=dev-5.15-intel"
-SRCREV="f25b323767a91298f76dd7fc660f2762735aa828"
+# SRC_URI = "git://git@github.com/intel-bmc/os.linux.kernel.openbmc.linux.git;protocol=ssh;branch=dev-6.1-intel"
+SRCREV="ee8e237b4020733150162b64fa454ea043af83d0"
 
 do_compile:prepend(){
    # device tree compiler flags
@@ -15,5 +15,3 @@ do_compile:prepend(){
 }
 
 SRC_URI += "${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'debug-tweaks', 'file://debug.cfg', '', d)}"
-
-SRC_URI += "${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'optee-ast2600', 'file://intel-optee.cfg', '', d)}"

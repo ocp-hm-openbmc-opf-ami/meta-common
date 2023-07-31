@@ -1,7 +1,6 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
 SRC_URI += "file://enable-ssh.sh \
-            file://0001-Enable-UART-mux-setting-before-SOL-activation-via-SS.patch \
             "
 
 do_install:append() {

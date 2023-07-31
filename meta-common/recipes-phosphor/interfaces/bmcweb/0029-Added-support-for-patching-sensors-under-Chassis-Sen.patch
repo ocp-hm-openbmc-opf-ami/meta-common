@@ -1,4 +1,4 @@
-From c64de48683294ddde44619d938b65eef62b86481 Mon Sep 17 00:00:00 2001
+From 949a14e7e10c109160c66532ce7becf28de491a4 Mon Sep 17 00:00:00 2001
 From: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
 Date: Tue, 6 Sep 2022 14:47:05 +0530
 Subject: [PATCH] Added support for patching sensors under /Chassis/<>/Sensors
@@ -19,17 +19,18 @@ Tested:
 Sensor patching is working in manufactering mode
 
 Signed-off-by: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
+Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
 ---
  redfish-core/include/redfish.hpp     |   2 +
- redfish-core/lib/sensor_patching.hpp | 146 +++++++++++++++++++++++++++
- 2 files changed, 148 insertions(+)
+ redfish-core/lib/sensor_patching.hpp | 148 +++++++++++++++++++++++++++
+ 2 files changed, 150 insertions(+)
  create mode 100644 redfish-core/lib/sensor_patching.hpp
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index be75f894..db00e475 100644
+index e98a04cd..17b6d2a1 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
-@@ -38,6 +38,7 @@
+@@ -39,6 +39,7 @@
  #include "redfish_sessions.hpp"
  #include "redfish_v1.hpp"
  #include "roles.hpp"
@@ -37,7 +38,7 @@ index be75f894..db00e475 100644
  #include "sensors.hpp"
  #include "service_root.hpp"
  #include "storage.hpp"
-@@ -203,6 +204,7 @@ class RedfishService
+@@ -205,6 +206,7 @@ class RedfishService
  
          requestRoutesSensorCollection(app);
          requestRoutesSensor(app);
@@ -47,10 +48,10 @@ index be75f894..db00e475 100644
          requestRoutesTaskService(app);
 diff --git a/redfish-core/lib/sensor_patching.hpp b/redfish-core/lib/sensor_patching.hpp
 new file mode 100644
-index 00000000..4a37401a
+index 00000000..69e28010
 --- /dev/null
 +++ b/redfish-core/lib/sensor_patching.hpp
-@@ -0,0 +1,146 @@
+@@ -0,0 +1,148 @@
 +#pragma once
 +
 +#include <app.hpp>
@@ -190,7 +191,9 @@ index 00000000..4a37401a
 +            return;
 +        }
 +
-+        overrideMap.emplace(memberId, std::make_pair(value, "Reading"));
++        std::pair<std::string, std::string> nameType =
++            splitSensorNameAndType(memberId);
++        overrideMap.emplace(nameType.second, std::make_pair(value, "Reading"));
 +
 +        setSensor(sensorsAsyncResp, overrideMap);
 +        });

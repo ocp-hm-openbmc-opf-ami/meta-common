@@ -1,24 +1,22 @@
-These patches are mirror of upstream TelemetryService implementation.
-Until change is integrated they will be manually merged here to enable feature in Intel builds.
+Below is list of all telemetry patches. Changes with url to gerrit are mirrors of upstream changes.
+Changes with path to file are downstream only patches.
+Until upstream change is integrated they will be manually merged here to enable feature in Intel builds.
 
 Current revisions:
 - LogService field, actual implementation will be upstreamed with triggers feature
   file://telemetry/0001-Revert-Remove-LogService-from-TelemetryService.patch
 
 - Switched bmcweb to use new telemetry service API
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/44270/69
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/44270/87
 
 - Add Links/Triggers to MetricReportDefinition
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/51758/18
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/51758/29
 
 - Add PUT and PATCH for MetricReportDefinition
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/49796/31
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/49796/37
 
 - Add support for POST on TriggersCollection
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/44935/39
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/44935/45
 
 - Improved telemetry service error handling
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/57812/5
-
-- temporary fix for dbus method name
-  file://telemetry/0007-temporary-fix-for-dbus-method-name.patch
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/57812/11

@@ -17,7 +17,7 @@ PFR_EN = "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr', '', d)}"
 SRC_URI += "file://fwupd.sh"
 SRC_URI += "file://usb-ctrl"
 
-DEPENDS += "obmc-intel-pfr-image-native"
+DEPENDS += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'obmc-intel-pfr-image-native', '', d)}"
 
 # runtime authentication of some features requires the root key certificate
 FILES:${PN} += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', '${datadir}/pfr/rk_cert.pem', '', d)}"
