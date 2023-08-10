@@ -4,7 +4,7 @@
 # SRC_URI = "git://github.com/openbmc/entity-manager.git;branch=master;protocol=https"
 SRCREV = "aca73883ca6bcee3dde8cbc8cf7d4e51f2959b73"
 
-RDEPENDS:${PN} += " default-fru"
+RDEPENDS:${PN}:intel-ast2600 += " default-fru"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
