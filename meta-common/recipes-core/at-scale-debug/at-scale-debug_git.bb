@@ -20,7 +20,7 @@ inherit useradd
 USERADD_PACKAGES = "${PN}"
 
 # add a special user asdbg
-USERADD_PARAM:${PN} = "-u 999 asdbg"
+USERADD_PARAM:${PN} = "-u 9999 asd"
 
 S = "${WORKDIR}/git"
 
@@ -39,3 +39,31 @@ do_configure:prepend() {
     cp -r ${WORKDIR}/asm ${S}/asm
 }
 CFLAGS:append = " -I ${S}"
+
+FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
+SRC_URI += "file://CtlASD.sh"
+
+localdir = "/usr/local"
+mybindir = "${localdir}/bin"
+
+TLS_ENABLE = "no"
+
+FILES:${PN} += "${localdir}/* ${mybindir}/* "
+
+python () {
+    # Replace the asd parameter by determining the "TLS_ENABLE"
+    if d.getVar('TLS_ENABLE', True) == "no":
+        d.setVar('TLS_ENABLE', "-u")
+    elif d.getVar('TLS_ENABLE', True) == "yes":
+        d.setVar('TLS_ENABLE', "")
+}
+
+do_install:append() {
+    install -m 0755 -d ${D}${localdir}
+    install -m 0755 -d ${D}${mybindir}
+    install -d ${D}${systemd_unitdir}/system
+
+    cp ${WORKDIR}/CtlASD.sh ${D}${mybindir}
+    sed -e "s/\$TLS_ENABLE_FLAGE/${TLS_ENABLE}/g" ${WORKDIR}/com.intel.AtScaleDebug.service > ${D}${systemd_unitdir}/system/com.intel.AtScaleDebug.service
+}
+
