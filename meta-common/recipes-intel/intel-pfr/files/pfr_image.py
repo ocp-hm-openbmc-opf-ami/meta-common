@@ -137,7 +137,13 @@ class pfr_bmc_image(object):
         self.pbc_comp_bitmap = bytearray(4096)
 
         self.pbc_comp_payload = 0
-        self.sec_rev = 1
+
+        #pfm-sec-rev set in the manifest file for specific platforms
+        pfm_svn = self.manifest.get('pfm-svn')
+        if pfm_svn:
+            self.sec_rev = pfm_svn['pfm-sec-rev']
+        else:
+            self.sec_rev = 1
 
         # fill in the calculated data
         self.hash_and_map()
