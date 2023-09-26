@@ -19,7 +19,7 @@ PACKAGECONFIG:remove = "allowlist"
 PACKAGECONFIG:remove = "i2c-allowlist"
 PACKAGECONFIG:remove = "boot-flag-safe-mode"
 
-RDEPENDS:${PN}:remove = "clear-once"
+RDEPENDS:${PN}:remove:intel-ast2600 = "clear-once"
 
 # remove the softpoweroff service since we do not need it
 SYSTEMD_SERVICE:${PN}:remove = " \
