@@ -7,6 +7,7 @@ Include the HW strap setting and some I2C temperature sensors.
 
 Signed-off-by: Jason M. Bills <jason.m.bills@linux.intel.com>
 Signed-off-by: James Feist <james.feist@linux.intel.com>
+Upstream-Status: Pending
 ---
  hw/arm/aspeed.c | 54 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 54 insertions(+)

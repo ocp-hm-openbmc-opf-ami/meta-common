@@ -6,6 +6,7 @@ Subject: [PATCH] Revert "Remove redfish-post-to-old-updateservice"
 This reverts commit 4a40441f944aaff8d7bb2040e4d88ebfcebbab11.
 
 Change-Id: I8094e64ef817c484aa8d34d2f68a906e1f123578
+Upstream-Status: Pending
 ---
  meson.build                         |  1 +
  meson_options.txt                   | 10 ++++++++++

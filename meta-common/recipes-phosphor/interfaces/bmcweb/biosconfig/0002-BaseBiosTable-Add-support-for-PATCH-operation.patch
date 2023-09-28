@@ -1,4 +1,4 @@
-From f68f9a799ad0e61204e965484ef1fa27b5ceae91 Mon Sep 17 00:00:00 2001
+From 6721f699fdcc04ede6a9603a144caa59fe6c78c3 Mon Sep 17 00:00:00 2001
 From: Krzysztof Grobelny <krzysztof.grobelny@intel.com>
 Date: Wed, 30 Jun 2021 15:18:46 +0000
 Subject: [PATCH] BaseBiosTable: Add support for PATCH operation
@@ -26,12 +26,13 @@ backend and that updates the BaseBiosTable.
 
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
 Change-Id: I12e78e5ac623c264c7a3e1dd5198aca67172736d
+Upstream-Status: Pending
 ---
  redfish-core/lib/bios.hpp | 87 +++++++++++++++++++++++++++++++++++++++
  1 file changed, 87 insertions(+)
 
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index 4056e772..ad66b34d 100644
+index e0b41433..7ec499bf 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
 @@ -97,6 +97,29 @@ static std::string mapAttrTypeToRedfish(const std::string_view typeDbus)
@@ -64,7 +65,7 @@ index 4056e772..ad66b34d 100644
  static std::string mapBoundTypeToRedfish(const std::string_view typeDbus)
  {
      std::string ret;
-@@ -336,6 +359,70 @@ inline void requestRoutesBiosSettings(App& app)
+@@ -349,6 +372,70 @@ inline void requestRoutesBiosSettings(App& app)
              "/xyz/openbmc_project/bios_config/manager",
              std::array<const char*, 0>());
          });
@@ -106,7 +107,7 @@ index 4056e772..ad66b34d 100644
 +
 +            if (biosAttrType == "UNKNOWN")
 +            {
-+                BMCWEB_LOG_ERROR << "Invalid attribute type";
++                BMCWEB_LOG_ERROR("Invalid attribute type");
 +                messages::propertyValueNotInList(asyncResp->res,
 +                                                 "AttributeType", attrType);
 +                return;
@@ -120,7 +121,7 @@ index 4056e772..ad66b34d 100644
 +                [asyncResp](const boost::system::error_code ec) {
 +                if (ec)
 +                {
-+                    BMCWEB_LOG_ERROR << "doPatch resp_handler got error " << ec;
++                    BMCWEB_LOG_ERROR("doPatch resp_handler got error {}", ec);
 +                    messages::internalError(asyncResp->res);
 +                    return;
 +                }

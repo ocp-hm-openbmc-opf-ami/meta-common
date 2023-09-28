@@ -8,6 +8,7 @@ of the version to support pldm type version purpose
 
 Change-Id: I7b914d4323bfe44a4e3cd60ed4a627aeceb6b56f
 Signed-off-by: Ayushi Smriti <smriti.ayushi@intel.com>
+Upstream-Status: Pending
 ---
  yaml/xyz/openbmc_project/Software/Version.interface.yaml | 3 +++
  1 file changed, 3 insertions(+)

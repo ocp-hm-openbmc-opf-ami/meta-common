@@ -16,6 +16,7 @@ FFUJ: 1
 ast#
 
 Signed-off-by: Priyanka Chikane <priyanka.chikane@intel.com>
+Upstream-Status: Pending
 ---
  common/autoboot.c | 7 +++----
  1 file changed, 3 insertions(+), 4 deletions(-)

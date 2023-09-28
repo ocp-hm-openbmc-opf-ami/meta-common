@@ -11,6 +11,7 @@ Device Security Enhancement Control Register F0
 in AHBC88: AHB Bus Target Disable Control Register
 
 Signed-off-by: Chen Yugang <yugang.chen@linux.intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/platform.S | 34 +++++++++++++++++++++++++
  1 file changed, 34 insertions(+)

@@ -8,6 +8,7 @@ to support deepsx entry event properly.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@linux.intel.com>
 
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/ast-espi.c | 51 +++++++++++++------------
  1 file changed, 27 insertions(+), 24 deletions(-)

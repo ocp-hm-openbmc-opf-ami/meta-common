@@ -15,6 +15,7 @@ Command: busctl call xyz.openbmc_project.Ipmi.Channel.Ipmb
 Response: (iyyyyay) 0 49 0 112 193 0
 
 Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
+Upstream-Status: Pending
 ---
  ipmbbridged.cpp | 6 ++++--
  1 file changed, 4 insertions(+), 2 deletions(-)

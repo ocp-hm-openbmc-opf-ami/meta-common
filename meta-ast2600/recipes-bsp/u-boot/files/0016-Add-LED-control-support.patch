@@ -16,6 +16,7 @@ Jumping to Kernel : Green LED solid on      + ID LED solid on
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
 
 
+Upstream-Status: Pending
 ---
  arch/arm/dts/ast2600-intel.dts     |  4 +-
  board/aspeed/ast2600_intel/intel.c | 65 +++++++++++++++++++++++++++++-

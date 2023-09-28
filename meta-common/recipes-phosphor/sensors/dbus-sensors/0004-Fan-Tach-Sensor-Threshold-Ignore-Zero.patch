@@ -23,6 +23,7 @@ No cr event for the missing fans.
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 Signed-off-by: Saravanan Palanisamy <saravanan.palanisamy@intel.com>
 Change-Id: I6ef1d61573dcb8c15c0b76a6a6805f368be13fc0
+Upstream-Status: Pending
 ---
  src/TachSensor.cpp | 15 +++++++++++----
  1 file changed, 11 insertions(+), 4 deletions(-)

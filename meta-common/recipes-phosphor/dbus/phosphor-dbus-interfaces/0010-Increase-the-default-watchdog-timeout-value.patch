@@ -12,6 +12,7 @@ to avoid the watchdog timeout during power on.
 Will adjust this value in the future
 
 Signed-off-by: Yong Li <yong.b.li@linux.intel.com>
+Upstream-Status: Pending
 ---
  yaml/xyz/openbmc_project/State/Watchdog.interface.yaml | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

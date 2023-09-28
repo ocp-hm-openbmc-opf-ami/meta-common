@@ -10,6 +10,7 @@ City.
 
 Change-Id: I9658b4ead6d9bf8eaa30e4aeb9f1d56c2f2187d3
 Signed-off-by: Jason M. Bills <jason.m.bills@linux.intel.com>
+Upstream-Status: Pending
 ---
  config/power-config-host0.json | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

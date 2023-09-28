@@ -21,6 +21,7 @@ and confirmed the reset reason is WDT2 reset.
 expected.
 
 Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/dts/ast2600-intel.dts          |  2 +-
  arch/arm/mach-aspeed/ast2600/platform.S | 11 +++++++----

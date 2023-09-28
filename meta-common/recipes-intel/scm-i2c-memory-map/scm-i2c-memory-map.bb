@@ -5,7 +5,7 @@ DESCRIPTION = "Exposes memory map of CPLDs (Complex Programmable Logic Device) t
 PV = "1.0+git${SRCPV}"
 
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.secure-control-module-i2c-memory-map.git;protocol=ssh;branch=main;"
-SRCREV = "37d2d9809cf079ed0e981c7c9f32869a3bae68da"
+SRCREV = "dbbe574d41ddf772e55dc68e8011c6d6e9bd4ec7"
 S = "${WORKDIR}/git"
 
 LICENSE = "Proprietary"

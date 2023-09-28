@@ -4,6 +4,7 @@ Date: Tue, 30 Nov 2021 16:29:12 +0100
 Subject: [PATCH] Revert "Remove LogService from TelemetryService"
 
 This reverts commit 2b3da45876aac57a36d3093379a992d699e7e396.
+Upstream-Status: Pending
 ---
  redfish-core/lib/telemetry_service.hpp | 2 ++
  1 file changed, 2 insertions(+)

@@ -4,6 +4,7 @@ Date: Tue, 8 Dec 2020 15:16:25 -0800
 Subject: [PATCH] update meson build for MCTP interfaces
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
  gen/xyz/openbmc_project/MCTP/Base/meson.build | 13 ++++++
  .../MCTP/Binding/PCIe/meson.build             | 13 ++++++

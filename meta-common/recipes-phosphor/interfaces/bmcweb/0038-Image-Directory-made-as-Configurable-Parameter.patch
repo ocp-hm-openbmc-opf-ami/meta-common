@@ -1,4 +1,4 @@
-From b763ca77a40a691b6e4258585a4b0fc9189a1770 Mon Sep 17 00:00:00 2001
+From de3f34f53d9efc0d3b4c15cee4c1ee8d2f672cf9 Mon Sep 17 00:00:00 2001
 From: V-Sanjana <sanjana.v@intel.com>
 Date: Tue, 21 Mar 2023 20:46:37 +0530
 Subject: [PATCH] Image dir made as configurable parameter
@@ -21,6 +21,7 @@ Tested and verified that the image directory is configurable,
 and the image can be stored to required directories by
 configuring it in the .bbappend files.
 Signed-off-by: V-Sanjana <sanjana.v@intel.com>
+Upstream-Status: Pending
 ---
  config/bmcweb_config.h.in           | 2 ++
  config/meson.build                  | 1 +
@@ -30,18 +31,18 @@ Signed-off-by: V-Sanjana <sanjana.v@intel.com>
  5 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/config/bmcweb_config.h.in b/config/bmcweb_config.h.in
-index ae98675d..aef08022 100644
+index 3fd3ea84..1b9d0398 100644
 --- a/config/bmcweb_config.h.in
 +++ b/config/bmcweb_config.h.in
-@@ -16,4 +16,6 @@ constexpr const char* mesonInstallPrefix = "@MESON_INSTALL_PREFIX@";
- constexpr const bool bmcwebInsecureEnableHttpPushStyleEventing = @BMCWEB_INSECURE_ENABLE_HTTP_PUSH_STYLE_EVENTING@ == 1;
+@@ -24,4 +24,6 @@ constexpr const bool bmcwebEnableProcMemStatus = @BMCWEB_ENABLE_PROC_MEM_STATUS@
+ constexpr const bool bmcwebEnableMultiHost = @BMCWEB_ENABLE_MULTI_HOST@ == 1;
  
- constexpr const char* bmcwebLoggingLevel = "@BMCWEB_LOGGING_LEVEL@";
+ constexpr const bool bmcwebEnableHTTP2 = @BMCWEB_ENABLE_HTTP2@ == 1;
 +
 +constexpr const char* imageUploadDir = "@IMAGE_UPLOAD_DIR@";
  // clang-format on
 diff --git a/config/meson.build b/config/meson.build
-index b13a0234..d97a1652 100644
+index 8a72a63e..9d545481 100644
 --- a/config/meson.build
 +++ b/config/meson.build
 @@ -2,6 +2,7 @@
@@ -53,7 +54,7 @@ index b13a0234..d97a1652 100644
  conf_data.set10('BMCWEB_INSECURE_DISABLE_XSS_PREVENTION', xss_enabled.enabled())
  enable_redfish_query = get_option('insecure-enable-redfish-query')
 diff --git a/include/image_upload.hpp b/include/image_upload.hpp
-index 18a0c09b..0f5aa301 100644
+index 521ff659..171622d4 100644
 --- a/include/image_upload.hpp
 +++ b/include/image_upload.hpp
 @@ -1,5 +1,7 @@
@@ -64,20 +65,20 @@ index 18a0c09b..0f5aa301 100644
  #include "app.hpp"
  #include "dbus_singleton.hpp"
  #include "dbus_utility.hpp"
-@@ -94,7 +96,7 @@ inline void
+@@ -91,7 +93,7 @@ inline void
+         "member='InterfacesAdded',path='/xyz/openbmc_project/software'",
          callback);
  
-     std::string filepath(
--        "/tmp/images/" +
-+        imageUploadDir +
-         boost::uuids::to_string(boost::uuids::random_generator()()));
-     BMCWEB_LOG_DEBUG << "Writing file to " << filepath;
+-    std::string filepath("/tmp/images/" + bmcweb::getRandomUUID());
++    std::string filepath(imageUploadDir + bmcweb::getRandomUUID());
+     BMCWEB_LOG_DEBUG("Writing file to {}", filepath);
      std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
+                                     std::ofstream::trunc);
 diff --git a/meson_options.txt b/meson_options.txt
-index 0bf2c350..4aeddd72 100644
+index 017c16bd..b67c28fd 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
-@@ -199,6 +199,14 @@ option(
+@@ -209,6 +209,14 @@ option(
      description: 'Specifies the http request body length limit'
  )
  
@@ -93,17 +94,17 @@ index 0bf2c350..4aeddd72 100644
      'redfish-new-powersubsystem-thermalsubsystem',
      type: 'feature',
 diff --git a/redfish-core/lib/update_service.hpp b/redfish-core/lib/update_service.hpp
-index f5be721f..674cc066 100644
+index 00a7b8a9..c71d1f6a 100644
 --- a/redfish-core/lib/update_service.hpp
 +++ b/redfish-core/lib/update_service.hpp
-@@ -637,7 +637,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
+@@ -528,7 +528,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
+ 
  inline void uploadImageFile(crow::Response& res, std::string_view body)
  {
-     std::filesystem::path filepath(
--        "/tmp/images/" +
-+        imageUploadDir +
-         boost::uuids::to_string(boost::uuids::random_generator()()));
-     BMCWEB_LOG_DEBUG << "Writing file to " << filepath;
+-    std::filesystem::path filepath("/tmp/images/" + bmcweb::getRandomUUID());
++    std::filesystem::path filepath(imageUploadDir + bmcweb::getRandomUUID());
+ 
+     BMCWEB_LOG_DEBUG("Writing file to {}", filepath.string());
      std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
 -- 
 2.25.1

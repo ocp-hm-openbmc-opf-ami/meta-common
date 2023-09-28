@@ -1,4 +1,4 @@
-From b36af5e4124344fe60727409f729ec5db5277611 Mon Sep 17 00:00:00 2001
+From 3e4e0aeb904349283b5ebc60a1e51f3985a2b8ca Mon Sep 17 00:00:00 2001
 From: Wojciech Dembinski <wojciech.dembinski@intel.com>
 Date: Mon, 7 Dec 2020 19:23:10 +0100
 Subject: [PATCH] Add check for min/max received from hwmon files
@@ -16,12 +16,13 @@ SDR over IPMI can be fully received in the case of error.
 
 Signed-off-by: Wojciech Dembinski <wojciech.dembinski@intel.com>
 Change-Id: Ia061f849b0f434812f822ed1902c8964d4c64b45
+Upstream-Status: Pending
 ---
- src/IntelCPUSensor.cpp | 43 ++++++++++++++++++++++++------------------
- 1 file changed, 25 insertions(+), 18 deletions(-)
+ src/IntelCPUSensor.cpp | 44 ++++++++++++++++++++++++------------------
+ 1 file changed, 25 insertions(+), 19 deletions(-)
 
 diff --git a/src/IntelCPUSensor.cpp b/src/IntelCPUSensor.cpp
-index 79a51ed..c4ac9e3 100644
+index 2bebcd8..07a2b82 100644
 --- a/src/IntelCPUSensor.cpp
 +++ b/src/IntelCPUSensor.cpp
 @@ -1,5 +1,5 @@
@@ -56,17 +57,17 @@ index 79a51ed..c4ac9e3 100644
                  },
              },
          };
-@@ -190,26 +195,28 @@ void IntelCPUSensor::updateMinMaxValues(void)
+@@ -190,26 +195,27 @@ void IntelCPUSensor::updateMinMaxValues(void)
          {
              for (const auto& vectorItem : mapIt->second)
              {
 -                const auto& [suffix, oldValue, dbusName] = vectorItem;
 +                const auto& [suffix, oldValue, dbusName, newValue] = vectorItem;
                  auto attrPath = boost::replace_all_copy(path, fileItem, suffix);
--                if (auto newVal =
-+
-+                if (auto tmp =
-                         readFile(attrPath, IntelCPUSensor::sensorScaleFactor))
+-                if (auto newVal = readFile(attrPath,
+-                                           IntelCPUSensor::sensorScaleFactor))
++                if (auto tmp = readFile(attrPath,
++                                        IntelCPUSensor::sensorScaleFactor))
                  {
 -                    updateProperty(sensorInterface, oldValue, *newVal,
 -                                   dbusName);

@@ -2,7 +2,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/libpeci;branch=master;protocol=https"
-SRCREV = "7169faac9eb8a428b4a2ecb680a071f732842004"
+SRCREV = "0bff6858af8405b307cdf5fdca46a008f0f52090"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
@@ -14,8 +14,8 @@ SRC_URI += " \
 "
 
 do_install:append() {
-    install -d ${D}/lib/udev/rules.d
-    install -m 0644 ${WORKDIR}/99-peci.rules ${D}/lib/udev/rules.d
+    install -d ${D}${libdir}/udev/rules.d
+    install -m 0644 ${WORKDIR}/99-peci.rules ${D}${libdir}/udev/rules.d
 }
 
 PACKAGECONFIG:append:intel = " dbus-raw-peci"

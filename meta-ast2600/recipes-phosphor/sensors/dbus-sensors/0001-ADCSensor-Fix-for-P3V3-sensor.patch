@@ -37,6 +37,7 @@ Command : ipmitool raw 0x04 0x27 0x81
 Response: 1b b2 ad 00 ce fd 00
 
 Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
+Upstream-Status: Pending
 ---
  src/ADCSensor.cpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

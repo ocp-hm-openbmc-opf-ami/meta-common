@@ -20,6 +20,7 @@ and got proper response.
 
 Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/Makefile       |   1 +
  board/aspeed/ast2600_intel/ast-kcs.c      |  77 +++++++-------

@@ -1,4 +1,4 @@
-From 9ace48c005dcba4e8c127d4f2abe363540f1879d Mon Sep 17 00:00:00 2001
+From a9296ecae9e6c2f7389c6d1a72dc762f19765d2c Mon Sep 17 00:00:00 2001
 From: Vikash Chandola <vikash.chandola@intel.com>
 Date: Thu, 30 Jun 2022 10:28:05 +0000
 Subject: [PATCH] Ignore VR sensor readings if content is 0xFFFF
@@ -8,18 +8,19 @@ erroneous condition with error code stating transaction successful.
 BMC need to ignore such readings.
 
 Signed-off-by: Vikash Chandola <vikash.chandola@intel.com>
+Upstream-Status: Pending
 ---
  src/IpmbSensor.cpp | 11 +++++++++++
  1 file changed, 11 insertions(+)
 
 diff --git a/src/IpmbSensor.cpp b/src/IpmbSensor.cpp
-index 2cb2495..61bdf52 100644
+index 9908341..f7cdf54 100644
 --- a/src/IpmbSensor.cpp
 +++ b/src/IpmbSensor.cpp
-@@ -322,6 +322,17 @@ void IpmbSensor::checkThresholds(void)
+@@ -332,6 +332,17 @@ void IpmbSensor::checkThresholds(void)
+ 
  bool IpmbSensor::processReading(const std::vector<uint8_t>& data, double& resp)
  {
- 
 +    if (isReadMe && data.size() >= 5)
 +    {
 +        // Mark VR sensor reading as failure if byte at index 3 and 4

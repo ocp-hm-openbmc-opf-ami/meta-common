@@ -8,6 +8,7 @@ Both kernel and u-boot work at the area /dev/mtd/u-boot-env
 
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  common/board_r.c                | 11 +++++++++--
  include/configs/aspeed-common.h | 11 ++++++++++-

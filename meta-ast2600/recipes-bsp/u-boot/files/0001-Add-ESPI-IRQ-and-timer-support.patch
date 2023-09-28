@@ -7,6 +7,7 @@ Signed-off-by: Vernon Mauery <vernon.mauery@intel.com>
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
 Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/lib/interrupts.c                |   5 +
  arch/arm/mach-aspeed/ast2600/Makefile    |   4 +

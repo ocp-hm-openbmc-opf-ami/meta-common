@@ -16,6 +16,7 @@
 
 import sys
 import os
+import errno
 import subprocess
 
 
@@ -33,56 +34,37 @@ def write_file(data, fileName, mode):
     file.write(data)
     file.close()
 
-
-def gen_key_pairs(prv_file_path, dest_file_path):
-    prv_key_gen_cmd = 'openssl ecparam -genkey -name secp384r1 -out ' + prv_file_path
-    pub_key_gen_cmd = 'openssl ec -in ' + \
-        prv_file_path + ' -pubout -out ' + dest_file_path
-    rc = subprocess.check_call(prv_key_gen_cmd, shell=True)
-    if not rc:
-        rc = subprocess.check_call(pub_key_gen_cmd, shell=True)
-        if rc:
-            sys.exit(1)
-    else:
-        sys.exit(1)
-
-
-def gen_cert_cmds(prv_key_path, rk_csr_path, dest_file_name):
-    cert_param = "/CN=intel test ECP384 CA"
-    cert_param = '"{}"'.format(cert_param)
-    rk_csr_gen_cmd = 'openssl req -new -sha384 -key ' + \
-        prv_key_path + ' -out ' + rk_csr_path + ' -subj ' + cert_param
-    rk_cert_gen = 'openssl x509 -req -days 365 -in ' + rk_csr_path + \
-        ' -signkey ' + prv_key_path + ' -sha384 -out ' + dest_file_name
-    rc = subprocess.check_call(rk_csr_gen_cmd, shell=True)
-    if not rc:
-        rc = subprocess.check_call(rk_cert_gen, shell=True)
-        if rc:
-            sys.exit(1)
-    else:
-        sys.exit(1)
-
+def get_keys_path(path):
+    openbmc_openbmc_path = path.split('build', 1)
+    keys_path = openbmc_openbmc_path[0] + '/openbmc-meta-intel/scripts/keys/'
+    return keys_path
 
 def get_debug_keys(source_file, dest_file_name):
     source_file_contents = read_file(source_file, mode='r')
     if source_file_contents is not None:
         write_file(source_file_contents, dest_file_name, mode='w')
         return
-    file_path = os.path.split(dest_file_name)
     '''
-    Generate keys runtime
+    Split the destination dir
+    Check if keys are present in openbmc-meta-intel/scripts/keys
+    if yes: 
+        Use the keys present for signing
+    else:
+        exit --> This serves as warning to developer to generate keys
     '''
-    if 'csk' in source_file:
-        prv_key_path = file_path[0] + '/csk_prv.pem'
-        gen_key_pairs(prv_key_path, dest_file_name)
-    elif 'rk' in source_file and 'cert' not in source_file:
-        prv_key_path = file_path[0] + '/rk_prv.pem'
-        gen_key_pairs(prv_key_path, dest_file_name)
-    elif 'rk' in source_file and 'cert' in source_file:
-        prv_key_path = file_path[0] + '/rk_prv.pem'
-        rk_csr_path = file_path[0] + '/rk_cert.csr'
-        gen_cert_cmds(prv_key_path, rk_csr_path, dest_file_name)
-    return
+    keys_path = get_keys_path(dest_file_name)
+    if os.path.exists(keys_path):
+        if 'csk' in source_file:
+            file_contents = read_file(keys_path + 'csk_pub.pem', mode='r')
+            write_file(file_contents, dest_file_name, mode='w')
+        elif 'rk' in source_file and 'cert' in source_file:
+            file_contents = read_file(keys_path + 'rk_cert.pem', mode='r')
+            write_file(file_contents, dest_file_name, mode='w')
+        elif 'rk' in source_file:
+            file_contents = read_file(keys_path + 'rk_pub.pem', mode='r')
+            write_file(file_contents, dest_file_name, mode='w') 
+    else:
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), source_file)
 
 
 def developer_sign(
@@ -92,12 +74,12 @@ def developer_sign(
         hash_file,
         sign_file_out):
     data = read_file(hash_file, mode='rb')
-    if not os.path.isfile(private_key):
-        cwd = os.getcwd()
-        if 'csk' in private_key:
-            private_key = cwd + '/csk_prv.pem'
-        elif 'rk' in private_key:
-            private_key = cwd + '/rk_prv.pem'
+    if not os.path.exists(private_key):
+        keys_path = get_keys_path(os.getcwd())
+        if 'rk' in private_key:
+            private_key = keys_path + 'rk_prv.pem'
+        elif 'csk' in private_key:
+            private_key = keys_path + 'csk_prv.pem'
     p = subprocess.Popen(['openssl',
                           'pkeyutl',
                           '-sign',

@@ -1,4 +1,4 @@
-From 51065d46e04d4fdc4e0a509587c197af0bc3cbc1 Mon Sep 17 00:00:00 2001
+From cd576411f13e268e5def85b40dbe23c4675a8293 Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Tue, 21 Sep 2021 14:48:09 -0700
 Subject: [PATCH] fru-device: Add MUX channel name to FRU objects
@@ -34,6 +34,7 @@ busctl tree xyz.openbmc_project.PSUSensor
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 Change-Id: Ide804dfd56c34c73e8dcffc0eab818609fe1a69c
+Upstream-Status: Pending
 ---
  configurations/solum_pssf162202_psu.json | 44 ++++++++++++++----------
  src/fru_device.cpp                       | 28 ++++++++++++++-
@@ -183,10 +184,10 @@ index 1451830..c3ca25c 100644
 +]
 \ No newline at end of file
 diff --git a/src/fru_device.cpp b/src/fru_device.cpp
-index 9d07e8e..65e8c3b 100644
+index ad6f016..1120491 100644
 --- a/src/fru_device.cpp
 +++ b/src/fru_device.cpp
-@@ -167,6 +167,31 @@ static bool isMuxBus(size_t bus)
+@@ -168,6 +168,31 @@ static bool isMuxBus(size_t bus)
          "/sys/bus/i2c/devices/i2c-" + std::to_string(bus) + "/mux_device"));
  }
  
@@ -218,7 +219,7 @@ index 9d07e8e..65e8c3b 100644
  static void makeProbeInterface(size_t bus, size_t address,
                                 sdbusplus::asio::object_server& objServer)
  {
-@@ -739,7 +764,7 @@ void addFruObjectToDbus(
+@@ -678,7 +703,7 @@ void addFruObjectToDbus(
      std::shared_ptr<sdbusplus::asio::dbus_interface> iface =
          objServer.add_interface(productName, "xyz.openbmc_project.FruDevice");
      dbusInterfaceMap[std::pair<size_t, size_t>(bus, address)] = iface;
@@ -226,8 +227,8 @@ index 9d07e8e..65e8c3b 100644
 +    auto muxChannel = getMuxBusChannelName(bus);
      for (auto& property : formattedFRU)
      {
- 
-@@ -792,6 +817,7 @@ void addFruObjectToDbus(
+         std::regex_replace(property.second.begin(), property.second.begin(),
+@@ -730,6 +755,7 @@ void addFruObjectToDbus(
      // baseboard will be 0, 0
      iface->register_property("BUS", bus);
      iface->register_property("ADDRESS", address);
@@ -236,7 +237,7 @@ index 9d07e8e..65e8c3b 100644
      iface->initialize();
  }
 diff --git a/src/utils.cpp b/src/utils.cpp
-index 2b77755..f51d0d0 100644
+index 8fbbcd1..3528a3c 100644
 --- a/src/utils.cpp
 +++ b/src/utils.cpp
 @@ -24,6 +24,7 @@

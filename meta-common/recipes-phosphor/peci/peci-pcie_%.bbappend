@@ -1,7 +1,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/peci-pcie;branch=master;protocol=https"
-SRCREV = "4fe704c4b2a6c79879922e3875494b7bbe6155d5"
+SRCREV = "8b18f526772c96c785a62e3a811eacf24d3b637f"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 

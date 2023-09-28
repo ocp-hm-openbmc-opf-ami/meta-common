@@ -1,15 +1,15 @@
-# Enable downstream autobump
+# Enable downstream autobump - this can be removed after upstream sync
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = # "git://github.com/openbmc/obmc-console;branch=master;protocol=https;nobranch=1"
-SRCREV = "b377362110f93a6eeabfb7f7a0e5cbb1eba65089"
+SRCREV = "dfda5afb4ff7c76c4df3ebebbf496fdbda0fbbae"
 
 FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 OBMC_CONSOLE_HOST_TTY = "ttyS2"
 SRC_URI += "file://sol-configure.sh \
             file://pre-post-routing.conf \
-            file://use-default-socket.conf \
             file://server.ttyS2.conf \
+            file://0001-Use-sol-configure.sh-to-configure-UART-routing.patch \
            "
 
 # Enable the socket (with drop-in configuration below) to watch for connections
@@ -33,7 +33,4 @@ do_install:append() {
     install -d $service_drop_in
     install -m 0644 ${WORKDIR}/pre-post-routing.conf $service_drop_in
 
-    # Install socket drop-in override to change the UNIX socket name
-    install -d $socket_drop_in
-    install -m 0644 ${WORKDIR}/use-default-socket.conf $socket_drop_in
 }

@@ -1,4 +1,4 @@
-From 8a87b9d8eedc9ece3d2badbdd8b4c6069156b2ba Mon Sep 17 00:00:00 2001
+From e4a57341414a28bc264b875ed5aa722daf29c31b Mon Sep 17 00:00:00 2001
 From: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
 Date: Tue, 31 May 2022 04:13:34 +0000
 Subject: [PATCH] Entity-manager: Add support to update assetTag
@@ -13,16 +13,17 @@ while using set-property and using redfish as well.
 The new value is preserved after BMC resets.
 
 Signed-off-by: mansijos <mansi.joshi@intel.com>
+Upstream-Status: Pending
 ---
  src/entity_manager.cpp | 74 ++++++++++++++++++++++++++++++++++++++++--
  src/perform_scan.cpp   |  3 ++
  2 files changed, 75 insertions(+), 2 deletions(-)
 
 diff --git a/src/entity_manager.cpp b/src/entity_manager.cpp
-index 12c57c5..ea24901 100644
+index 428d63e..4248d1b 100644
 --- a/src/entity_manager.cpp
 +++ b/src/entity_manager.cpp
-@@ -51,6 +51,13 @@ constexpr const char* lastConfiguration = "/tmp/configuration/last.json";
+@@ -53,6 +53,13 @@ constexpr const char* lastConfiguration = "/tmp/configuration/last.json";
  constexpr const char* currentConfiguration = "/var/configuration/system.json";
  constexpr const char* globalSchema = "global.json";
  
@@ -36,7 +37,7 @@ index 12c57c5..ea24901 100644
  const boost::container::flat_map<const char*, probe_type_codes, CmpStr>
      probeTypes{{{"FALSE", probe_type_codes::FALSE_T},
                  {"TRUE", probe_type_codes::TRUE_T},
-@@ -199,6 +206,43 @@ void addArrayToDbus(const std::string& name, const nlohmann::json& array,
+@@ -201,6 +208,43 @@ void addArrayToDbus(const std::string& name, const nlohmann::json& array,
      }
  }
  
@@ -66,11 +67,11 @@ index 12c57c5..ea24901 100644
 +
 +    systemBus->async_method_call(
 +        [](const boost::system::error_code& ec) {
-+            if (ec)
-+            {
-+                std::cerr << "Error setting AssetTag in FRU interface " << ec
-+                          << "\n";
-+            }
++        if (ec)
++        {
++            std::cerr << "Error setting AssetTag in FRU interface " << ec
++                      << "\n";
++        }
 +        },
 +        fruConn, foundPath->second, "org.freedesktop.DBus.Properties", "Set",
 +        fruIntf, "PRODUCT_ASSET_TAG", std::variant<PropertyType>(newVal));
@@ -80,7 +81,7 @@ index 12c57c5..ea24901 100644
  template <typename PropertyType>
  void addProperty(const std::string& name, const PropertyType& value,
                   sdbusplus::asio::dbus_interface* iface,
-@@ -213,9 +257,18 @@ void addProperty(const std::string& name, const PropertyType& value,
+@@ -215,9 +259,18 @@ void addProperty(const std::string& name, const PropertyType& value,
      }
      iface->register_property(
          name, value,
@@ -88,19 +89,19 @@ index 12c57c5..ea24901 100644
 +        [name, &systemConfiguration,
           jsonPointerString{std::string(jsonPointerString)}](
              const PropertyType& newVal, PropertyType& val) {
-+            if (name == "AssetTag")
++        if (name == "AssetTag")
++        {
++            if (!persistAssetTag(newVal, jsonPointerString))
 +            {
-+                if (!persistAssetTag(newVal, jsonPointerString))
-+                {
-+                    std::cerr << "error setting AssetTag in FRU interface\n";
-+                    return -1;
-+                }
++                std::cerr << "error setting AssetTag in FRU interface\n";
++                return -1;
 +            }
++        }
 +
-             val = newVal;
-             if (!setJsonFromPointer(jsonPointerString, val,
-                                     systemConfiguration))
-@@ -613,18 +666,35 @@ void postToDbus(const nlohmann::json& newConfiguration,
+         val = newVal;
+         if (!setJsonFromPointer(jsonPointerString, val, systemConfiguration))
+         {
+@@ -616,18 +669,35 @@ void postToDbus(const nlohmann::json& newConfiguration,
          populateInterfaceFromJson(systemConfiguration, jsonPointerPath,
                                    boardIface, boardValues, objServer);
          jsonPointerPath += "/";
@@ -138,10 +139,10 @@ index 12c57c5..ea24901 100644
          }
  
 diff --git a/src/perform_scan.cpp b/src/perform_scan.cpp
-index 44f284c..bb0f633 100644
+index 2be6477..de5e459 100644
 --- a/src/perform_scan.cpp
 +++ b/src/perform_scan.cpp
-@@ -543,6 +543,9 @@ void PerformScan::updateSystemConfiguration(const nlohmann::json& recordRef,
+@@ -539,6 +539,9 @@ void PerformScan::updateSystemConfiguration(const nlohmann::json& recordRef,
          getName.value() = deviceName;
          usedNames.insert(deviceName);
  
@@ -152,5 +153,5 @@ index 44f284c..bb0f633 100644
          {
              if (keyPair.key() != "Name")
 -- 
-2.38.1
+2.25.1
 

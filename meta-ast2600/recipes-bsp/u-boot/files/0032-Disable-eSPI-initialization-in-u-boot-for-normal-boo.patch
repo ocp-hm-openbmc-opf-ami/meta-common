@@ -20,6 +20,7 @@ eSPI will be initialized in u-boot only in these specific cases:
 3. When BMC goes to u-boot due to the boot failure condition.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)

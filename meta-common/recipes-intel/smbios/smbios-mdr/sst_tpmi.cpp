@@ -499,7 +499,7 @@ class SSTRegisterSet
         uint8_t cc;
         EPECIStatus status = peci_RdEndPointConfigMmio(
             cpu->address, cpu->segment, cpu->bus, cpu->device, cpu->function,
-            cpu->bar, MMIO_DWORD_OFFSET, offset, sizeof(data),
+            cpu->bar, MMIO_QWORD_OFFSET, offset, sizeof(data),
             reinterpret_cast<uint8_t*>(&data), &cc);
         return {data, status, cc};
     }
@@ -544,7 +544,7 @@ class SSTRegisterSet
         uint8_t cc;
         EPECIStatus status = peci_WrEndPointConfigMmio(
             cpu->address, cpu->segment, cpu->bus, cpu->device, cpu->function,
-            cpu->bar, MMIO_DWORD_OFFSET, offset, sizeof(data), data, &cc);
+            cpu->bar, MMIO_QWORD_OFFSET, offset, sizeof(data), data, &cc);
         if (!checkPECIStatus(status, cc))
         {
             throw PECIError("MMIO Write failed");
@@ -598,6 +598,11 @@ class SSTRegisterSet
     uint64_t ppOffset1(unsigned instance)
     {
         return read(instance, ppOffset(instance) + 8 * 2);
+    }
+
+    uint64_t ppControl(unsigned instance)
+    {
+        return read(instance, ppOffset(instance) + 8 * 3);
     }
 
     uint64_t ppStatus(unsigned instance)
@@ -877,7 +882,7 @@ class SSTTPMI : public SSTInterface
     {
         for (unsigned instance : intf->validInstances())
         {
-            uint64_t status = intf->ppStatus(instance);
+            uint64_t status = intf->ppControl(instance);
             status &= ~fieldMask;
             status |= value;
             intf->ppControl(instance, status);

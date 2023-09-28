@@ -1,4 +1,4 @@
-From 4bd0d018adb4d3fca0a98a97f71e9245671494f5 Mon Sep 17 00:00:00 2001
+From fb8ea028049784382030786ee3cc31107491039f Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Fri, 19 May 2023 17:13:35 +0000
 Subject: [PATCH] Adopt upstream ConnectionPolicy
@@ -22,77 +22,47 @@ Created SSE subscription and Observed that Events are shown
 on browser as expected.
 
 Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
+Upstream-Status: Pending
 ---
- http/http_client.hpp                          | 20 ++++++++-------
- .../include/event_service_manager.hpp         | 25 +++++++++++++++++--
- 2 files changed, 34 insertions(+), 11 deletions(-)
+ http/http_client.hpp                          | 12 +++++-----
+ .../include/event_service_manager.hpp         | 22 ++++++++++++++++++-
+ 2 files changed, 27 insertions(+), 7 deletions(-)
 
 diff --git a/http/http_client.hpp b/http/http_client.hpp
-index ec85d7ed..5e917f32 100644
+index c46c46f1..cb16638e 100644
 --- a/http/http_client.hpp
 +++ b/http/http_client.hpp
-@@ -623,12 +623,13 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
+@@ -624,11 +624,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
+     }
+ 
    public:
-     explicit ConnectionInfo(
-         boost::asio::io_context& iocIn, const std::string& idIn,
+-    explicit ConnectionInfo(boost::asio::io_context& iocIn,
+-                            const std::string& idIn,
+-                            const std::string& destIPIn, uint16_t destPortIn,
+-                            bool useSSLIn, bool verifyCertIn,
+-                            unsigned int connIdIn) :
++    explicit ConnectionInfo(
++        boost::asio::io_context& iocIn, const std::string& idIn,
 +        const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-         const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn,
--        bool verifyCertIn,
--        unsigned int connIdIn) :
++        const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn,
 +        bool verifyCertIn, unsigned int connIdIn) :
          subId(idIn),
--        host(destIPIn), port(destPortIn), useSSL(useSSLIn),
--        verifyCert(verifyCertIn), connId(connIdIn), conn(iocIn), timer(iocIn)
-+        connPolicy(connPolicyIn), host(destIPIn), port(destPortIn),
-+        useSSL(useSSLIn), verifyCert(verifyCertIn), connId(connIdIn),
-+        conn(iocIn), timer(iocIn)
-     {}
- };
- 
-@@ -817,7 +818,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
+         connPolicy(connPolicyIn), host(destIPIn), port(destPortIn),
+         useSSL(useSSLIn), verifyCert(verifyCertIn), connId(connIdIn),
+@@ -822,7 +822,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
          unsigned int newId = static_cast<unsigned int>(connections.size());
  
          auto& ret = connections.emplace_back(std::make_shared<ConnectionInfo>(
 -            ioc, id, destIP, destPort, useSSL, verifyCert, newId));
 +            ioc, id, connPolicy, destIP, destPort, useSSL, verifyCert, newId));
  
-         BMCWEB_LOG_DEBUG << "Added connection "
-                          << std::to_string(connections.size() - 1)
-@@ -831,7 +832,8 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
-     explicit ConnectionPool(
-         boost::asio::io_context& iocIn, const std::string& idIn,
-         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
--        const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn, bool verifyCertIn) :
-+        const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn,
-+        bool verifyCertIn) :
-         ioc(iocIn),
-         id(idIn), connPolicy(connPolicyIn), destIP(destIPIn),
-         destPort(destPortIn), useSSL(useSSLIn), verifyCert(verifyCertIn)
-@@ -888,8 +890,7 @@ class HttpClient
-     // handle the response
-     void sendDataWithCallback(std::string& data, const std::string& destIP,
-                               uint16_t destPort, const std::string& destUri,
--                              bool useSSL,
--                              bool verifyCert,
-+                              bool useSSL, bool verifyCert,
-                               const boost::beast::http::fields& httpHeader,
-                               const boost::beast::http::verb verb,
-                               const std::function<void(Response&)>& resHandler)
-@@ -902,7 +903,8 @@ class HttpClient
-         if (pool.first->second == nullptr)
-         {
-             pool.first->second = std::make_shared<ConnectionPool>(
--                ioc, clientKey, connPolicy, destIP, destPort, useSSL, verifyCert);
-+                ioc, clientKey, connPolicy, destIP, destPort, useSSL,
-+                verifyCert);
-         }
-         // Send the data using either the existing connection pool or the newly
-         // created connection pool
+         BMCWEB_LOG_DEBUG("Added connection {} to pool {}:{}",
+                          std::to_string(connections.size() - 1), destIP,
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index 2650cc62..c8e45093 100644
+index 988e7545..e702b52d 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -380,6 +380,25 @@ inline bool
+@@ -352,6 +352,25 @@ inline bool
      return true;
  }
  
@@ -100,7 +70,7 @@ index 2650cc62..c8e45093 100644
 +{
 +    // Allow all response codes because we want to surface Listener
 +    // issue to the client
-+    BMCWEB_LOG_DEBUG << "Received " << respCode << " response from Listener";
++    BMCWEB_LOG_DEBUG("Received {} response from Listener", respCode);
 +    return boost::system::errc::make_error_code(boost::system::errc::success);
 +}
 +
@@ -118,26 +88,16 @@ index 2650cc62..c8e45093 100644
  class Subscription : public persistent_data::UserSubscription
  {
    public:
-@@ -391,7 +410,8 @@ class Subscription : public persistent_data::UserSubscription
-     Subscription(const std::string& inHost, uint16_t inPort,
-                  const std::string& inPath, const std::string& inUriProto) :
+@@ -364,7 +383,8 @@ class Subscription : public persistent_data::UserSubscription
+                  const std::string& inPath, const std::string& inUriProto,
+                  boost::asio::io_context& ioc) :
          host(inHost),
 -        port(inPort), policy(std::make_shared<crow::ConnectionPolicy>()),
 +        port(inPort),
 +        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy())),
-         client(policy), path(inPath), uriProto(inUriProto)
+         path(inPath), uriProto(inUriProto)
      {
-         // Subscription constructor
-@@ -400,7 +420,8 @@ class Subscription : public persistent_data::UserSubscription
- 
-     Subscription(const std::shared_ptr<crow::SseConnection>& adaptor) :
-         sseConn(adaptor), eventSeqNum(1),
--        policy(std::make_shared<crow::ConnectionPolicy>()), client(policy)
-+        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy())),
-+        client(policy)
-     {}
- 
-     ~Subscription() = default;
+         client.emplace(ioc, policy);
 -- 
-2.17.1
+2.25.1
 

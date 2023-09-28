@@ -7,6 +7,7 @@ Which provide one property "PowerRestoreDelay"
 
 Change-Id: I4e6d3e45948b1e288301b4aa52cc08cace4f1bc2
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
+Upstream-Status: Pending
 ---
  .../Control/Power/RestoreDelay.interface.yaml         | 11 +++++++++++
  1 file changed, 11 insertions(+)

@@ -13,6 +13,7 @@
 // stated in the License.
 */
 
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <iterator>

@@ -2,7 +2,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/entity-manager.git;branch=master;protocol=https"
-SRCREV = "aca73883ca6bcee3dde8cbc8cf7d4e51f2959b73"
+SRCREV = "f60262d50b6629dbd19bc7e7c55f6442401242e4"
 
 RDEPENDS:${PN}:intel-ast2600 += " default-fru"
 

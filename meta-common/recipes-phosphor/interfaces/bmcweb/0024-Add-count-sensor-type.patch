@@ -10,6 +10,7 @@ Testing:
 Values of type 'count' from PMT exposed successfully on Redfish
 
 Signed-off-by: Alicja Rybak <alicja.rybak@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/sensors.hpp | 1 +
  1 file changed, 1 insertion(+)

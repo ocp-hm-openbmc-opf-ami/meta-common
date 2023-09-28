@@ -6,6 +6,7 @@ Subject: [PATCH] AST2600: Add TPM pulse trigger
 This commit adds TPM pulse trigger into u-boot booting.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c | 17 +++++++++++++++++
  1 file changed, 17 insertions(+)

@@ -16,6 +16,7 @@ Confirmed that the event is getting logged correctly in Redfish.
 
 Signed-off-by: mansijos <mansi.joshi@intel.com>
 Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Upstream-Status: Pending
 ---
  .../registries/openbmc_message_registry.hpp   | 30 +++++++++++++++++++
  1 file changed, 30 insertions(+)

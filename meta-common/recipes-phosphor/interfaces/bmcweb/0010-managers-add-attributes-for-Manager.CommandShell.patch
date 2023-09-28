@@ -32,6 +32,7 @@ Response:
 
 Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
 Change-Id: I2a56db912fc81064098f7aa9f4d110ac3baf361d
+Upstream-Status: Pending
 ---
  redfish-core/lib/managers.hpp | 11 +++++++++--
  1 file changed, 9 insertions(+), 2 deletions(-)

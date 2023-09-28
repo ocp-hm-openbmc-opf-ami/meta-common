@@ -13,6 +13,7 @@ Tested: Set and Get of ClearConfig from fwupd.sh works
         fine.
 
 Signed-off-by: Vikram Bodireddy <vikram.bodireddy@intel.com>
+Upstream-Status: Pending
 ---
  item_updater.hpp | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)

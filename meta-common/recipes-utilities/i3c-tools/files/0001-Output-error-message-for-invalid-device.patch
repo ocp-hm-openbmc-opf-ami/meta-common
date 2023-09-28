@@ -7,6 +7,7 @@ Lack of error message when user provided invalid device results in
 confusion. Make it clear what is wrong.
 
 Signed-off-by: Jonathan Doman <jonathan.doman@intel.com>
+Upstream-Status: Pending
 ---
  i3ctransfer.c | 13 +++++++------
  1 file changed, 7 insertions(+), 6 deletions(-)

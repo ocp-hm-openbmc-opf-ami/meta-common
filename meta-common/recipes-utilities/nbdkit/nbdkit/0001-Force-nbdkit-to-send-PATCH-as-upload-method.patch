@@ -15,6 +15,7 @@ support is unlikely to be accepted in upstream curl and it is easier to
 maintain this patch in nbdkit.
 
 Signed-off-by: Iwona Winiarska <iwona.winiarska@intel.com>
+Upstream-Status: Pending
 ---
  plugins/curl/curl.c | 15 +++++++++++++--
  1 file changed, 13 insertions(+), 2 deletions(-)

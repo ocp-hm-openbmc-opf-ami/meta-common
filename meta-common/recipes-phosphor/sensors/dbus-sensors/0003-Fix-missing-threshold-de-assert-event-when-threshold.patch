@@ -39,6 +39,7 @@ Tested:
    2 |  Pre-Init  |0000007304| Voltage #0x60 | Upper Non-critical going high | Deasserted
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
  src/Thresholds.cpp | 21 +++++++++++++++++----
  src/Thresholds.hpp |  2 +-

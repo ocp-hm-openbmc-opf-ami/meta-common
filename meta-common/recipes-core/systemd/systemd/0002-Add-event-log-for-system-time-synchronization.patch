@@ -12,6 +12,7 @@ Confirmed that the event is getting logged correctly in Redfish.
 
 Signed-off-by: Joshi-Mansi <mansi.joshi@linux.intel.com>
 Change-Id: I8901227990ee7bc41de30af13c775cc45016a626
+Upstream-Status: Pending
 ---
  src/timedate/timedated.c         | 14 ++++++++++++++
  src/timesync/timesyncd-manager.c | 14 ++++++++++++++

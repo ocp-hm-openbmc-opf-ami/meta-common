@@ -6,7 +6,7 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-lice
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.mtd-util.git;protocol=ssh;branch=main"
 
 PV = "1.0+git${SRCPV}"
-SRCREV = "efb051bbfafd768f85998124eb0da55a6396175b"
+SRCREV = "ec55c91f04224385163ec4fca3fbf3e77a8be652"
 
 
 S = "${WORKDIR}/git"

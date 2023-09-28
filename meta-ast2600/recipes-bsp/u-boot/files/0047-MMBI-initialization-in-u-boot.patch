@@ -12,6 +12,7 @@ Tested:
  - ESPI and MMBI register are set as expected.
 
 Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/ast-espi.c     | 106 ++++++++++++++++++++
  arch/arm/mach-aspeed/ast2600/board_common.c |  11 +-

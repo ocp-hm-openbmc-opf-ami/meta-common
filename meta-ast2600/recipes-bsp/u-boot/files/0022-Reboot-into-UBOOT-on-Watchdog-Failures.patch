@@ -13,6 +13,7 @@ uboot after 3 times
 Signed-off-by: James Feist <james.feist@linux.intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
 
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c | 61 ++++++++++++++++++++++++++++++
  1 file changed, 61 insertions(+)

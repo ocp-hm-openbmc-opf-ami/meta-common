@@ -3,7 +3,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/phosphor-user-manager;branch=master;protocol=https"
-SRCREV = "601d3db44097d89a7d24ae287e8bbe72e7e92d5d"
+SRCREV = "5c028e17a79b62f75bb05658f65648a3d9218dff"
 
 EXTRA_OEMESON += "${@bb.utils.contains('IMAGE_FEATURES', 'debug-tweaks', '-Droot_user_mgmt=enabled', '-Droot_user_mgmt=disabled', d)}"
 

@@ -23,7 +23,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=3b83ef96387f14655fc854ddc3c6bd57"
 SECTION = "libs"
 
 S = "${WORKDIR}/git"
-SRCREV = "50729eac74c0bf7d62beb45879de8b77c1f284f3"
+SRCREV = "dc2d7cce02a273f6ec6a7cd78512dfeaf633a3a5"
 SRC_URI = "git://github.com/ARMmbed/mbedtls.git;protocol=https;branch=development"
 
 inherit cmake

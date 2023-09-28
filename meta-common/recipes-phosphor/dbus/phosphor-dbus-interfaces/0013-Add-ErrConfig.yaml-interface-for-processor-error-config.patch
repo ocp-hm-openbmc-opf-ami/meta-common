@@ -37,6 +37,7 @@ Which provide 3 properties:
 
 Change-Id: Ibc5a7a5e15c998e56c04e23b1043d99243a91171
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
+Upstream-Status: Pending
 ---
  .../Processor/ErrConfig.interface.yaml        | 33 +++++++++++++++++++
  1 file changed, 33 insertions(+)

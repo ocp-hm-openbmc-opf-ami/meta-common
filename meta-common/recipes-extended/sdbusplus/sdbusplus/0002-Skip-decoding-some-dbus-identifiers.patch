@@ -14,6 +14,7 @@ Small identifiers decoded correctly
 
 Change-Id: I11aea22060a789dcf756142ee02637dfe7d77c14
 Signed-off-by: Nidhin MS <nidhin.ms@intel.com>
+Upstream-Status: Pending
 ---
  src/message/native_types.cpp | 7 +++++--
  test/message/types.cpp       | 8 ++++----

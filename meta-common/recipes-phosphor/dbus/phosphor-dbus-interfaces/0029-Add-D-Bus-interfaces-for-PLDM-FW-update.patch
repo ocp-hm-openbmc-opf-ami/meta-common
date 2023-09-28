@@ -12,6 +12,7 @@ Test
 supporting files are created for the yaml files.
 
 Signed-off-by: Gade-RajasekharReddy@ <raja.sekhar.reddy.gade@linux.intel.com>
+Upstream-Status: Pending
 ---
  .../PLDM/FWU/ACPIDescriptor.interface.yaml    |  14 +++
  ...ActiveComponentImageSetInfo.interface.yaml |   9 ++

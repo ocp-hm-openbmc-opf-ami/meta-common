@@ -32,6 +32,7 @@ Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
 
 
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c | 55 ++++++++++++++++++++++++++++++
  1 file changed, 55 insertions(+)

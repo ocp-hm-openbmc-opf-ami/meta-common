@@ -1,4 +1,4 @@
-From b36eb981ab6888db3f0f362fd8273448fa3afa8d Mon Sep 17 00:00:00 2001
+From dcded869ff176344090af160a3719f665c23f9b3 Mon Sep 17 00:00:00 2001
 From: "Jason M. Bills" <jason.m.bills@linux.intel.com>
 Date: Thu, 25 Feb 2021 15:06:38 -0800
 Subject: [PATCH] Add PECI Telemetry command
@@ -13,12 +13,15 @@ Ran the Telemetry commands using peci_cmds.
 
 Change-Id: Idf8ec9c78f8204afc3f21cac7410c2f3127ae967
 Signed-off-by: Jason M. Bills <jason.m.bills@linux.intel.com>
+
+%% original patch: 0002-Add-PECI-Telemetry-command.patch
+Upstream-Status: Pending
 ---
- linux/peci-ioctl.h |  93 ++++++++++++
- peci.c             | 336 ++++++++++++++++++++++++++++++++++++++++++
- peci.h             |  61 ++++++++
- peci_cmds.c        | 354 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 844 insertions(+)
+ linux/peci-ioctl.h |  93 +++++++++++
+ peci.c             | 336 ++++++++++++++++++++++++++++++++++++++
+ peci.h             |  61 +++++++
+ peci_cmds.c        | 399 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 889 insertions(+)
 
 diff --git a/linux/peci-ioctl.h b/linux/peci-ioctl.h
 index 59ff376..f8629c6 100644
@@ -137,10 +140,10 @@ index 59ff376..f8629c6 100644
 +
  #endif /* __PECI_IOCTL_H */
 diff --git a/peci.c b/peci.c
-index 61e87da..80b3054 100644
+index 6a0b93c..4004acf 100644
 --- a/peci.c
 +++ b/peci.c
-@@ -1750,6 +1750,342 @@ EPECIStatus peci_CrashDump_GetFrame_dom(uint8_t target, uint8_t domainId,
+@@ -1751,6 +1751,342 @@ EPECIStatus peci_CrashDump_GetFrame_dom(uint8_t target, uint8_t domainId,
      return ret;
  }
  
@@ -484,10 +487,10 @@ index 61e87da..80b3054 100644
   *  This function provides raw PECI command access
   *------------------------------------------------------------------------*/
 diff --git a/peci.h b/peci.h
-index e9bafd2..84b5355 100644
+index 4cd2e8d..f1983d0 100644
 --- a/peci.h
 +++ b/peci.h
-@@ -424,6 +424,67 @@ extern "C"
+@@ -425,6 +425,67 @@ extern "C"
                                              uint16_t param2, uint8_t u8ReadLen,
                                              uint8_t* pData, uint8_t* cc);
  
@@ -556,7 +559,7 @@ index e9bafd2..84b5355 100644
      EPECIStatus peci_raw(uint8_t target, uint8_t u8ReadLen,
                           const uint8_t* pRawCmd, const uint32_t cmdSize,
 diff --git a/peci_cmds.c b/peci_cmds.c
-index 6d0eb29..15d936d 100644
+index 623a9a4..75e075b 100644
 --- a/peci_cmds.c
 +++ b/peci_cmds.c
 @@ -98,6 +98,7 @@ void Usage(char* progname)
@@ -567,7 +570,7 @@ index 6d0eb29..15d936d 100644
      printf("\t%-28s%s\n", "raw", "Raw PECI command in bytes");
      printf("\n");
  }
-@@ -140,6 +141,18 @@ int main(int argc, char* argv[])
+@@ -141,6 +142,18 @@ int main(int argc, char* argv[])
      uint8_t u8MsrThread = 0;
      uint16_t u16MsrAddr = 0;
      uint64_t u64MsrVal = 0;
@@ -576,7 +579,7 @@ index 6d0eb29..15d936d 100644
 +    uint8_t u8Param0 = 0;
 +    uint16_t u16Param1 = 0;
 +    uint8_t u8Param2 = 0;
-+    uint8_t pData[16] = {};
++    uint8_t pData[16] = {0};
 +    uint16_t u16Index = 0;
 +    uint16_t u16Sample = 0;
 +    uint8_t u8RW = 0;
@@ -586,7 +589,7 @@ index 6d0eb29..15d936d 100644
      short temperature;
      uint64_t dib;
      int index = 0;
-@@ -1050,6 +1063,347 @@ int main(int argc, char* argv[])
+@@ -1063,6 +1076,392 @@ int main(int argc, char* argv[])
              printLoopSummary(ccCounts);
          }
      }
@@ -602,7 +605,8 @@ index 6d0eb29..15d936d 100644
 +        index = argc;
 +        switch (u8Opcode)
 +        {
-+            case 1: {
++            case 1:
++            {
 +                switch (argc - optind)
 +                {
 +                    case 4:
@@ -664,9 +668,18 @@ index 6d0eb29..15d936d 100644
 +                }
 +                while (loops--)
 +                {
++                    cc = 0; // reset the cc for each loop
++                    clock_gettime(CLOCK_REALTIME, &begin);
 +                    ret = peci_Telemetry_Discovery_dom(
 +                        address, domainId, u8SubOpcode, u8Param0, u16Param1,
 +                        u8Param2, u8Size, pData, &cc);
++                    timeSpent = getTimeDifference(begin);
++                    if (verbose && measureTime)
++                    {
++                        printf("\nTime taken in iteration %d = %lf s\n",
++                               (loopCount - loops), timeSpent);
++                    }
++                    totalTimeSpent += timeSpent;
 +                    ccCounts[cc]++;
 +
 +                    if (verbose || loops == 0)
@@ -693,7 +706,8 @@ index 6d0eb29..15d936d 100644
 +                }
 +                break;
 +            }
-+            case 2: {
++            case 2:
++            {
 +                switch (argc - optind)
 +                {
 +                    case 2:
@@ -717,9 +731,18 @@ index 6d0eb29..15d936d 100644
 +                u8Size = 8;
 +                while (loops--)
 +                {
++                    cc = 0; // reset the cc for each loop
++                    clock_gettime(CLOCK_REALTIME, &begin);
 +                    ret = peci_Telemetry_GetTelemSample_dom(address, domainId,
 +                                                            u16Index, u16Sample,
 +                                                            u8Size, pData, &cc);
++                    timeSpent = getTimeDifference(begin);
++                    if (verbose && measureTime)
++                    {
++                        printf("\nTime taken in iteration %d = %lf s\n",
++                               (loopCount - loops), timeSpent);
++                    }
++                    totalTimeSpent += timeSpent;
 +                    ccCounts[cc]++;
 +
 +                    if (verbose || loops == 0)
@@ -746,7 +769,8 @@ index 6d0eb29..15d936d 100644
 +                }
 +                break;
 +            }
-+            case 3: {
++            case 3:
++            {
 +                // Get the read/write parameter
 +                if (argc == optind)
 +                {
@@ -763,10 +787,10 @@ index 6d0eb29..15d936d 100644
 +                        switch (argc - optind)
 +                        {
 +                            case 2:
-+                                u16Offset =
-+                                    (uint16_t)strtoul(argv[--index], NULL, 0);
-+                                u16Watcher =
-+                                    (uint16_t)strtoul(argv[--index], NULL, 0);
++                                u16Offset = (uint16_t)strtoul(argv[--index],
++                                                              NULL, 0);
++                                u16Watcher = (uint16_t)strtoul(argv[--index],
++                                                               NULL, 0);
 +                                break;
 +
 +                            default:
@@ -787,9 +811,18 @@ index 6d0eb29..15d936d 100644
 +                        u8Size = 8;
 +                        while (loops--)
 +                        {
++                            cc = 0; // reset the cc for each loop
++                            clock_gettime(CLOCK_REALTIME, &begin);
 +                            ret = peci_Telemetry_ConfigWatcherRd_dom(
 +                                address, domainId, u16Watcher, u16Offset,
-+                                u8Size, pData, &cc);
++                                u8Size, (uint8_t*)&u64Data, &cc);
++                            timeSpent = getTimeDifference(begin);
++                            if (verbose && measureTime)
++                            {
++                                printf("\nTime taken in iteration %d = %lf s\n",
++                                       (loopCount - loops), timeSpent);
++                            }
++                            totalTimeSpent += timeSpent;
 +                            ccCounts[cc]++;
 +
 +                            if (verbose || loops == 0)
@@ -801,12 +834,8 @@ index 6d0eb29..15d936d 100644
 +                                }
 +                                else
 +                                {
-+                                    printf("   cc:0x%02x", cc);
-+                                    for (size_t i = 0; i < u8Size; i++)
-+                                    {
-+                                        printf(" 0x%02x", pData[i]);
-+                                    }
-+                                    printf("\n");
++                                    printf("   cc:0x%02x 0x%08" PRIx64 "\n", cc,
++                                           u64Data);
 +                                }
 +                            }
 +                        }
@@ -819,12 +848,12 @@ index 6d0eb29..15d936d 100644
 +                        switch (argc - optind)
 +                        {
 +                            case 3:
-+                                u64Data =
-+                                    (uint64_t)strtoull(argv[--index], NULL, 0);
-+                                u16Offset =
-+                                    (uint16_t)strtoul(argv[--index], NULL, 0);
-+                                u16Watcher =
-+                                    (uint16_t)strtoul(argv[--index], NULL, 0);
++                                u64Data = (uint64_t)strtoull(argv[--index],
++                                                             NULL, 0);
++                                u16Offset = (uint16_t)strtoul(argv[--index],
++                                                              NULL, 0);
++                                u16Watcher = (uint16_t)strtoul(argv[--index],
++                                                               NULL, 0);
 +                                break;
 +
 +                            default:
@@ -844,9 +873,18 @@ index 6d0eb29..15d936d 100644
 +                        }
 +                        while (loops--)
 +                        {
++                            cc = 0; // reset the cc for each loop
++                            clock_gettime(CLOCK_REALTIME, &begin);
 +                            ret = peci_Telemetry_ConfigWatcherWr_dom(
 +                                address, domainId, u16Watcher, u16Offset,
 +                                sizeof(u64Data), (uint8_t*)&u64Data, &cc);
++                            timeSpent = getTimeDifference(begin);
++                            if (verbose && measureTime)
++                            {
++                                printf("\nTime taken in iteration %d = %lf s\n",
++                                       (loopCount - loops), timeSpent);
++                            }
++                            totalTimeSpent += timeSpent;
 +                            ccCounts[cc]++;
 +
 +                            if (verbose || loops == 0)
@@ -871,7 +909,8 @@ index 6d0eb29..15d936d 100644
 +                }
 +                break;
 +            }
-+            case 12: {
++            case 12:
++            {
 +                switch (argc - optind)
 +                {
 +                    case 2:
@@ -895,9 +934,18 @@ index 6d0eb29..15d936d 100644
 +                u8Size = 8;
 +                while (loops--)
 +                {
++                    cc = 0; // reset the cc for each loop
++                    clock_gettime(CLOCK_REALTIME, &begin);
 +                    ret = peci_Telemetry_GetCrashlogSample_dom(
 +                        address, domainId, u16Index, u16Sample, u8Size, pData,
 +                        &cc);
++                    timeSpent = getTimeDifference(begin);
++                    if (verbose && measureTime)
++                    {
++                        printf("\nTime taken in iteration %d = %lf s\n",
++                               (loopCount - loops), timeSpent);
++                    }
++                    totalTimeSpent += timeSpent;
 +                    ccCounts[cc]++;
 +
 +                    if (verbose || loops == 0)

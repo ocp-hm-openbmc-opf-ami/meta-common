@@ -12,6 +12,7 @@ Signed-off-by: Yong Li <yong.b.li@linux.intel.com>
 Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
 
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/scu_info.c |  4 ++
  board/aspeed/ast2600_intel/intel.c      | 65 +++++++++++++++++++++++++

@@ -10,11 +10,11 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-net-ipmid;branch=master;protocol=https"
-SRCREV = "099fb097d1671bc057a0b149de58b8b66c14e9a2"
+SRCREV = "15535143347bc37bbd0f9bd3b473d500584eb7ae"
 
 SRC_URI += " file://10-nice-rules.conf \
-             file://0006-Modify-dbus-namespace-of-chassis-control-for-guid.patch \
              file://0012-rakp12-Add-username-to-SessionInfo-interface.patch \
+             file://0001-Revert-Fix-the-wrong-service-and-path-for-guid.patch \
            "
 
 do_install:append() {

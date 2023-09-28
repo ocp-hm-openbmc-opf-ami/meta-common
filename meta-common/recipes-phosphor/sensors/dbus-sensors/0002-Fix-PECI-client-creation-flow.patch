@@ -1,4 +1,4 @@
-From f680046086c776a56de66e6c484d8512d0cedbed Mon Sep 17 00:00:00 2001
+From fc66455a6ff3d359b37601315e99d260efe8b415 Mon Sep 17 00:00:00 2001
 From: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
 Date: Wed, 27 Jan 2021 15:52:16 -0800
 Subject: [PATCH] Fix PECI client creation flow
@@ -6,14 +6,16 @@ Subject: [PATCH] Fix PECI client creation flow
 Use variable delays when detecting CPUs sensors.
 This change avoid flood the journal with error messages as CPU powers
 on and before peci is fully functioning.
+Also slowdown ping after one CPU is detected to be ready state.
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
- src/IntelCPUSensorMain.cpp | 32 ++++++++++++++++++++++++--------
- 1 file changed, 24 insertions(+), 8 deletions(-)
+ src/IntelCPUSensorMain.cpp | 44 +++++++++++++++++++++++++++-----------
+ 1 file changed, 32 insertions(+), 12 deletions(-)
 
 diff --git a/src/IntelCPUSensorMain.cpp b/src/IntelCPUSensorMain.cpp
-index 011f2fb..190a47d 100644
+index 1fc75af..579198e 100644
 --- a/src/IntelCPUSensorMain.cpp
 +++ b/src/IntelCPUSensorMain.cpp
 @@ -51,6 +51,9 @@
@@ -41,18 +43,31 @@ index 011f2fb..190a47d 100644
      size_t rescanDelaySeconds = 0;
 +    size_t pingSeconds = fastPingSeconds;
      static bool keepPinging = false;
+     int peciFd = -1;
  
-     for (CPUConfig& config : cpuConfigs)
-@@ -496,7 +500,7 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
+@@ -486,6 +490,9 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
+     {
+         if (config.state == State::READY)
+         {
++            // at least one CPU is found, use slowPing since other cpu may not
++            // be present
++            pingSeconds = slowPingSeconds;
+             continue;
+         }
+ 
+@@ -499,8 +506,9 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
          {
              std::cerr << "unable to open " << peciDevPath << " "
                        << std::strerror(errno) << "\n";
 -            detectCpuAsync(pingTimer, creationTimer, io, objectServer,
-+            detectCpuAsync(pingTimer, slowPingSeconds, creationTimer, io, objectServer,
-                            dbusConnection, cpuConfigs, sensorConfigs);
+-                           dbusConnection, cpuConfigs, sensorConfigs);
++            detectCpuAsync(pingTimer, slowPingSeconds, creationTimer, io,
++                           objectServer, dbusConnection, cpuConfigs,
++                           sensorConfigs);
              return;
          }
-@@ -527,6 +531,8 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
+ 
+@@ -529,6 +537,8 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
                  }
                  else
                  {
@@ -61,7 +76,7 @@ index 011f2fb..190a47d 100644
                      break;
                  }
              }
-@@ -557,11 +563,14 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
+@@ -559,11 +569,14 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
                          std::cout << config.name << " is detected\n";
                          if (!exportDevice(config))
                          {
@@ -76,22 +91,15 @@ index 011f2fb..190a47d 100644
                          newState = State::OFF;
                      }
                  }
-@@ -586,6 +595,8 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
-             keepPinging = true;
-         }
- 
-+        close(file);
-+
-         if (debug)
-         {
-             std::cout << config.name << ", state: " << config.state << "\n";
-@@ -605,27 +616,27 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
+@@ -609,27 +622,28 @@ void detectCpu(boost::asio::steady_timer& pingTimer,
                                 sensorConfigs) ||
                  keepPinging)
              {
 -                detectCpuAsync(pingTimer, creationTimer, io, objectServer,
-+                detectCpuAsync(pingTimer, slowPingSeconds, creationTimer, io, objectServer,
-                                dbusConnection, cpuConfigs, sensorConfigs);
+-                               dbusConnection, cpuConfigs, sensorConfigs);
++                detectCpuAsync(pingTimer, slowPingSeconds, creationTimer, io,
++                               objectServer, dbusConnection, cpuConfigs,
++                               sensorConfigs);
              }
          });
      }
@@ -117,7 +125,7 @@ index 011f2fb..190a47d 100644
      pingTimer.async_wait([&](const boost::system::error_code& ec) {
          if (ec == boost::asio::error::operation_aborted)
          {
-@@ -635,6 +646,11 @@ void detectCpuAsync(
+@@ -639,6 +653,11 @@ void detectCpuAsync(
          detectCpu(pingTimer, creationTimer, io, objectServer, dbusConnection,
                    cpuConfigs, sensorConfigs);
      });
@@ -129,24 +137,29 @@ index 011f2fb..190a47d 100644
  }
  
  bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
-@@ -764,7 +780,7 @@ int main()
+@@ -768,8 +787,8 @@ int main()
  
          if (getCpuConfig(systemBus, cpuConfigs, sensorConfigs, objectServer))
          {
 -            detectCpuAsync(pingTimer, creationTimer, io, objectServer,
-+            detectCpuAsync(pingTimer, fastPingSeconds, creationTimer, io, objectServer,
-                            systemBus, cpuConfigs, sensorConfigs);
+-                           systemBus, cpuConfigs, sensorConfigs);
++            detectCpuAsync(pingTimer, fastPingSeconds, creationTimer, io,
++                           objectServer, systemBus, cpuConfigs, sensorConfigs);
          }
      });
-@@ -793,7 +809,7 @@ int main()
+ 
+@@ -797,8 +816,9 @@ int main()
              if (getCpuConfig(systemBus, cpuConfigs, sensorConfigs,
                               objectServer))
              {
 -                detectCpuAsync(pingTimer, creationTimer, io, objectServer,
-+                detectCpuAsync(pingTimer, fastPingSeconds, creationTimer, io, objectServer,
-                                systemBus, cpuConfigs, sensorConfigs);
+-                               systemBus, cpuConfigs, sensorConfigs);
++                detectCpuAsync(pingTimer, fastPingSeconds, creationTimer, io,
++                               objectServer, systemBus, cpuConfigs,
++                               sensorConfigs);
              }
          });
+     };
 -- 
 2.25.1
 

@@ -2,7 +2,7 @@ SUMMARY = "HSBP Manager"
 DESCRIPTION = "HSBP Manager monitors HSBPs through SMBUS"
 
 SRC_URI = "git://github.com/openbmc/s2600wf-misc.git;branch=master;protocol=https"
-SRCREV = "ad11f7df3ead2b42d1688fe2cd5b2531f2912c73"
+SRCREV = "a2c6e1d04dd82834ae002237bfef3cc52ab47138"
 PV = "0.1+git${SRCPV}"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
@@ -22,7 +22,7 @@ DEPENDS = "boost \
            libgpiod"
 
 S = "${WORKDIR}/git/hsbp-manager"
-inherit cmake systemd
+inherit cmake pkgconfig systemd
 
 EXTRA_OECMAKE = "-DYOCTO=1"
 

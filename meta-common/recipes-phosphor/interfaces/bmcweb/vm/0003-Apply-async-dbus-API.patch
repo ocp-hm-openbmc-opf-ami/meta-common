@@ -1,4 +1,4 @@
-From e8a7ecf879d1db152af0e5bdc5fcef92de646fc5 Mon Sep 17 00:00:00 2001
+From 761191118efdb0d4136e1b23be1e11b33cf5d56c Mon Sep 17 00:00:00 2001
 From: Przemyslaw Czarnowski <przemyslaw.hawrylewicz.czarnowski@intel.com>
 Date: Tue, 5 Jul 2022 15:38:26 +0200
 Subject: [PATCH] Apply async dbus API
@@ -16,12 +16,13 @@ connection is released with appropriate reply.
 
 Change-Id: I5976aadda9dc4fb1d7d876146b31473dc75955eb
 Signed-off-by: Przemyslaw Czarnowski <przemyslaw.hawrylewicz.czarnowski@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/virtual_media.hpp | 220 ++++++++++++++++++++++++-----
  1 file changed, 186 insertions(+), 34 deletions(-)
 
 diff --git a/redfish-core/lib/virtual_media.hpp b/redfish-core/lib/virtual_media.hpp
-index 8192da2e..8671fe74 100644
+index e425cc18..fe5e34d0 100644
 --- a/redfish-core/lib/virtual_media.hpp
 +++ b/redfish-core/lib/virtual_media.hpp
 @@ -20,13 +20,20 @@
@@ -64,7 +65,7 @@ index 8192da2e..8671fe74 100644
  inline VmMode
      parseObjectPathAndGetMode(const sdbusplus::message::object_path& itemPath,
                                const std::string& resName)
-@@ -572,6 +591,106 @@ class SecurePipe
+@@ -575,6 +594,106 @@ class SecurePipe
      CredentialsProvider::SecureBuffer buffer;
  };
  
@@ -92,7 +93,7 @@ index 8192da2e..8671fe74 100644
 +                          const std::string& action, bool legacy,
 +                          std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 +{
-+    BMCWEB_LOG_DEBUG << "Start Listening for completion : " << action;
++    BMCWEB_LOG_DEBUG("Start Listening for completion : {}", action);
 +    std::string matcherString = sdbusplus::bus::match::rules::type::signal();
 +
 +    std::string interface = std::string("xyz.openbmc_project.VirtualMedia.") +
@@ -111,41 +112,41 @@ index 8192da2e..8671fe74 100644
 +        int errorCode = 0;
 +        try
 +        {
-+            BMCWEB_LOG_INFO << "Completion signal from " << m.get_path()
-+                            << " has been received";
++            BMCWEB_LOG_INFO("Completion signal from {} has been received",
++                            m.get_path());
 +
 +            m.read(errorCode);
 +            switch (errorCode)
 +            {
 +                case 0: // success
-+                    BMCWEB_LOG_INFO << "Signal received: Success";
++                    BMCWEB_LOG_INFO("Signal received: Success");
 +                    messages::success(asyncResp->res);
 +                    break;
 +                case EPERM:
-+                    BMCWEB_LOG_ERROR << "Signal received: EPERM";
++                    BMCWEB_LOG_ERROR("Signal received: EPERM");
 +                    messages::accessDenied(asyncResp->res,
 +                                           boost::urls::format(action));
 +                    break;
 +                case EBUSY:
-+                    BMCWEB_LOG_ERROR << "Signal received: EAGAIN";
++                    BMCWEB_LOG_ERROR("Signal received: EAGAIN");
 +                    messages::resourceInUse(asyncResp->res);
 +                    break;
 +                default:
-+                    BMCWEB_LOG_ERROR << "Signal received: Other: " << errorCode;
++                    BMCWEB_LOG_ERROR("Signal received: Other: {}", errorCode);
 +                    messages::operationFailed(asyncResp->res);
 +                    break;
 +            }
 +        }
 +        catch (sdbusplus::exception::SdBusError& e)
 +        {
-+            BMCWEB_LOG_ERROR << e.what();
++            BMCWEB_LOG_ERROR("{}", e.what());
 +        }
 +        // postpone matcher deletion after callback finishes
 +        boost::asio::post(crow::connections::systemBus->get_io_context(),
 +                          [name, matchWrapper = matchWrapper]()
 +
 +                          {
-+            BMCWEB_LOG_DEBUG << "Removing matcher for " << name << " node.";
++            BMCWEB_LOG_DEBUG("Removing matcher for {} node.", name);
 +            matchWrapper->stop();
 +        });
 +    };
@@ -157,7 +158,7 @@ index 8192da2e..8671fe74 100644
 +        [matchWrapper](const boost::system::error_code& ec) {
 +        if (ec != boost::asio::error::operation_aborted)
 +        {
-+            BMCWEB_LOG_DEBUG << "Timer expired! Signal did not come";
++            BMCWEB_LOG_DEBUG("Timer expired! Signal did not come");
 +            matchWrapper->matcher = std::nullopt;
 +            return;
 +        }
@@ -171,7 +172,7 @@ index 8192da2e..8671fe74 100644
  /**
   * @brief Function transceives data with dbus directly.
   *
-@@ -626,24 +745,46 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+@@ -629,24 +748,46 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
              }
          });
      }
@@ -188,7 +189,7 @@ index 8192da2e..8671fe74 100644
 +         objectPath](const boost::system::error_code& ec, bool success) {
          if (ec)
          {
-             BMCWEB_LOG_ERROR << "Bad D-Bus request error: " << ec;
+             BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
 -            messages::internalError(asyncResp->res);
 +            if (ec == boost::system::errc::device_or_resource_busy)
 +            {
@@ -212,7 +213,7 @@ index 8192da2e..8671fe74 100644
 -        else if (!success)
 +        if (!success)
          {
-             BMCWEB_LOG_ERROR << "Service responded with error";
+             BMCWEB_LOG_ERROR("Service responded with error");
 -            messages::generalError(asyncResp->res);
 +            messages::operationFailed(asyncResp->res);
 +            wrapper->stop();
@@ -226,7 +227,7 @@ index 8192da2e..8671fe74 100644
  }
  
  /**
-@@ -794,37 +935,48 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+@@ -797,37 +938,48 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& service, const std::string& name,
                            bool legacy)
  {
@@ -237,7 +238,7 @@ index 8192da2e..8671fe74 100644
 -            [asyncResp](const boost::system::error_code& ec) {
 -            if (ec)
 -            {
--                BMCWEB_LOG_ERROR << "Bad D-Bus request error: " << ec;
+-                BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
 +    const std::string vmMode = getModeName(legacy);
 +    const std::string objectPath = "/xyz/openbmc_project/VirtualMedia/" +
 +                                   vmMode + "/" + name;
@@ -254,7 +255,7 @@ index 8192da2e..8671fe74 100644
 +         wrapper](const boost::system::error_code ec, bool success) {
 +        if (ec)
 +        {
-+            BMCWEB_LOG_ERROR << "Bad D-Bus request error: " << ec;
++            BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
 +            if (ec == boost::system::errc::device_or_resource_busy)
 +            {
 +                messages::resourceInUse(asyncResp->res);
@@ -278,7 +279,7 @@ index 8192da2e..8671fe74 100644
 +            }
 +            else
              {
--                BMCWEB_LOG_ERROR << "Bad D-Bus request error: " << ec;
+-                BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
 -
                  messages::internalError(asyncResp->res);
 -                return;

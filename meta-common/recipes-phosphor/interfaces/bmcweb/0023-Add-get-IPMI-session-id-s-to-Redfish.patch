@@ -1,4 +1,4 @@
-From c5ee5f7c81bc1f3480e20077a84c54628ba1a471 Mon Sep 17 00:00:00 2001
+From 14fe8023130929b2e60bd865509a331198f3127d Mon Sep 17 00:00:00 2001
 From: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
 Date: Fri, 30 Jul 2021 17:33:16 +0000
 Subject: [PATCH] Add/get IPMI session id's to Redfish
@@ -99,12 +99,13 @@ Result: successfully deleted valid RedFish session.
 
 Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
 Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
+Upstream-Status: Pending
 ---
- redfish-core/lib/redfish_sessions.hpp | 222 +++++++++++++++++++++++---
- 1 file changed, 203 insertions(+), 19 deletions(-)
+ redfish-core/lib/redfish_sessions.hpp | 217 +++++++++++++++++++++++---
+ 1 file changed, 198 insertions(+), 19 deletions(-)
 
 diff --git a/redfish-core/lib/redfish_sessions.hpp b/redfish-core/lib/redfish_sessions.hpp
-index 06083335..dfc078b4 100644
+index 341e6d00..3ed690c9 100644
 --- a/redfish-core/lib/redfish_sessions.hpp
 +++ b/redfish-core/lib/redfish_sessions.hpp
 @@ -21,6 +21,7 @@
@@ -115,7 +116,7 @@ index 06083335..dfc078b4 100644
  #include "utils/json_utils.hpp"
  
  #include <boost/url/format.hpp>
-@@ -76,13 +77,115 @@ inline void
+@@ -76,13 +77,112 @@ inline void
      auto session =
          persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
  
@@ -137,15 +138,14 @@ index 06083335..dfc078b4 100644
 +                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
 +        if (ec)
 +        {
-+            BMCWEB_LOG_DEBUG << "Error in querying GetSubTree with "
-+                                "Object Mapper. "
-+                             << ec;
++            BMCWEB_LOG_DEBUG(
++                "Error in querying GetSubTree with Object Mapper. {}", ec);
 +            messages::internalError(asyncResp->res);
 +            return;
 +        }
 +        if (subtree.size() == 0)
 +        {
-+            BMCWEB_LOG_DEBUG << "Can't find  Session Info Attributes!";
++            BMCWEB_LOG_DEBUG("Can't find  Session Info Attributes!");
 +            messages::resourceNotFound(asyncResp->res, "Session", sessionId);
 +            return;
 +        }
@@ -156,7 +156,7 @@ index 06083335..dfc078b4 100644
 +        {
 +            if (ipmiSessionPath.empty() || object.empty())
 +            {
-+                BMCWEB_LOG_DEBUG << "Session Info Attributes mapper error!";
++                BMCWEB_LOG_DEBUG("Session Info Attributes mapper error!");
 +                continue;
 +            }
 +            if (!boost::ends_with(ipmiSessionPath, sessionId))
@@ -175,8 +175,7 @@ index 06083335..dfc078b4 100644
 +        }
 +        if (ipmiSessionService.empty())
 +        {
-+            BMCWEB_LOG_DEBUG << "Session Info Attributes mapper "
-+                                "error!";
++            BMCWEB_LOG_DEBUG("Session Info Attributes mapper error!");
 +            messages::internalError(asyncResp->res);
 +            return;
 +        }
@@ -188,9 +187,8 @@ index 06083335..dfc078b4 100644
 +                                              uint32_t>>>& properties) {
 +            if (ec2)
 +            {
-+                BMCWEB_LOG_DEBUG << "Error in querying Session "
-+                                    "Info State property "
-+                                 << ec2;
++                BMCWEB_LOG_DEBUG(
++                    "Error in querying Session Info State property {}", ec2);
 +                messages::internalError(asyncResp->res);
 +                return;
 +            }
@@ -218,7 +216,7 @@ index 06083335..dfc078b4 100644
 +            }
 +            catch (const sdbusplus::exception::UnpackPropertyError& error)
 +            {
-+                BMCWEB_LOG_ERROR << error.what();
++                BMCWEB_LOG_ERROR("{}", error.what());
 +                messages::internalError(asyncResp->res);
 +                return;
 +            }
@@ -234,7 +232,7 @@ index 06083335..dfc078b4 100644
  }
  
  inline void
-@@ -97,32 +200,74 @@ inline void
+@@ -97,32 +197,73 @@ inline void
      auto session =
          persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
  
@@ -286,15 +284,14 @@ index 06083335..dfc078b4 100644
 +                               const std::vector<std::string>& ifaceList) {
 +        if (ec)
 +        {
-+            BMCWEB_LOG_DEBUG << "Error in querying GetSubTreePaths "
-+                                "with Object Mapper. "
-+                             << ec;
++            BMCWEB_LOG_DEBUG(
++                "Error in querying GetSubTreePaths with Object Mapper. {}", ec);
 +            messages::internalError(asyncResp->res);
 +            return;
 +        }
 +        if (ifaceList.size() == 0)
 +        {
-+            BMCWEB_LOG_DEBUG << "Can't find  Session Info Attributes!";
++            BMCWEB_LOG_DEBUG("Can't find  Session Info Attributes!");
 +            return;
 +        }
 +        bool ipmiSessionFound = false;
@@ -309,8 +306,8 @@ index 06083335..dfc078b4 100644
 +        }
 +        if (ipmiSessionFound)
 +        {
-+            BMCWEB_LOG_DEBUG << "Deleting IPMI session from "
-+                                "Redfish is not allowed.";
++            BMCWEB_LOG_DEBUG(
++                "Deleting IPMI session from Redfish is not allowed.");
 +            messages::actionNotSupported(asyncResp->res,
 +                                         "deleting IPMI session from Redfish");
 +            return;
@@ -325,7 +322,7 @@ index 06083335..dfc078b4 100644
  }
  
  inline nlohmann::json getSessionCollectionMembers()
-@@ -168,6 +313,45 @@ inline void handleSessionCollectionGet(
+@@ -175,6 +316,44 @@ inline void handleSessionCollectionGet(
          "/redfish/v1/SessionService/Sessions/";
      asyncResp->res.jsonValue["Name"] = "Session Collection";
      asyncResp->res.jsonValue["Description"] = "Session Collection";
@@ -338,15 +335,14 @@ index 06083335..dfc078b4 100644
 +                    const std::vector<std::string>& ifaceList) {
 +        if (ec)
 +        {
-+            BMCWEB_LOG_DEBUG << "Error in querying GetSubTreePaths "
-+                                "with Object Mapper. "
-+                             << ec;
++            BMCWEB_LOG_DEBUG(
++                "Error in querying GetSubTreePaths with Object Mapper. {}", ec);
 +            messages::internalError(asyncResp->res);
 +            return;
 +        }
 +        if (ifaceList.size() == 0)
 +        {
-+            BMCWEB_LOG_DEBUG << "Can't find  Session Info Attributes!";
++            BMCWEB_LOG_DEBUG("Can't find  Session Info Attributes!");
 +            return;
 +        }
 +        for (const std::string& ipmiSessionPath : ifaceList)

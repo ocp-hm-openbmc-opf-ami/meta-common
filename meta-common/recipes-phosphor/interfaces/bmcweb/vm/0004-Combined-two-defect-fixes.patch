@@ -48,6 +48,7 @@ Rename doVmAction to doEjectAction
 
 Change-Id: I69050daa01e0def44d6bfcf26c56551c4306bbd5
 Signed-off-by: Przemyslaw Czarnowski <przemyslaw.hawrylewicz.czarnowski@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/virtual_media.hpp | 1 +
  1 file changed, 1 insertion(+)

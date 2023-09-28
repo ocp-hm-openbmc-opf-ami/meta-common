@@ -7,6 +7,7 @@ Subject: [PATCH] Redfish firmware activation -- Modified flash.cpp to call to
 Signed-off-by: Jennifer Lee <jennifer1.lee@intel.com>
 Change-Id: I81c3185e9c4c2ee907feeb53620faa22723c04d4
 
+Upstream-Status: Pending
 ---
  ubi/flash.cpp | 9 ++++++---
  1 file changed, 6 insertions(+), 3 deletions(-)

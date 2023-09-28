@@ -6,17 +6,14 @@ Current revisions:
 - LogService field, actual implementation will be upstreamed with triggers feature
   file://telemetry/0001-Revert-Remove-LogService-from-TelemetryService.patch
 
-- Switched bmcweb to use new telemetry service API
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/44270/87
-
-- Add Links/Triggers to MetricReportDefinition
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/51758/29
-
 - Add PUT and PATCH for MetricReportDefinition
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/49796/37
-
-- Add support for POST on TriggersCollection
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/44935/45
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/49796/61
 
 - Improved telemetry service error handling
-  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/57812/11
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/57812/21
+
+- Add telemetry triggers to the message registry
+  https://gerrit.openbmc-project.xyz/c/openbmc/bmcweb/+/64662
+
+- Restore PUT method for MRD
+  file://telemetry/0008-Restore-PUT-method-for-MRD.patch

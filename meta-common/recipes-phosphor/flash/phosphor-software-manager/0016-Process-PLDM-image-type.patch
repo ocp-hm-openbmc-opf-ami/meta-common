@@ -24,6 +24,7 @@ intf got added.
 
 Signed-off-by: Ayushi Smriti <smriti.ayushi@intel.com>
 Signed-off-by: Hardik Panchal <hardikx.panchal@intel.com>
+Upstream-Status: Pending
 ---
  item_updater.cpp      |  4 +-
  pfr_image_manager.cpp | 95 +++++++++++++++++++++++++++++++++++++++++--

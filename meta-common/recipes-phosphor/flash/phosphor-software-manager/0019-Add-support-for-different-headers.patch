@@ -10,6 +10,7 @@ Tested: PFR update works
 
 Signed-off-by: James Feist <james.feist@linux.intel.com>
 Signed-off-by: Hardik Panchal <hardikx.panchal@intel.com>
+Upstream-Status: Pending
 ---
  pfr_image_manager.cpp | 16 ++++++++++------
  1 file changed, 10 insertions(+), 6 deletions(-)

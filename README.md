@@ -58,34 +58,42 @@ A common configuration of Intel-BMC is a PFR-enabled build. This build requires
 two key-pairs and a certificate. In platforms where PFR is provisioned, these
 keys must match the platform keys.
 
-Otherwise, local keys can be generated to complete the build. The build may be
-configured to automatically generate and include local keys. If the build
-doesn't support this, local keys can be manually included as follows:
+Otherwise, local keys can be generated to complete the build as follows:
 
-Generate local keys using these commands:
-```sh
-mkdir -p openbmc-openbmc/openbmc-meta-intel/keys
-cd openbmc-openbmc/openbmc-meta-intel
-openssl ecparam -out keys/csk_prv.pem -name secp384r1 -genkey
-openssl ec -in keys/csk_prv.pem -pubout -out keys/csk_pub.pem
-openssl ecparam -out keys/rk_prv.pem -name secp384r1 -genkey
-openssl ec -in keys/rk_prv.pem -pubout -out keys/rk_pub.pem
-openssl req -new -key keys/rk_prv.pem -x509 -nodes -days 365 -out keys/rk_cert.pem
-```
+- From the latest source, this script can be executed to generate local keys
+for the build:
 
-Include these local keys in the build by providing the path to the key file in
-the call to `external-signing-utility`. These calls are found in the following files
-in the meta-layer you are building:
+  `scripts/gen-bmc-sign-keys.py`
 
-* recipes-intel/intel-pfr/obmc-intel-pfr-image-native.bbappend
-* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/bmc_config.xml
-* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/pfm_config.xml
+- If not at the latest, the build may be configured to automatically generate
+and include local keys.
 
-If enabled, you will also need to set the local keys for D-segment:
+- If the build doesn't support this, local keys can be manually included as
+follows:
 
-* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/bmc_config_d.xml
-* recipes-intel/intel-pfr/obmc-intel-pfr-image-native/pfm_config_d.xml
+  Generate local keys using these commands:
+  ```sh
+  mkdir -p openbmc-openbmc/openbmc-meta-intel/keys
+  cd openbmc-openbmc/openbmc-meta-intel
+  openssl ecparam -out keys/csk_prv.pem -name secp384r1 -genkey
+  openssl ec -in keys/csk_prv.pem -pubout -out keys/csk_pub.pem
+  openssl ecparam -out keys/rk_prv.pem -name secp384r1 -genkey
+  openssl ec -in keys/rk_prv.pem -pubout -out keys/rk_pub.pem
+  openssl req -new -key keys/rk_prv.pem -x509 -nodes -days 365 -out keys/rk_cert.pem
+  ```
 
+  Include these local keys in the build by providing the path to the key file
+  in the call to `external-signing-utility`. These calls are found in the
+  following files in the meta-layer you are building:
+
+  * recipes-intel/intel-pfr/obmc-intel-pfr-image-native.bbappend
+  * recipes-intel/intel-pfr/obmc-intel-pfr-image-native/bmc_config.xml
+  * recipes-intel/intel-pfr/obmc-intel-pfr-image-native/pfm_config.xml
+
+  If enabled, you will also need to set the local keys for D-segment:
+
+  * recipes-intel/intel-pfr/obmc-intel-pfr-image-native/bmc_config_d.xml
+  * recipes-intel/intel-pfr/obmc-intel-pfr-image-native/pfm_config_d.xml
 
 
 [1]: https://github.com/openbmc/openbmc

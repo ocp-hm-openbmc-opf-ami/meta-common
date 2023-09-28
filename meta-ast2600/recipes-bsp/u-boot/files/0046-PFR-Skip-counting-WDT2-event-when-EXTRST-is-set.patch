@@ -15,6 +15,7 @@ triggered kernel panic 4 times and confirmed that boot process
 is not aborted at u-boot in PFR provisioned mode.
 
 Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)

@@ -8,6 +8,7 @@ requestAdd().
 
 Change-Id: I91894ff07fa252ed7746816535611a33b6f640ea
 Signed-off-by: Helen Huang <he.huang@intel.com>
+Upstream-Status: Pending
 ---
  ipmbbridged.cpp | 44 ++++++++++++++++++++++++++++++++++++++------
  ipmbbridged.hpp |  3 +++

@@ -9,6 +9,7 @@ failure or if kernel can't initiate watchdog timer properly, BMC will
 be reset by this watchdog.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/platform.S | 15 +++++
  board/aspeed/ast2600_intel/intel.c      | 50 ++++++++++++++--

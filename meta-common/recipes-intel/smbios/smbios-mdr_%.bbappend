@@ -4,7 +4,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/smbios-mdr.git;branch=master;protocol=https"
-SRCREV = "c39d3dfca789d7ad5de9b7bd0856fc5b79c589df"
+SRCREV = "226357e8cd6956b73e4e0f1480edcb678ff12f6e"
 DEPENDS += " \
     nlohmann-json \
     "

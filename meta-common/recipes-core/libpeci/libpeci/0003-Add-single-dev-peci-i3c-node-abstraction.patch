@@ -11,6 +11,7 @@ that translates strings "/dev/peci-i3c" to actual paths based on
 information that can be queried over sysfs.
 
 Signed-off-by: Iwona Winiarska <iwona.winiarska@intel.com>
+Upstream-Status: Pending
 ---
  peci.c | 259 +++++++++++++++++++++++++++++++++++++++++++++++++++++++--
  peci.h |   1 +

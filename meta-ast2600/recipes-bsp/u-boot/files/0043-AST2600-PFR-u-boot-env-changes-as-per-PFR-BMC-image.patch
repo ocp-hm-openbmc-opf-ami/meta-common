@@ -7,6 +7,7 @@ u-boot env changes as per PFR BMC flash layout.
 
 Signed-off-by: Vikram Bodireddy <vikram.bodireddy@intel.com>
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
+Upstream-Status: Pending
 ---
  include/configs/aspeed-common.h | 8 +++++---
  1 file changed, 5 insertions(+), 3 deletions(-)

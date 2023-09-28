@@ -52,6 +52,7 @@ Unable to send RAW command: Invalid data field in request
 
 Change-Id: I515cec5ff6019aa3ea30a9a38886130e354252a8
 Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/ipmi-handler.c | 120 +++++++++++++++++++++-
  1 file changed, 117 insertions(+), 3 deletions(-)

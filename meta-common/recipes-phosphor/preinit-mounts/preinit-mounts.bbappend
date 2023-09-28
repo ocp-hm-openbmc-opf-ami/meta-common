@@ -1,5 +1,5 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-SRC_URI:intel-ast2600 = "file://init"
+SRC_URI = "file://init"
 
 RDEPENDS:${PN} += "bash"

@@ -56,6 +56,7 @@ Tested:
 Signed-off-by: Suryakanth Sekar <suryakanth.sekar@linux.intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@linux.intel.com>
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/platform.S | 22 ++++++++++++++++++++++
  1 file changed, 22 insertions(+)

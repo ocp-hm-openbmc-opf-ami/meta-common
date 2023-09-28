@@ -13,6 +13,7 @@ Testedby:
 
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  Kconfig                                 |  14 ++
  arch/arm/lib/stack.c                    |   9 ++

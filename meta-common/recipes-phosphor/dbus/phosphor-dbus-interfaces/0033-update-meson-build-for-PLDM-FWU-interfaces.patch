@@ -4,6 +4,7 @@ Date: Tue, 8 Dec 2020 15:28:42 -0800
 Subject: [PATCH] update meson build for PLDM FWU interfaces
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
  .../PLDM/FWU/ACPIDescriptor/meson.build       |  13 ++
  .../ActiveComponentImageSetInfo/meson.build   |  13 ++

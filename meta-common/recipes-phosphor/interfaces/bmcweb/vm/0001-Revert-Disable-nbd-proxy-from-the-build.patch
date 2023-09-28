@@ -1,20 +1,21 @@
-From f0ecf807d5e0f6625dd9beced232484a3b8a0d5e Mon Sep 17 00:00:00 2001
+From 3f5aded518c280fc2f27e33987f727199effec61 Mon Sep 17 00:00:00 2001
 From: Przemyslaw Czarnowski <przemyslaw.hawrylewicz.czarnowski@intel.com>
 Date: Fri, 22 Apr 2022 10:40:56 +0200
-Subject: [PATCH 1/4] Revert "Disable nbd proxy from the build"
+Subject: [PATCH] Revert "Disable nbd proxy from the build"
 
 Signed-off-by: Przemyslaw Czarnowski <przemyslaw.hawrylewicz.czarnowski@intel.com>
+Upstream-Status: Pending
 ---
  meson.build       |  2 +-
  meson_options.txt | 10 +++++-----
  2 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index b9f37325..86c961b1 100644
+index ddb8b2c5..eaaf6446 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -89,7 +89,7 @@ feature_map = {
-   'static-hosting'                              : '-DBMCWEB_ENABLE_STATIC_HOSTING',
+@@ -95,7 +95,7 @@ feature_map = {
+   'experimental-redfish-multi-computer-system'  : '-DBMCWEB_ENABLE_MULTI_COMPUTERSYSTEM',
    'vm-websocket'                                : '-DBMCWEB_ENABLE_VM_WEBSOCKET',
    'xtoken-auth'                                 : '-DBMCWEB_ENABLE_XTOKEN_AUTHENTICATION',
 -  #'vm-nbdproxy'                                : '-DBMCWEB_ENABLE_VM_NBDPROXY',
@@ -23,7 +24,7 @@ index b9f37325..86c961b1 100644
  
  # Get the options status and build a project summary to show which flags are
 diff --git a/meson_options.txt b/meson_options.txt
-index ecc7aebc..78b1d39c 100644
+index c2aa7d75..baeff269 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
 @@ -35,11 +35,11 @@ option(
@@ -44,5 +45,5 @@ index ecc7aebc..78b1d39c 100644
  option(
      'rest',
 -- 
-2.35.3
+2.17.1
 

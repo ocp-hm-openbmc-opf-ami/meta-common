@@ -12,6 +12,7 @@ Option 2: Tx Valid, register MAC58[28]
 So this commit disables options above.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/platform.S | 18 ++++++++++++++++++
  1 file changed, 18 insertions(+)

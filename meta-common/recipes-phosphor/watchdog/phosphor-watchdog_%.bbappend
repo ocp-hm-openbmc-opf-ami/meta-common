@@ -4,7 +4,7 @@ FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/phosphor-watchdog;branch=master;protocol=https"
-SRCREV = "6ac6a347132c431b4ab05ffee0d1bd15a532fba9"
+SRCREV = "6072942ee9b13e441f2dc34ce7e93465248e30be"
 
 SRC_URI += "file://0001-Customize-phosphor-watchdog-for-Intel-platforms.patch \
            "

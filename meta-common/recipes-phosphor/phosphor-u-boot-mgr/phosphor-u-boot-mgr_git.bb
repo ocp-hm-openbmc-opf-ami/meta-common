@@ -10,7 +10,7 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=86d3f3a95c324c9479bd8986968f4327"
 
 SRC_URI = "git://github.com/openbmc/phosphor-u-boot-env-mgr.git;branch=master;protocol=https"
 
-SRCREV = "6b8883595d5238c0ef76d6fe93be4e31d539fb8c"
+SRCREV = "e48c5d387f4f3a4fcfa47c460480dfe0c1b3c144"
 
 inherit cmake systemd pkgconfig
 SYSTEMD_SERVICE:${PN} = "xyz.openbmc_project.U_Boot.Environment.Manager.service"

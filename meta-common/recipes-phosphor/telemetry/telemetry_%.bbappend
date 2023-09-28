@@ -1,13 +1,13 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/telemetry.git;branch=master;protocol=https"
-SRCREV = "a06626d1ad963f6998237a332eab9ac9392b7c7a"
+SRCREV = "3995a361af50f6708090bf853494cf1659864cd4"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-# Temporary patch to fix compatibility with latest bmcweb
+# Temporary downstream mirror of upstream patch
 SRC_URI += " \
-             file://0001-Removed-FutureVersion-from-API.patch \
+             file://0002-Shorten-threshold-name-in-RedFish-log-message.patch \
            "
 
 EXTRA_OEMESON += " -Dmax-reports=10"

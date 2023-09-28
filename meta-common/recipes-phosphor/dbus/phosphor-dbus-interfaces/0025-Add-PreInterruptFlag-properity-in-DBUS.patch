@@ -14,6 +14,7 @@ at xyz.openbmmc_project.State.Watchdog when watchdog
 pre-timeout interrupt occurred.
 
 Signed-off-by: Ren Yu <yux.ren@intel.com>
+Upstream-Status: Pending
 ---
  yaml/xyz/openbmc_project/State/Watchdog.interface.yaml | 5 +++++
  1 file changed, 5 insertions(+)

@@ -11,6 +11,7 @@ Manually asserted ERR0 and confirmed that RAS manager is called.
 
 Signed-off-by: Jason M. Bills <jason.m.bills@intel.com>
 Change-Id: Ic97f1972d60900ed8d3b6eff459a60537faef41c
+Upstream-Status: Pending
 ---
  include/error_monitors/err0_monitor.hpp | 55 +++++++++++++++++++++++++
  1 file changed, 55 insertions(+)

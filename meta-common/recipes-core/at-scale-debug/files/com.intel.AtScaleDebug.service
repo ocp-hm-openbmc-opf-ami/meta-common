@@ -5,12 +5,8 @@ Requires=network-online.target
 [Service]
 Restart=always
 RestartSec=30
-ExecStart={bindir}/asd $TLS_ENABLE_FLAGE
+ExecStart={bindir}/asd
 Type=simple
 SyslogIdentifier=asd
-#StandardOutput=tty
-#StandardError=tty
 
-[Install]
-WantedBy=multi-user.target
 

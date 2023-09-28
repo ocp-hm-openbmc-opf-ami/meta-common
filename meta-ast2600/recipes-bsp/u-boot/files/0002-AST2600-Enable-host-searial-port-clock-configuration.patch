@@ -13,6 +13,7 @@ other value, speed is set to 24Mhz(baud rate 115200)
 by default is 24Mhz.
 
 Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c | 35 ++++++++++++++++++++++++++++++
  1 file changed, 35 insertions(+)

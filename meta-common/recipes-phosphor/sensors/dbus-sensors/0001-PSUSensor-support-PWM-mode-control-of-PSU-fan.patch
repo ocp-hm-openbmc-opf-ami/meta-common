@@ -17,6 +17,7 @@ PSU fan sensors are created based on correct hwmon file.
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 Change-Id: Iad5df2cba097922718b3ab3e210e1b9e4eb1695f
+Upstream-Status: Pending
 ---
  src/PSUSensorMain.cpp | 41 ++++++++++++++++++++++++++---------------
  src/PwmSensor.cpp     |  2 +-

@@ -9,6 +9,7 @@ in u-boot.
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
 
 
+Upstream-Status: Pending
 ---
  arch/arm/dts/ast2600-intel.dts           |  11 ++
  arch/arm/dts/ast2600.dtsi                |  88 ++++++++++++

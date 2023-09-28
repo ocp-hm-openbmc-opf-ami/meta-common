@@ -12,6 +12,7 @@ After the fix, unable to stop the release image at u-boot
 and prevent autoboot.
 
 Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
+Upstream-Status: Pending
 ---
  include/configs/aspeed-common.h | 2 ++
  1 file changed, 2 insertions(+)

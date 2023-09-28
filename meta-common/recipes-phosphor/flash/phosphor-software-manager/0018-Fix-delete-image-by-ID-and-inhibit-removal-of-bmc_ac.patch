@@ -19,6 +19,7 @@ Tested: run multiple back-to back updates and see that when the fwupd
 Signed-off-by: Sunita Kumari <sunitax.kumari@intel.com>
 Signed-off-by: Vernon Mauery <vernon.mauery@intel.com>
 Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
+Upstream-Status: Pending
 ---
  item_updater.cpp      | 9 +++++++--
  pfr_image_manager.cpp | 2 +-

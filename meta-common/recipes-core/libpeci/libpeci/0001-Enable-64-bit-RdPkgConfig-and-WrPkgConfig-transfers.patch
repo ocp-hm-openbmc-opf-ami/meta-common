@@ -1,4 +1,4 @@
-From fe57271345b8ae5b3621e19be91a15d8840c6626 Mon Sep 17 00:00:00 2001
+From 878e680ce95a9ec989b1fb05c828cdb511d138c7 Mon Sep 17 00:00:00 2001
 From: Johnathan Mantey <johnathanx.mantey@intel.com>
 Date: Tue, 1 Nov 2022 11:37:46 -0700
 Subject: [PATCH] Enable 64-bit RdPkgConfig and WrPkgConfig transfers
@@ -18,12 +18,13 @@ Confirm existing write transactions function as expected.
 
 Change-Id: Ibc9f422f1783b3c82693d8e2fe8f0fc130a26f3d
 Signed-off-by: Johnathan Mantey <johnathanx.mantey@intel.com>
+Upstream-Status: Pending
 ---
  linux/peci-ioctl.h |  6 ++++--
- peci.c             | 27 ++++++++++++++-------------
+ peci.c             | 28 +++++++++++++++-------------
  peci.h             | 11 ++++++-----
  peci_cmds.c        | 16 ++++++++--------
- 4 files changed, 32 insertions(+), 28 deletions(-)
+ 4 files changed, 33 insertions(+), 28 deletions(-)
 
 diff --git a/linux/peci-ioctl.h b/linux/peci-ioctl.h
 index 9b1dc53..59ff376 100644
@@ -64,7 +65,7 @@ index 9b1dc53..59ff376 100644
  	__u8	padding1[3];
  } __attribute__((__packed__));
 diff --git a/peci.c b/peci.c
-index ab69234..61e87da 100644
+index ab69234..6a0b93c 100644
 --- a/peci.c
 +++ b/peci.c
 @@ -473,8 +473,8 @@ EPECIStatus peci_RdPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
@@ -78,12 +79,13 @@ index ab69234..61e87da 100644
      {
          return PECI_CC_INVALID_REQ;
      }
-@@ -506,10 +506,10 @@ EPECIStatus peci_RdPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
+@@ -506,10 +506,11 @@ EPECIStatus peci_RdPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
   * space within the processor
   *------------------------------------------------------------------------*/
  EPECIStatus peci_WrPkgConfig(uint8_t target, uint8_t u8Index, uint16_t u16Param,
 -                             uint32_t u32Value, uint8_t u8WriteLen, uint8_t* cc)
-+                             const void* pPkgData, uint8_t u8WriteLen, uint8_t* cc)
++                             const void* pPkgData, uint8_t u8WriteLen,
++                             uint8_t* cc)
  {
      //  Default to domain ID 0
 -    return peci_WrPkgConfig_dom(target, 0, u8Index, u16Param, u32Value,
@@ -91,7 +93,7 @@ index ab69234..61e87da 100644
                                  u8WriteLen, cc);
  }
  
-@@ -519,13 +519,13 @@ EPECIStatus peci_WrPkgConfig(uint8_t target, uint8_t u8Index, uint16_t u16Param,
+@@ -519,13 +520,13 @@ EPECIStatus peci_WrPkgConfig(uint8_t target, uint8_t u8Index, uint16_t u16Param,
   *------------------------------------------------------------------------*/
  EPECIStatus peci_WrPkgConfig_dom(uint8_t target, uint8_t domainId,
                                   uint8_t u8Index, uint16_t u16Param,
@@ -107,7 +109,7 @@ index ab69234..61e87da 100644
      {
          return PECI_CC_INVALID_REQ;
      }
-@@ -541,7 +541,7 @@ EPECIStatus peci_WrPkgConfig_dom(uint8_t target, uint8_t domainId,
+@@ -541,7 +542,7 @@ EPECIStatus peci_WrPkgConfig_dom(uint8_t target, uint8_t domainId,
          return PECI_CC_DRIVER_ERR;
      }
      ret = peci_WrPkgConfig_seq_dom(target, domainId, u8Index, u16Param,
@@ -116,7 +118,7 @@ index ab69234..61e87da 100644
  
      peci_Close(peci_fd);
      return ret;
-@@ -552,11 +552,11 @@ EPECIStatus peci_WrPkgConfig_dom(uint8_t target, uint8_t domainId,
+@@ -552,11 +553,11 @@ EPECIStatus peci_WrPkgConfig_dom(uint8_t target, uint8_t domainId,
   * peci file descriptor.
   *------------------------------------------------------------------------*/
  EPECIStatus peci_WrPkgConfig_seq(uint8_t target, uint8_t u8Index,
@@ -130,7 +132,7 @@ index ab69234..61e87da 100644
                                      u8WriteLen, peci_fd, cc);
  }
  
-@@ -566,13 +566,13 @@ EPECIStatus peci_WrPkgConfig_seq(uint8_t target, uint8_t u8Index,
+@@ -566,13 +567,13 @@ EPECIStatus peci_WrPkgConfig_seq(uint8_t target, uint8_t u8Index,
   *------------------------------------------------------------------------*/
  EPECIStatus peci_WrPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
                                       uint8_t u8Index, uint16_t u16Param,
@@ -146,7 +148,7 @@ index ab69234..61e87da 100644
      {
          return PECI_CC_INVALID_REQ;
      }
-@@ -584,7 +584,8 @@ EPECIStatus peci_WrPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
+@@ -584,7 +585,8 @@ EPECIStatus peci_WrPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
      }
  
      // Per the PECI spec, the write length must be a byte, word, or dword
@@ -156,7 +158,7 @@ index ab69234..61e87da 100644
      {
          return PECI_CC_INVALID_REQ;
      }
-@@ -593,7 +594,7 @@ EPECIStatus peci_WrPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
+@@ -593,7 +595,7 @@ EPECIStatus peci_WrPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
      cmd.index = u8Index;  // RdPkgConfig index
      cmd.param = u16Param; // parameter value
      cmd.tx_len = u8WriteLen;
@@ -166,10 +168,10 @@ index ab69234..61e87da 100644
  
      ret = HW_peci_issue_cmd(PECI_IOC_WR_PKG_CFG, (char*)&cmd, peci_fd);
 diff --git a/peci.h b/peci.h
-index eef8533..e9bafd2 100644
+index f146d89..4cd2e8d 100644
 --- a/peci.h
 +++ b/peci.h
-@@ -134,19 +134,19 @@ extern "C"
+@@ -135,19 +135,19 @@ extern "C"
      // Provides write access to the package configuration space within the
      // processor
      EPECIStatus peci_WrPkgConfig(uint8_t target, uint8_t u8Index,
@@ -192,7 +194,7 @@ index eef8533..e9bafd2 100644
                                       uint8_t u8WriteLen, int peci_fd,
                                       uint8_t* cc);
  
-@@ -154,8 +154,9 @@ extern "C"
+@@ -155,8 +155,9 @@ extern "C"
      // the specified domain
      EPECIStatus peci_WrPkgConfig_seq_dom(uint8_t target, uint8_t domainId,
                                           uint8_t u8Index, uint16_t u16Param,
@@ -205,10 +207,10 @@ index eef8533..e9bafd2 100644
      // Provides read access to Model Specific Registers
      EPECIStatus peci_RdIAMSR(uint8_t target, uint8_t threadID,
 diff --git a/peci_cmds.c b/peci_cmds.c
-index a900cf8..6d0eb29 100644
+index e1576eb..623a9a4 100644
 --- a/peci_cmds.c
 +++ b/peci_cmds.c
-@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
+@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
      uint64_t u64MmioWriteVal = 0;
      uint8_t u8PkgIndex = 0;
      uint16_t u16PkgParam = 0;
@@ -217,7 +219,7 @@ index a900cf8..6d0eb29 100644
      uint8_t u8MsrThread = 0;
      uint16_t u16MsrAddr = 0;
      uint64_t u64MsrVal = 0;
-@@ -390,7 +390,7 @@ int main(int argc, char* argv[])
+@@ -392,7 +392,7 @@ int main(int argc, char* argv[])
              clock_gettime(CLOCK_REALTIME, &begin);
              ret = peci_RdPkgConfig_dom(address, domainId, u8PkgIndex,
                                         u16PkgParam, u8Size,
@@ -226,7 +228,7 @@ index a900cf8..6d0eb29 100644
              timeSpent = getTimeDifference(begin);
              if (verbose && measureTime)
              {
-@@ -410,8 +410,7 @@ int main(int argc, char* argv[])
+@@ -412,8 +412,7 @@ int main(int argc, char* argv[])
                  }
                  else
                  {
@@ -236,7 +238,7 @@ index a900cf8..6d0eb29 100644
                  }
              }
          }
-@@ -426,7 +425,7 @@ int main(int argc, char* argv[])
+@@ -428,7 +427,7 @@ int main(int argc, char* argv[])
          switch (argc - optind)
          {
              case 3:
@@ -245,7 +247,7 @@ index a900cf8..6d0eb29 100644
                  u16PkgParam = (uint16_t)strtoul(argv[--index], NULL, 0);
                  u8PkgIndex = (uint8_t)strtoul(argv[--index], NULL, 0);
                  break;
-@@ -437,14 +436,15 @@ int main(int argc, char* argv[])
+@@ -439,15 +438,16 @@ int main(int argc, char* argv[])
          }
          if (verbose)
          {
@@ -256,6 +258,7 @@ index a900cf8..6d0eb29 100644
          }
          while (loops--)
          {
+             cc = 0; // reset the cc for each loop
              clock_gettime(CLOCK_REALTIME, &begin);
              ret = peci_WrPkgConfig_dom(address, domainId, u8PkgIndex,
 -                                       u16PkgParam, u32PkgValue, u8Size, &cc);

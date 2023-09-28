@@ -3,11 +3,11 @@ DESCRIPTION = "D-Bus daemon that registers matches that trigger method calls"
 
 SRC_URI = "git://github.com/openbmc/s2600wf-misc.git;branch=master;protocol=https"
 
-inherit cmake systemd
+inherit cmake pkgconfig systemd
 DEPENDS = "boost sdbusplus"
 
 PV = "0.1+git${SRCPV}"
-SRCREV = "ad11f7df3ead2b42d1688fe2cd5b2531f2912c73"
+SRCREV = "a2c6e1d04dd82834ae002237bfef3cc52ab47138"
 
 S = "${WORKDIR}/git/callback-manager"
 

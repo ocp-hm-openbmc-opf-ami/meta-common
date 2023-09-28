@@ -7,6 +7,7 @@ This commit is reverted to resolve build issues due arising due
 to removal of the copy constructor.
 
 This reverts commit 597d2b142362bafa90f24fc8c30750afab91f78f.
+Upstream-Status: Pending
 ---
  http/http_request.hpp | 4 ----
  1 file changed, 4 deletions(-)

@@ -20,6 +20,7 @@ hash value of versionFile of last boot is:834871226
 
 Change-Id: I5306917329d2e2e015af58cad1e9c59881f0b217
 Signed-off-by: Helen Huang <he.huang@intel.com>
+Upstream-Status: Pending
 ---
  src/utils.hpp | 9 +++++++++
  1 file changed, 9 insertions(+)

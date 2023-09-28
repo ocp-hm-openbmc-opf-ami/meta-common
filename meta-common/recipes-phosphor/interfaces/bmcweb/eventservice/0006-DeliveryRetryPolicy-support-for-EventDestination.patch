@@ -1,0 +1,226 @@
+From 08003120bae1544c56ecae52283942a1e2034dd2 Mon Sep 17 00:00:00 2001
+From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Date: Mon, 11 Jul 2022 00:07:00 +0530
+Subject: [PATCH] DeliveryRetryPolicy support for EventDestination
+
+This commit implements the DeliveryRetryPolicy for EventDestination. It
+adds the callback function which will get called if retry attempts are
+exhausted and take appropriate actions as per spec(DTMF Redfish schema).
+
+If DeliveryRetryPolicy is set to:
+ - TerminateAfterRetries: Subscription will be deleted.
+ - SuspendRetries: Subscrption will be suspended and state property
+   in status, should be set to "Disabled".
+ - RetryForEver: Do nothing
+
+This commit also adds the "Status" object with "State" & "Health"
+properties. This is useful for end user to know about suspended
+subscriptions.
+
+Tested:
+ - Created a Subscription with DeliveryRetryPolicy:
+   "TerminateAfterRetries" and subscription is deleted after stopping
+   eventListener.
+ - Created a Subscription with DeliveryRetryPolicy: "SuspendRetries" and
+   subscription is suspended and State in status is marked "disabled".
+ - Created a Subscription with DeliveryRetryPolicy: "RetryForEver" and
+   received Events successfully on Event listener even after retries
+   exhaust.
+ - Ran Redfish validator after creating subscription and its successful.
+
+Change-Id: I641e37b39885705d751c56bdf65e2ff25cb42790
+Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
+Upstream-Status: Pending
+---
+ include/event_service_store.hpp               | 11 ++++
+ include/persistent_data.hpp                   |  1 +
+ .../include/event_service_manager.hpp         | 66 +++++++++++++++++--
+ redfish-core/lib/event_service.hpp            |  8 ++-
+ 4 files changed, 81 insertions(+), 5 deletions(-)
+
+diff --git a/include/event_service_store.hpp b/include/event_service_store.hpp
+index 61f1ac7b..839b7694 100644
+--- a/include/event_service_store.hpp
++++ b/include/event_service_store.hpp
+@@ -22,6 +22,7 @@ struct UserSubscription
+     std::vector<std::string> resourceTypes;
+     boost::beast::http::fields httpHeaders;
+     std::vector<std::string> metricReportDefinitions;
++    std::string state;
+ 
+     static std::shared_ptr<UserSubscription>
+         fromJson(const nlohmann::json& j, const bool loadFromOldConfig = false)
+@@ -172,6 +173,16 @@ struct UserSubscription
+                     subvalue->metricReportDefinitions.emplace_back(*value);
+                 }
+             }
++            else if (element.key() == "State")
++            {
++                const std::string* value =
++                    element.value().get_ptr<const std::string*>();
++                if (value == nullptr)
++                {
++                    continue;
++                }
++                subvalue->state = *value;
++            }
+             else
+             {
+                 BMCWEB_LOG_ERROR(
+diff --git a/include/persistent_data.hpp b/include/persistent_data.hpp
+index ab879f97..901787cb 100644
+--- a/include/persistent_data.hpp
++++ b/include/persistent_data.hpp
+@@ -308,6 +308,7 @@ class ConfigFile
+             subscription["SubscriptionType"] = subValue->subscriptionType;
+             subscription["MetricReportDefinitions"] =
+                 subValue->metricReportDefinitions;
++            subscription["State"] = subValue->state;
+ 
+             subscriptions.emplace_back(std::move(subscription));
+         }
+diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
+index a36919d4..275326b1 100644
+--- a/redfish-core/include/event_service_manager.hpp
++++ b/redfish-core/include/event_service_manager.hpp
+@@ -55,6 +55,9 @@ static constexpr const char* subscriptionTypeSSE = "SSE";
+ static constexpr const char* eventServiceFile =
+     "/var/lib/bmcweb/eventservice_config.json";
+ 
++std::function<void(const std::string&)> retryExhaustCallback =
++    [](const std::string&) {};
++
+ static constexpr const uint8_t maxNoOfSubscriptions = 20;
+ static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
+ 
+@@ -385,13 +388,37 @@ class Subscription : public persistent_data::UserSubscription
+             return false;
+         }
+ 
+-        bool useSSL = (uriProto == "https");
++        // For Suspended subscriptions, State is set to "Disabled". So
++        // stop sending events to that subscription.
++        if (state == "Disabled")
++        {
++            BMCWEB_LOG_DEBUG(
++                "Subscription is suspended, so not sending events.");
++            return false;
++        }
++
+         // A connection pool will be created if one does not already exist
+         if (client)
+         {
+-            client->sendData(std::move(msg), host, port, path, useSSL,
+-                             verifyCertificate, httpHeaders,
+-                             boost::beast::http::verb::post);
++            std::function<void(crow::Response&)> sendEventCallback =
++                [subId(id), retryPolicy(retryPolicy),
++                 retryExhaustCallback(retryExhaustCallback)](
++                    crow::Response& res) {
++                if (res.result() == boost::beast::http::status::bad_gateway)
++                {
++                    // Response is going to have bad_gateway result if the event
++                    // listener was not able to receive the event even after
++                    // multiple retries. This response is received only when
++                    // retry policy is Suspend after retires or Terminate after
++                    // reties.
++                    retryExhaustCallback(subId);
++                }
++            };
++
++            bool useSSL = (uriProto == "https");
++            client->sendDataWithCallback(
++                std::move(msg), host, port, path, useSSL, verifyCertificate,
++                httpHeaders, boost::beast::http::verb::post, sendEventCallback);
+             return true;
+         }
+ 
+@@ -628,6 +655,33 @@ class EventServiceManager
+ 
+     explicit EventServiceManager(boost::asio::io_context& iocIn) : ioc(iocIn)
+     {
++        // Set Lambda for DeliveryRetry attempts exhaust
++        retryExhaustCallback = [](const std::string& id) {
++            std::shared_ptr<Subscription> subValue =
++                EventServiceManager::getInstance().getSubscription(id);
++            if (subValue == nullptr)
++            {
++                return;
++            }
++            if (subValue->retryPolicy == "TerminateAfterRetries")
++            {
++                // As per spec, Subscription should be deleted in this case.
++                BMCWEB_LOG_DEBUG("Deleting Terminated Subscription: {}", id);
++                EventServiceManager::getInstance().deleteSubscription(id);
++            }
++            else if (subValue->retryPolicy == "SuspendRetries")
++            {
++                // As per spec, Subscription state should be set to disabled in
++                // this case.
++                BMCWEB_LOG_DEBUG(
++                    "Setting state to Disabled for Suspended Subscription: {}",
++                    id);
++                subValue->state = "Disabled";
++                EventServiceManager::getInstance().updateSubscription(id);
++            }
++            // Other case, do nothing
++        };
++
+         // Load config from persist store.
+         initConfig();
+     }
+@@ -685,6 +739,7 @@ class EventServiceManager
+             subValue->resourceTypes = newSub->resourceTypes;
+             subValue->httpHeaders = newSub->httpHeaders;
+             subValue->metricReportDefinitions = newSub->metricReportDefinitions;
++            subValue->state = newSub->state;
+ 
+             if (subValue->id.empty())
+             {
+@@ -921,6 +976,7 @@ class EventServiceManager
+             return "";
+         }
+ 
++        subValue->id = id;
+         std::shared_ptr<persistent_data::UserSubscription> newSub =
+             std::make_shared<persistent_data::UserSubscription>();
+         newSub->id = id;
+@@ -935,6 +991,8 @@ class EventServiceManager
+         newSub->resourceTypes = subValue->resourceTypes;
+         newSub->httpHeaders = subValue->httpHeaders;
+         newSub->metricReportDefinitions = subValue->metricReportDefinitions;
++        newSub->state = subValue->state;
++
+         persistent_data::EventServiceStore::getInstance()
+             .subscriptionsConfigMap.emplace(newSub->id, newSub);
+ 
+diff --git a/redfish-core/lib/event_service.hpp b/redfish-core/lib/event_service.hpp
+index 46de1a16..38529482 100644
+--- a/redfish-core/lib/event_service.hpp
++++ b/redfish-core/lib/event_service.hpp
+@@ -599,7 +599,11 @@ inline void requestRoutesEventDestinationCollection(App& app)
+             }
+         }
+ 
+-        std::string id =
++        // Default is Enabled, when subscription is suspended, this will
++        // be set to "Disabled" state.
++        subValue->state = "Enabled";
++
++	std::string id =
+             EventServiceManager::getInstance().addSubscription(subValue);
+         if (id.empty())
+         {
+@@ -660,6 +664,8 @@ inline void requestRoutesEventDestination(App& app)
+ 
+         asyncResp->res.jsonValue["MessageIds"] = subValue->registryMsgIds;
+         asyncResp->res.jsonValue["DeliveryRetryPolicy"] = subValue->retryPolicy;
++        asyncResp->res.jsonValue["Status"]["Health"] = "OK";
++        asyncResp->res.jsonValue["Status"]["State"] = subValue->state;
+ 
+         nlohmann::json::array_t mrdJsonArray;
+         for (const auto& mdrUri : subValue->metricReportDefinitions)
+-- 
+2.25.1
+

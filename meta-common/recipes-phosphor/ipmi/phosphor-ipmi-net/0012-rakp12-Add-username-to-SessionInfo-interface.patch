@@ -28,6 +28,7 @@ xyz.openbmc_project.Ipmi.SessionInfo interface -         -            -
 .Username            property  s      "root"       emits-change writable
 
 Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
+Upstream-Status: Pending
 ---
  command/rakp12.cpp | 1 +
  1 file changed, 1 insertion(+)

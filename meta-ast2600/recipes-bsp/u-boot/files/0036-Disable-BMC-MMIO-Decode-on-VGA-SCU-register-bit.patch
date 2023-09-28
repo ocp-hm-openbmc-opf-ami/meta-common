@@ -16,6 +16,7 @@ logged after this changes.
 
 Change-Id: If24fbea338ce17e3b4f1ba93b4d11c7843ddb952
 Signed-off-by: sureshv1 <suresh.vijayakumar@intel.com>
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c | 19 +++++++++++++++++++
  1 file changed, 19 insertions(+)

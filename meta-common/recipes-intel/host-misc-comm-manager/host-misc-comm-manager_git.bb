@@ -11,7 +11,6 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/Apache-2.0;md5
 
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.host-misc-comm-manager;protocol=ssh;branch=main"
 
-#SRCREV = "ce46900c39bc662901c14c45eaeed1793efa262d"
 SRCREV = "cf4628455d288fca944f84996e58422b9e806dc2"
 
 inherit cmake systemd pkgconfig

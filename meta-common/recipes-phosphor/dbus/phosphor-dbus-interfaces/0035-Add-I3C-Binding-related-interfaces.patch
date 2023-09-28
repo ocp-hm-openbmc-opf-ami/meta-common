@@ -9,6 +9,7 @@ implement bindings in kernel and don't have physical binding
 specific interfaces.
 
 Signed-off-by: Sumanth Bhat <sumanth.bhat@intel.com>
+Upstream-Status: Pending
 ---
  .../MCTP/Binding/I3C/meson.build              | 13 +++++++++
  .../openbmc_project/MCTP/Binding/meson.build  | 14 ++++++++++

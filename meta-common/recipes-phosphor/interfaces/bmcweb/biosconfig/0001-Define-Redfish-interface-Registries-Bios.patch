@@ -1,4 +1,4 @@
-From 22a34911c9642f6db1a0939e684820d817cacf9d Mon Sep 17 00:00:00 2001
+From d9b55c7632b2b956a1620fe68a38b03081eae23e Mon Sep 17 00:00:00 2001
 From: Kuiying Wang <kuiying.wang@intel.com>
 Date: Fri, 4 Sep 2020 19:24:25 +0800
 Subject: [PATCH] Define Redfish interface "/Registries/Bios" and enable
@@ -228,27 +228,28 @@ Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
 Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
 Signed-off-by: Smriti Ayushi <smriti.ayushi@intel.com>
 Signed-off-by: Priyanka Chikane <priyanka.chikane@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/include/redfish.hpp              |   2 +
  .../include/registries/bios_registry.hpp      |  40 ++
- redfish-core/lib/bios.hpp                     | 462 ++++++++++++++++++
+ redfish-core/lib/bios.hpp                     | 460 ++++++++++++++++++
  redfish-core/lib/message_registries.hpp       |  15 +-
- 4 files changed, 518 insertions(+), 1 deletion(-)
+ 4 files changed, 516 insertions(+), 1 deletion(-)
  create mode 100644 redfish-core/include/registries/bios_registry.hpp
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index d74663d5..45fe9233 100644
+index 51f11c2a..14d2db18 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
-@@ -182,6 +182,8 @@ class RedfishService
-         requestRoutesSystemActionsReset(app);
-         requestRoutesSystemResetActionInfo(app);
+@@ -187,6 +187,8 @@ class RedfishService
+ 
          requestRoutesBiosService(app);
+         requestRoutesBiosReset(app);
 +        requestRoutesBiosSettings(app);
 +        requestRoutesBiosAttributeRegistry(app);
-         requestRoutesBiosReset(app);
  
  #ifdef BMCWEB_ENABLE_VM_NBDPROXY
+         requestNBDVirtualMediaRoutes(app);
 diff --git a/redfish-core/include/registries/bios_registry.hpp b/redfish-core/include/registries/bios_registry.hpp
 new file mode 100644
 index 00000000..bcf6b738
@@ -296,7 +297,7 @@ index 00000000..bcf6b738
 +constexpr std::array<MessageEntry, 0> registry = {};
 +} // namespace redfish::registries::bios
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index 11535165..342088b5 100644
+index 8cd05d6c..e0b41433 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
 @@ -7,6 +7,137 @@
@@ -437,7 +438,7 @@ index 11535165..342088b5 100644
  /**
   * BiosService class supports handle get method for bios.
   */
-@@ -36,6 +167,81 @@ inline void
+@@ -43,6 +174,81 @@ inline void
      // Get the ActiveSoftwareImage and SoftwareImages
      sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose, "",
                                           true);
@@ -454,7 +455,7 @@ index 11535165..342088b5 100644
 +                    const dbus::utility::MapperGetObject& getObjectType) {
 +        if (ec)
 +        {
-+            BMCWEB_LOG_ERROR << "ObjectMapper::GetObject call failed: " << ec;
++            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
 +            messages::internalError(asyncResp->res);
 +
 +            return;
@@ -466,7 +467,7 @@ index 11535165..342088b5 100644
 +                        const std::variant<BiosBaseTableType>& retBiosTable) {
 +            if (ec2)
 +            {
-+                BMCWEB_LOG_ERROR << "getBiosAttributes DBUS error: " << ec2;
++                BMCWEB_LOG_ERROR("getBiosAttributes DBUS error: {}", ec2);
 +                messages::internalError(asyncResp->res);
 +                return;
 +            }
@@ -476,7 +477,7 @@ index 11535165..342088b5 100644
 +                asyncResp->res.jsonValue["Attributes"];
 +            if (baseBiosTable == nullptr)
 +            {
-+                BMCWEB_LOG_ERROR << "baseBiosTable == nullptr ";
++                BMCWEB_LOG_ERROR("baseBiosTable == nullptr");
 +                messages::internalError(asyncResp->res);
 +                return;
 +            }
@@ -502,7 +503,7 @@ index 11535165..342088b5 100644
 +                }
 +                else
 +                {
-+                    BMCWEB_LOG_ERROR << "Unsupported attribute type.";
++                    BMCWEB_LOG_ERROR("Unsupported attribute type.");
 +                    messages::internalError(asyncResp->res);
 +                }
 +            }
@@ -519,7 +520,7 @@ index 11535165..342088b5 100644
  }
  
  inline void requestRoutesBiosService(App& app)
-@@ -46,6 +252,262 @@ inline void requestRoutesBiosService(App& app)
+@@ -53,6 +259,260 @@ inline void requestRoutesBiosService(App& app)
              std::bind_front(handleBiosServiceGet, std::ref(app)));
  }
  
@@ -548,8 +549,7 @@ index 11535165..342088b5 100644
 +                        const dbus::utility::MapperGetObject& getObjectType) {
 +            if (ec)
 +            {
-+                BMCWEB_LOG_ERROR << "ObjectMapper::GetObject call failed: "
-+                                 << ec;
++                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
 +                messages::internalError(asyncResp->res);
 +
 +                return;
@@ -562,7 +562,7 @@ index 11535165..342088b5 100644
 +                                retPendingAttributes) {
 +                if (ec2)
 +                {
-+                    BMCWEB_LOG_ERROR << "getBiosSettings DBUS error: " << ec2;
++                    BMCWEB_LOG_ERROR("getBiosSettings DBUS error: {}", ec2);
 +                    messages::resourceNotFound(
 +                        asyncResp->res, "Systems/system/Bios", "Settings");
 +                    return;
@@ -573,7 +573,7 @@ index 11535165..342088b5 100644
 +                    asyncResp->res.jsonValue["Attributes"];
 +                if (pendingAttributes == nullptr)
 +                {
-+                    BMCWEB_LOG_ERROR << "pendingAttributes == nullptr ";
++                    BMCWEB_LOG_ERROR("pendingAttributes == nullptr");
 +                    messages::internalError(asyncResp->res);
 +                    return;
 +                }
@@ -599,7 +599,7 @@ index 11535165..342088b5 100644
 +                    }
 +                    else
 +                    {
-+                        BMCWEB_LOG_ERROR << "Unsupported attribute type.";
++                        BMCWEB_LOG_ERROR("Unsupported attribute type.");
 +                        messages::internalError(asyncResp->res);
 +                    }
 +                }
@@ -646,8 +646,7 @@ index 11535165..342088b5 100644
 +                        const dbus::utility::MapperGetObject& getObjectType) {
 +            if (ec)
 +            {
-+                BMCWEB_LOG_ERROR << "ObjectMapper::GetObject call failed: "
-+                                 << ec;
++                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
 +                messages::internalError(asyncResp->res);
 +
 +                return;
@@ -660,8 +659,8 @@ index 11535165..342088b5 100644
 +                    const std::variant<BiosBaseTableType>& retBiosTable) {
 +                if (ec2)
 +                {
-+                    BMCWEB_LOG_ERROR << "getBiosAttributeRegistry DBUS error: "
-+                                     << ec2;
++                    BMCWEB_LOG_ERROR("getBiosAttributeRegistry DBUS error: {}",
++                                     ec2);
 +                    messages::resourceNotFound(asyncResp->res,
 +                                               "Registries/Bios", "Bios");
 +                    return;
@@ -673,7 +672,7 @@ index 11535165..342088b5 100644
 +                nlohmann::json optionsArray = nlohmann::json::array();
 +                if (baseBiosTable == nullptr)
 +                {
-+                    BMCWEB_LOG_ERROR << "baseBiosTable == nullptr ";
++                    BMCWEB_LOG_ERROR("baseBiosTable == nullptr");
 +                    messages::internalError(asyncResp->res);
 +                    return;
 +                }
@@ -684,7 +683,7 @@ index 11535165..342088b5 100644
 +                    std::string attrType = mapAttrTypeToRedfish(itemType);
 +                    if (attrType == "UNKNOWN")
 +                    {
-+                        BMCWEB_LOG_ERROR << "attrType == UNKNOWN";
++                        BMCWEB_LOG_ERROR("attrType == UNKNOWN");
 +                        messages::internalError(asyncResp->res);
 +                        return;
 +                    }
@@ -724,7 +723,7 @@ index 11535165..342088b5 100644
 +                    }
 +                    else
 +                    {
-+                        BMCWEB_LOG_ERROR << "Unsupported attribute type.";
++                        BMCWEB_LOG_ERROR("Unsupported attribute type.");
 +                        messages::internalError(asyncResp->res);
 +                        return;
 +                    }
@@ -740,7 +739,7 @@ index 11535165..342088b5 100644
 +                            mapBoundTypeToRedfish(strOptItemType);
 +                        if (optItemTypeRedfish == "UNKNOWN")
 +                        {
-+                            BMCWEB_LOG_ERROR << "optItemTypeRedfish == UNKNOWN";
++                            BMCWEB_LOG_ERROR("optItemTypeRedfish == UNKNOWN");
 +                            messages::internalError(asyncResp->res);
 +                            return;
 +                        }
@@ -783,7 +782,7 @@ index 11535165..342088b5 100644
   * BiosReset class supports handle POST method for Reset bios.
   * The class retrieves and sends data directly to D-Bus.
 diff --git a/redfish-core/lib/message_registries.hpp b/redfish-core/lib/message_registries.hpp
-index 41464bc9..efe35d54 100644
+index ead4e38a..97b28920 100644
 --- a/redfish-core/lib/message_registries.hpp
 +++ b/redfish-core/lib/message_registries.hpp
 @@ -19,6 +19,7 @@
@@ -794,7 +793,7 @@ index 41464bc9..efe35d54 100644
  #include "registries/openbmc_message_registry.hpp"
  #include "registries/privilege_registry.hpp"
  #include "registries/resource_event_message_registry.hpp"
-@@ -103,6 +104,11 @@ inline void handleMessageRoutesMessageRegistryFileGet(
+@@ -105,6 +106,11 @@ inline void handleMessageRoutesMessageRegistryFileGet(
          header = &registries::resource_event::header;
          url = registries::resource_event::url;
      }
@@ -806,7 +805,7 @@ index 41464bc9..efe35d54 100644
      else
      {
          messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-@@ -149,7 +155,6 @@ inline void handleMessageRegistryGet(
+@@ -151,7 +157,6 @@ inline void handleMessageRegistryGet(
      crow::App& app, const crow::Request& req,
      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
      const std::string& registry, const std::string& registryMatch)
@@ -814,7 +813,7 @@ index 41464bc9..efe35d54 100644
  {
      if (!redfish::setUpRedfishRoute(app, req, asyncResp))
      {
-@@ -192,6 +197,14 @@ inline void handleMessageRegistryGet(
+@@ -194,6 +199,14 @@ inline void handleMessageRegistryGet(
              registryEntries.emplace_back(&entry);
          }
      }

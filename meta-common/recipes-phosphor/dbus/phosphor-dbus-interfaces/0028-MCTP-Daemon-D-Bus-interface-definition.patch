@@ -11,6 +11,7 @@ Signed-off-by: Arun P. Mohanan <arun.p.m@linux.intel.com>
 Signed-off-by: Mariusz Kowalski <mariusz.kowalski@intel.com>
 Signed-off-by: Karol Wachowski <karol.wachowski@intel.com>
 Change-Id: Ida66f8ffcf00003655edcb0fb0112202797b8e1a
+Upstream-Status: Pending
 ---
  .../openbmc_project/MCTP/Base.interface.yaml  | 227 ++++++++++++++++++
  .../MCTP/Binding/PCIe.interface.yaml          |  29 +++

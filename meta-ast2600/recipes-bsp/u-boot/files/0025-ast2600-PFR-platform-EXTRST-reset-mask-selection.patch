@@ -11,6 +11,7 @@ to be reset so that Host functionality would be intact.
 
 Signed-off-by: Chalapathi Venkataramashetty <chalapathix.venkataramashetty@intel.com>
 Signed-off-by: Vikram Bodireddy <vikram.bodireddy@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/platform.S | 12 ++++++++++++
  1 file changed, 12 insertions(+)

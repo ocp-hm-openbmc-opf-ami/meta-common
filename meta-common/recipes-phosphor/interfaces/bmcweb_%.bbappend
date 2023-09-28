@@ -1,7 +1,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/bmcweb.git;branch=master;protocol=https"
-SRCREV = "3e72c2027aa4e64b9892ab0d3970358ba446f1fa"
+SRCREV = "0c2ba59dd0532480970517457fae9f4739790c81"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
@@ -30,9 +30,10 @@ SRC_URI += " \
             file://0032-systems-Add-pfr-and-cpld-postcode.patch \
             file://0034-Add-Model-to-ProcessorSummary.patch \
             file://0035-ExtendTimer-increased-to-6-mins-for-IFWI-update.patch \
-	    file://0036-Add-Support-for-getting-PowerSuplies-under-PowerSubsystem.patch \
-	    file://0038-Image-Directory-made-as-Configurable-Parameter.patch \
-	    file://0039-Revert-Remove-redfish-post-to-old-updateservice.patch \
+            file://0036-Add-Power-supplies-under-PowerSubsystem.patch \
+            file://0038-Image-Directory-made-as-Configurable-Parameter.patch \
+            file://0039-Revert-Remove-redfish-post-to-old-updateservice.patch \
+            file://0040-Add-ThermalSubsystem-Fan-Collection-and-Instances-and-FanRedundancy.patch \
 "
 
 # OOB Bios Config:
@@ -56,36 +57,40 @@ SRC_URI += " \
 
 # EventService: Temporary pulled to downstream. See eventservice\README for details
 SRC_URI += " \
-            file://eventservice/0001-Conditional-verify-certificate-check-in-HttpClient.patch \
-            file://eventservice/0002-Add-Server-Sent-Event-support.patch \
-            file://eventservice/0003-Add-SSE-style-subscription-support-to-eventservice.patch \
-            file://eventservice/0004-Log-Redfish-Events-for-all-subscription-actions.patch \
-            file://eventservice/0005-Input-parameter-validation-for-Event-Subscription.patch \
-            file://eventservice/0006-Delete-Terminated-Event-Subscription.patch \
-            file://eventservice/0007-Add-Configure-Self-support-for-Event-Subscriptions.patch \
-            file://eventservice/0008-Adopt-upstream-ConnectionPolicy.patch \
 "
 
 # Temporary downstream mirror of upstream patches, see telemetry\README for details
-SRC_URI += " file://telemetry/0001-Revert-Remove-LogService-from-TelemetryService.patch \
-             file://telemetry/0002-Switched-bmcweb-to-use-new-telemetry-service-API.patch \
-             file://telemetry/0003-Add-Links-Triggers-to-MetricReportDefinition.patch \
-             file://telemetry/0004-Add-PUT-and-PATCH-for-MetricReportDefinition.patch \
-             file://telemetry/0005-Add-support-for-POST-on-TriggersCollection.patch \
-             file://telemetry/0006-Improved-telemetry-service-error-handling.patch \
-"
+SRC_URI += " "
 
 # Temporary downstream patch for routing and privilege changes
-SRC_URI += " \
-            file://http_routing/0002-Move-privileges-to-separate-entity.patch \
-            file://http_routing/0004-Add-Privileges-to-Websockets.patch \
-            file://http_routing/0005-Add-Privileges-to-SseSockets.patch \
-"
+SRC_URI += " "
 
-# ACPI LogService
+# ACPI LogService:
 SRC_URI += " \
             file://acpi_logservice/0001-Adding-acpi-LogService.patch \
 "
+
+# Node-manager:
+FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}/node-manager:"
+SRC_URI += "file://power_utility.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://power.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://node_manager.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://domains_collection.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://nm_common.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://policies_collection.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://throttling_status.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://triggers.hpp;subdir=git/redfish-core/lib/node-manager \
+            file://node-manager/0001-Using-local-power.hpp-file-instead-of-upstreamed.patch \
+            file://node-manager/0002-Set-of-new-MessageEntries-added-for-the-NM.patch \
+            file://node-manager/0003-Add-NodeManager-schema-files.patch \
+            file://node-manager/0004-Add-node-manager-endpoint.patch \
+"
+
+# OOB Config features:
+SRC_URI += " "
+
+# Telemetry Features:
+SRC_URI += " "
 
 # Enable PFR support
 EXTRA_OEMESON += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', '-Dredfish-provisioning-feature=enabled', '', d)}"
@@ -106,6 +111,7 @@ EXTRA_OEMESON += " -Dredfish-post-to-old-updateservice=enabled"
 # Max size of the image file is set to 128MB. 
 EXTRA_OEMESON += " -Dhttp-body-limit=128"
 EXTRA_OEMESON += " -Dimage-upload-dir=/tmp/images/"
+EXTRA_OEMESON += " -Dredfish-health-populate=enabled"
 RDEPENDS:${PN}:remove = " jsnbd"
 
 do_install:append(){

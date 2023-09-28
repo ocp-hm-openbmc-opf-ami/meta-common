@@ -8,6 +8,7 @@ by features that can be included in different orders for
 different build options.
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/ast-espi.c | 25 ++++++++++++++++++++++---
  1 file changed, 22 insertions(+), 3 deletions(-)

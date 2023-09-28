@@ -13,6 +13,7 @@ ipmitool -I lanplus -H x -U x -P x raw 0x0c 0x21 0x0e 0x02 0xc2
 The parameters has been changed to the request data in above command.
 
 Signed-off-by: Cheng C Yang <cheng.c.yang@intel.com>
+Upstream-Status: Pending
 ---
  sol/sol_manager.cpp | 6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)

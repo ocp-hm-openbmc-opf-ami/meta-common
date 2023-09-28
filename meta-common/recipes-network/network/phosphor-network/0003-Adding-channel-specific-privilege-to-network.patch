@@ -19,6 +19,7 @@ Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
 Signed-off-by: Yong Li <yong.b.li@linux.intel.com>
 Signed-off-by: Johnathan Mantey <johnathanx.mantey@intel.com>
 Signed-off-by: Ramya Narayana <ramyax.narayana@intel.com>
+Upstream-Status: Pending
 ---
  src/ethernet_interface.cpp | 126 +++++++++++++++++++++++++++++++++++++
  src/ethernet_interface.hpp |  38 ++++++++++-

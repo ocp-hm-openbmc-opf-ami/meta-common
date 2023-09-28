@@ -1,4 +1,4 @@
-From c9202af93ff8fd4fc172e3f1fe255c02c64b755e Mon Sep 17 00:00:00 2001
+From 85cc6351e8cc2f93b1f278948c937992af12e615 Mon Sep 17 00:00:00 2001
 From: Przemyslaw Czarnowski <przemyslaw.hawrylewicz.czarnowski@intel.com>
 Date: Tue, 31 May 2022 12:23:07 +0200
 Subject: [PATCH] Add handlers for patch/put/delete
@@ -105,16 +105,17 @@ Change-Id: I274fa71f88f69ea27e72e1044e8ba0d48d3ece77
 Signed-off-by: Przemyslaw Czarnowski <przemyslaw.hawrylewicz.czarnowski@intel.com>
 
 %% original patch: 0003-Add-handlers-for-patch-put-delete.patch
+Upstream-Status: Pending
 ---
- redfish-core/lib/virtual_media.hpp | 104 +++++++++++++++++++++++++++++
- 1 file changed, 104 insertions(+)
+ redfish-core/lib/virtual_media.hpp | 102 +++++++++++++++++++++++++++++
+ 1 file changed, 102 insertions(+)
 
 diff --git a/redfish-core/lib/virtual_media.hpp b/redfish-core/lib/virtual_media.hpp
-index 0d2514a5..cc774eb7 100644
+index 959a94c2..e84d3876 100644
 --- a/redfish-core/lib/virtual_media.hpp
 +++ b/redfish-core/lib/virtual_media.hpp
-@@ -140,6 +140,54 @@ inline void findAndParseObject(const std::string& service,
-         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+@@ -140,6 +140,54 @@ inline void
+         });
  }
  
 +/**
@@ -140,7 +141,7 @@ index 0d2514a5..cc774eb7 100644
 +            const dbus::utility::MapperGetObject& getObjectType) mutable {
 +        if (ec)
 +        {
-+            BMCWEB_LOG_ERROR << "ObjectMapper::GetObject call failed: " << ec;
++            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
 +            aResp->res.result(boost::beast::http::status::not_found);
 +
 +            return;
@@ -148,14 +149,14 @@ index 0d2514a5..cc774eb7 100644
 +
 +        if (getObjectType.empty())
 +        {
-+            BMCWEB_LOG_ERROR << "ObjectMapper : No Service found";
++            BMCWEB_LOG_ERROR("ObjectMapper : No Service found");
 +            aResp->res.result(boost::beast::http::status::not_found);
 +
 +            return;
 +        }
 +
 +        std::string service = getObjectType.begin()->first;
-+        BMCWEB_LOG_DEBUG << "GetObjectType: " << service;
++        BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 +
 +        findAndParseObject(service, resName, aResp, std::move(handler));
 +        },
@@ -168,7 +169,7 @@ index 0d2514a5..cc774eb7 100644
  /**
   * @brief Function extracts transfer protocol name from URI.
   */
-@@ -1185,8 +1233,64 @@ inline void
+@@ -1200,8 +1248,62 @@ inline void
          });
  }
  
@@ -184,9 +185,8 @@ index 0d2514a5..cc774eb7 100644
 +    // Check if dbus path is Legacy type
 +    if (mode.filename() == legacyMode)
 +    {
-+        BMCWEB_LOG_DEBUG << "InsertMedia only allowed "
-+                            "with POST method "
-+                            "in legacy mode";
++        BMCWEB_LOG_DEBUG(
++            "InsertMedia only allowed with POST method in legacy mode");
 +        aResp->res.result(boost::beast::http::status::method_not_allowed);
 +
 +        return;
@@ -195,8 +195,7 @@ index 0d2514a5..cc774eb7 100644
 +    if (mode.filename() == proxyMode)
 +    {
 +        // Not possible in proxy mode
-+        BMCWEB_LOG_DEBUG << "InsertMedia not "
-+                            "allowed in proxy mode";
++        BMCWEB_LOG_DEBUG("InsertMedia not allowed in proxy mode");
 +        aResp->res.result(boost::beast::http::status::not_found);
 +    }
 +}

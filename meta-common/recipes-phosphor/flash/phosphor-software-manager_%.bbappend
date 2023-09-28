@@ -5,7 +5,7 @@ EXTRA_OEMESON += "-Dfwupd-script=enabled"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-bmc-code-mgmt;branch=master;protocol=https"
-SRCREV = "cce26eb063488a4fe3403e55979cac7f8f6a7547"
+SRCREV = "b9ecb2bcda1292649968c15d227c32dc4209b844"
 
 SYSTEMD_SERVICE:${PN}-updater += "fwupd@.service"
 
@@ -21,6 +21,13 @@ SRC_URI += " \
     file://0008-item_updater-update-the-bmc_active-objectPath.patch \
     file://0009-Add-ApplyOptions-D-bus-property-under-Software.patch \
     file://0013-remove-image-file-on-pre-script-failures.patch \
+    "
+
+# Testability Features:
+SRC_URI_PFR:append:bhs-features = " \
+    file://testability/0001-Add-retimer-image-type.patch \
+    file://testability/0002-IFWI-full-SPI-flash-update-support.patch \
+    file://testability/0003-Image-verification-for-BMC-image-full-flash.patch \
     "
 
 SRC_URI_PFR = " \

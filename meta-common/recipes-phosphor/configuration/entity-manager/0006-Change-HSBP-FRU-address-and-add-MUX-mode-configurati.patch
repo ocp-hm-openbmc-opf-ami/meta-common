@@ -23,6 +23,7 @@ same time.
 Signed-off-by: AKSHAY RAVEENDRAN K <akshay.raveendran.k@intel.com>
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 
+Upstream-Status: Pending
 ---
  configurations/f2u8x25_hsbp.json | 10 ++++++++--
  schemas/legacy.json              | 10 ++++++++++

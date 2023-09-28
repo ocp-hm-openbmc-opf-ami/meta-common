@@ -9,6 +9,7 @@ main context will starve resultingly. To fix this issue, this
 commit adds the timer interrupt flag clearing logic.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/ast-timer.c | 69 ++++++++++++++----------
  board/aspeed/ast2600_intel/intel.c       | 13 ++---

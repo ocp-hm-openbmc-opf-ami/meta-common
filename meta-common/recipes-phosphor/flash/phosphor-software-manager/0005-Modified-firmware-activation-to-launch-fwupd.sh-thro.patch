@@ -10,6 +10,7 @@ Subject: [PATCH] Modified firmware activation to launch fwupd.sh through
 
 Signed-off-by: Jennifer Lee <jennifer1.lee@intel.com>
 Signed-off-by: James Feist <james.feist@linux.intel.com>
+Upstream-Status: Pending
 ---
  activation.cpp    | 53 +++++++++++++++++++++++++++++++++++++----------
  meson.build       |  2 ++

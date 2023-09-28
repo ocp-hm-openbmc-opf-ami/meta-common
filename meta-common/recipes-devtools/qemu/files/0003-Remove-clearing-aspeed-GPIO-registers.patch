@@ -8,6 +8,7 @@ lines at machine initialization. It does not affect aspeed
 simulation. intel-ast machines boot with success.
 
 Signed-off-by: Wludzik, Jozef <jozef.wludzik@intel.com>
+Upstream-Status: Pending
 ---
  hw/gpio/aspeed_gpio.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

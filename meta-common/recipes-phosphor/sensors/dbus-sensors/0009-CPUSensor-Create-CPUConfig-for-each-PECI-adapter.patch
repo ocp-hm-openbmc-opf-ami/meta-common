@@ -1,4 +1,4 @@
-From c0012eb784039e3d7a102f1cb3cce536ba954fe7 Mon Sep 17 00:00:00 2001
+From d7068056deaf543d67c9dce84eb78c41145b3369 Mon Sep 17 00:00:00 2001
 From: Iwona Winiarska <iwona.winiarska@intel.com>
 Date: Tue, 13 Jul 2021 15:16:16 +0200
 Subject: [PATCH] CPUSensor: Create CPUConfig for each PECI adapter
@@ -19,19 +19,22 @@ Tested:
 No changes if only one PECI interface is available, HWMON drivers
 creation will be based on provided configuration.
 When both peci-aspeed (peci-wire) and peci-mctp are bound in the system,
-HWMON drivers are created for each PECI interface.
+HWMON drivers are created only for peci-wire as a temporary WA.
+When peci-i3c is bound - hwmons created for each peci interface.
 
 Signed-off-by: Iwona Winiarska <iwona.winiarska@intel.com>
-
+Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Signed-off-by: Oleksandr Shulzhenko <oleksandr.shulzhenko.viktorovych@intel.com>
+Upstream-Status: Pending
 ---
- src/IntelCPUSensorMain.cpp | 90 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 90 insertions(+)
+ src/IntelCPUSensorMain.cpp | 94 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 94 insertions(+)
 
 diff --git a/src/IntelCPUSensorMain.cpp b/src/IntelCPUSensorMain.cpp
-index ae13ef5..061509f 100644
+index 6c9711b39f09..680aa90e8278 100644
 --- a/src/IntelCPUSensorMain.cpp
 +++ b/src/IntelCPUSensorMain.cpp
-@@ -32,6 +32,7 @@
+@@ -34,6 +34,7 @@
  #include <fstream>
  #include <functional>
  #include <memory>
@@ -39,8 +42,8 @@ index ae13ef5..061509f 100644
  #include <regex>
  #include <sstream>
  #include <stdexcept>
-@@ -659,6 +660,91 @@ void detectCpuAsync(
-     });
+@@ -678,6 +679,95 @@ void detectCpuAsync(
+     }
  }
  
 +std::optional<uint64_t> getPeciDeviceNum(const fs::path& peciAdapterNamePath)
@@ -123,15 +126,19 @@ index ae13ef5..061509f 100644
 +            peciAdapterName = "wire";
 +        }
 +
-+        cpuConfigs.emplace(*peciDeviceNum, addr, name + "_" + *peciAdapterName,
-+                           state);
++        //WA:detectCpu uses cpuConfigs to send ping command
++        //peci-mctp does not support ping command,
++        //detectCPU will be refactored to support peci-mctp
++        if (peciAdapterName->compare("mctp") != 0)
++            cpuConfigs.emplace(*peciDeviceNum, addr, name + "_" + *peciAdapterName,
++                               state);
 +    }
 +}
 +
  bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                    boost::container::flat_set<CPUConfig>& cpuConfigs,
                    ManagedObjectType& sensorConfigs, boost::asio::io_context& io,
-@@ -787,7 +873,11 @@ bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
+@@ -806,7 +896,11 @@ bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                      std::cout << "name: " << name << "\n";
                      std::cout << "type: " << type << "\n";
                  }

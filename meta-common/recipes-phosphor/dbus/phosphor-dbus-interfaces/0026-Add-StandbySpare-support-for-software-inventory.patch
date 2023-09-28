@@ -10,6 +10,7 @@ software object is active or recovery (StandbySpare)
 image.
 
 Signed-off-by: Vikram Bodireddy <vikram.bodireddy@intel.com>
+Upstream-Status: Pending
 ---
  .../Software/Activation.interface.yaml               | 12 ++++++++++++
  1 file changed, 12 insertions(+)

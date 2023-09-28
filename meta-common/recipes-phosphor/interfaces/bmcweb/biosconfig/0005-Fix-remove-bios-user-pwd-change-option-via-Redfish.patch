@@ -16,6 +16,7 @@ error occurs for UserPassword parameter and allows for AdminPassword.
 
 Signed-off-by: Ayushi Smriti <smriti.ayushi@intel.com>
 Change-Id: I169cc6a4f786625d9e8b8dfe56816d52b1740f4c
+Upstream-Status: Pending
 ---
  redfish-core/lib/bios.hpp | 9 +++++++++
  1 file changed, 9 insertions(+)

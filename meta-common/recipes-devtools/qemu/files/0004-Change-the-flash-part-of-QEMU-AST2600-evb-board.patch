@@ -19,6 +19,7 @@ hostname=qemu
 
 Change-Id: Ic89688609dd9c433dd28bf8744a89d2217c1dad8
 Signed-off-by: Sujoy Ray <sujoy.ray@intel.com>
+Upstream-Status: Pending
 ---
  hw/arm/aspeed.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)

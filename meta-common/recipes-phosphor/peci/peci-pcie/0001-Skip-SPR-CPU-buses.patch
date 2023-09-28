@@ -1,4 +1,4 @@
-From 73803f7ce428a9337e2f41a9761de3042b5c07ba Mon Sep 17 00:00:00 2001
+From cb20fb9ac0d6feac8da5444b3e6129954dd7b763 Mon Sep 17 00:00:00 2001
 From: "Jason M. Bills" <jason.m.bills@linux.intel.com>
 Date: Fri, 11 Jun 2021 15:35:33 -0700
 Subject: [PATCH] Skip SPR CPU buses
@@ -14,15 +14,16 @@ included in the PCIe device list in Redfish.
 
 Change-Id: I4550e9771365466607074bdbf887335d1208e1a9
 Signed-off-by: Jason M. Bills <jason.m.bills@linux.intel.com>
+Upstream-Status: Pending
 ---
  src/peci_pcie.cpp | 64 +++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 64 insertions(+)
 
 diff --git a/src/peci_pcie.cpp b/src/peci_pcie.cpp
-index c8268f0..21d7d80 100644
+index 32b4e6f..3996d20 100644
 --- a/src/peci_pcie.cpp
 +++ b/src/peci_pcie.cpp
-@@ -145,6 +145,70 @@ static resCode getCPUBusNums(std::vector<CPUInfo>& cpuInfo)
+@@ -150,6 +150,70 @@ static resCode getCPUBusMap(std::vector<CPUInfo>& cpuInfo)
                  }
                  cpu.skipCpuBuses = true;
              }
@@ -92,7 +93,7 @@ index c8268f0..21d7d80 100644
 +            }
          }
      }
-     return resCode::resOk;
+     return cpuInfo.empty() ? resCode::resErr : resCode::resOk;
 -- 
-2.17.1
+2.25.1
 

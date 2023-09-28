@@ -21,6 +21,7 @@ in groupmems when the issue is reproduced
 
 Signed-off-by: Richard Marian Thomaiyar <richard.marian.thomaiyar@linux.intel.com>
 Signed-off-by: jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
+Upstream-Status: Pending
 ---
  user_mgr.cpp | 27 +++++++++++++--------------
  1 file changed, 13 insertions(+), 14 deletions(-)

@@ -7,6 +7,7 @@ This commit fixes PECI ioctl number to 0xb8 to avoid conflicts in
 kernel v5.10.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  include/linux/peci-ioctl.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

@@ -4,4 +4,4 @@ FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/LibVNC/libvncserver;branch=master;protocol=https"
-SRCREV = "d62002e46fb4a4a16573ff9b8a37d114443aa059"
+SRCREV = "7fda996b43a57da5aaaecaa5cb489c7e0ccc3dff"

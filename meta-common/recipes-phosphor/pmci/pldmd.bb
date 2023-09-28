@@ -5,13 +5,13 @@ LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=86d3f3a95c324c9479bd8986968f4327"
 
 SRC_URI += "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.pldmd.git;protocol=ssh;branch=main"
-SRCREV = "87cacea52937d09e3bbc71f2da491aa91b71cbb1"
+SRCREV = "c25b527153f0e94a8629e5250c72770b4f8e3495"
 
 S = "${WORKDIR}/git"
 
 PV = "1.0+git${SRCPV}"
 
-inherit cmake systemd
+inherit cmake pkgconfig systemd
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 

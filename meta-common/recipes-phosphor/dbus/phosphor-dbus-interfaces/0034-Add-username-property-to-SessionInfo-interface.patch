@@ -25,6 +25,7 @@ xyz.openbmc_project.Ipmi.SessionInfo interface -         -            -
 .Username          property  s      ""           emits-change writable
 
 Signed-off-by: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
+Upstream-Status: Pending
 ---
  yaml/xyz/openbmc_project/Ipmi/SESSION_README.md          | 1 +
  yaml/xyz/openbmc_project/Ipmi/SessionInfo.interface.yaml | 6 ++++++

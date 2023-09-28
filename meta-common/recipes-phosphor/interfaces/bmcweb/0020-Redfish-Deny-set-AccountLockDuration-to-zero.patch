@@ -1,4 +1,4 @@
-From 2899b382fd3fc8ffd1b0b8abd5a3577e2f947512 Mon Sep 17 00:00:00 2001
+From a71b4f38e61d7b60e188e843ede3e926f8854560 Mon Sep 17 00:00:00 2001
 From: Meera-Katta <meerax.katta@linux.intel.com>
 Date: Wed, 7 Jul 2021 13:19:09 +0000
 Subject: [PATCH] Redfish: Deny set AccountLockDuration to zero
@@ -52,15 +52,16 @@ Response:
 }
 
 Signed-off-by: Meera-Katta <meerax.katta@linux.intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/account_service.hpp | 10 ++++++++++
  1 file changed, 10 insertions(+)
 
 diff --git a/redfish-core/lib/account_service.hpp b/redfish-core/lib/account_service.hpp
-index a844b61a..6219ab2c 100644
+index 173de73e..7dc33a00 100644
 --- a/redfish-core/lib/account_service.hpp
 +++ b/redfish-core/lib/account_service.hpp
-@@ -1477,6 +1477,16 @@ inline void handleAccountServicePatch(
+@@ -1631,6 +1631,16 @@ inline void handleAccountServicePatch(
  
      if (unlockTimeout)
      {
@@ -68,15 +69,15 @@ index a844b61a..6219ab2c 100644
 +        // attempts if we set unlockTimeout value to be 0.
 +        if (unlockTimeout.value() == 0)
 +        {
-+            BMCWEB_LOG_INFO << "Unlock timeout value must be greater"
-+                               "than zero";
++            BMCWEB_LOG_INFO("Unlock timeout value must be greater than zero");
 +            messages::propertyValueNotInList(asyncResp->res, "unlockTimeout",
 +                                             "AccountLockoutDuration");
 +            return;
 +        }
-         crow::connections::systemBus->async_method_call(
-             [asyncResp](const boost::system::error_code& ec) {
-             if (ec)
++
+         sdbusplus::asio::setProperty(
+             *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
+             "/xyz/openbmc_project/user",
 -- 
 2.25.1
 

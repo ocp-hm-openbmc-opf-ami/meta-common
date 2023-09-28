@@ -11,6 +11,7 @@ Added support for multi-master mode enabled with
 "multi-master" property set in DTS for every i2c node.
 
 Signed-off-by: Jan Sowinski <jan.sowinski@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/dts/ast2600-intel.dts |  8 ++++++++
  drivers/i2c/ast_i2c.c          | 19 ++++++++++++-------

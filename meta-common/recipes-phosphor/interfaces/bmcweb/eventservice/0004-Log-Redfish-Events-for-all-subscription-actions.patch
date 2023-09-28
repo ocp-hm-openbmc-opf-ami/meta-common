@@ -1,4 +1,4 @@
-From adb5308c9c068723a525a37b7e12b22052bd69b9 Mon Sep 17 00:00:00 2001
+From 7bded0e728144febac139e30a392e2b874c89753 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Mon, 10 May 2021 12:32:30 +0530
 Subject: [PATCH] Log Redfish Events for all subscription actions
@@ -20,25 +20,18 @@ Tested:
 
 Change-Id: Ie7065732184f17955b0669a3901ea54fb42cfef4
 Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
+Upstream-Status: Pending
 ---
- .../include/event_service_manager.hpp         | 34 +++++++++++++++---
+ .../include/event_service_manager.hpp         | 33 ++++++++++++++---
  .../registries/openbmc_message_registry.hpp   | 36 +++++++++++++++++++
  redfish-core/lib/event_service.hpp            |  2 +-
- 3 files changed, 67 insertions(+), 5 deletions(-)
+ 3 files changed, 66 insertions(+), 5 deletions(-)
 
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index 9e21f58d..067baedc 100644
+index 2ef48053..e194c9b7 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -31,6 +31,7 @@
- #include "utils/json_utils.hpp"
- 
- #include <sys/inotify.h>
-+#include <systemd/sd-journal.h>
- 
- #include <boost/algorithm/string/classification.hpp>
- #include <boost/asio/io_context.hpp>
-@@ -810,7 +811,7 @@ class EventServiceManager
+@@ -785,7 +785,7 @@ class EventServiceManager
          }
      }
  
@@ -47,7 +40,7 @@ index 9e21f58d..067baedc 100644
      {
          persistent_data::EventServiceStore::getInstance()
              .eventServiceConfig.enabled = serviceEnabled;
-@@ -857,7 +858,7 @@ class EventServiceManager
+@@ -832,7 +832,7 @@ class EventServiceManager
  
          if (updateConfig)
          {
@@ -56,7 +49,7 @@ index 9e21f58d..067baedc 100644
          }
  
          if (updateRetryCfg)
-@@ -969,7 +970,7 @@ class EventServiceManager
+@@ -943,7 +943,7 @@ class EventServiceManager
  
          if (updateFile)
          {
@@ -65,39 +58,39 @@ index 9e21f58d..067baedc 100644
          }
  
  #ifndef BMCWEB_ENABLE_REDFISH_DBUS_LOG_ENTRIES
-@@ -981,6 +982,12 @@ class EventServiceManager
-         // Update retry configuration.
-         subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
+@@ -957,6 +957,12 @@ class EventServiceManager
  
+         // Set Subscription ID for back trace
+         subValue->setSubscriptionId(id);
++
 +        /* Log event for subscription addition */
 +        sd_journal_send("MESSAGE=Event subscription added(Id: %s)", id.c_str(),
 +                        "PRIORITY=%i", LOG_INFO, "REDFISH_MESSAGE_ID=%s",
 +                        "OpenBMC.0.1.EventSubscriptionAdded",
 +                        "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
-+
          return id;
      }
  
-@@ -1004,7 +1011,14 @@ class EventServiceManager
-                 persistent_data::EventServiceStore::getInstance()
-                     .subscriptionsConfigMap.erase(obj2);
-                 updateNoOfSubscribersCount();
--                updateSubscriptionData();
-+                persistSubscriptionData();
+@@ -977,7 +983,14 @@ class EventServiceManager
+             persistent_data::EventServiceStore::getInstance()
+                 .subscriptionsConfigMap.erase(obj2);
+             updateNoOfSubscribersCount();
+-            updateSubscriptionData();
++            persistSubscriptionData();
 +
-+                /* Log event for subscription delete. */
-+                sd_journal_send("MESSAGE=Event subscription removed.(Id = %s)",
-+                                id.c_str(), "PRIORITY=%i", LOG_INFO,
-+                                "REDFISH_MESSAGE_ID=%s",
-+                                "OpenBMC.0.1.EventSubscriptionRemoved",
-+                                "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
-             }
++            /* Log event for subscription delete. */
++            sd_journal_send("MESSAGE=Event subscription removed.(Id = %s)",
++                            id.c_str(), "PRIORITY=%i", LOG_INFO,
++                            "REDFISH_MESSAGE_ID=%s",
++                            "OpenBMC.0.1.EventSubscriptionRemoved",
++                            "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
          }
      }
-@@ -1026,6 +1040,18 @@ class EventServiceManager
-             }
+ 
+@@ -997,6 +1010,18 @@ class EventServiceManager
          }
      }
+ 
 +    void updateSubscription(const std::string& id) const
 +    {
 +        persistSubscriptionData();
@@ -110,7 +103,7 @@ index 9e21f58d..067baedc 100644
 +                        "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
 +    }
 +
-     size_t getNumberOfSubscriptions()
+     size_t getNumberOfSubscriptions() const
      {
          return subscriptionsMap.size();
 diff --git a/redfish-core/include/registries/openbmc_message_registry.hpp b/redfish-core/include/registries/openbmc_message_registry.hpp
@@ -161,10 +154,10 @@ index 5339b911..5fae6619 100644
                   {
                       "Indicates that a system fan has been inserted.",
 diff --git a/redfish-core/lib/event_service.hpp b/redfish-core/lib/event_service.hpp
-index adb7681c..8eb7b915 100644
+index 9e2d0fe0..7e0fe093 100644
 --- a/redfish-core/lib/event_service.hpp
 +++ b/redfish-core/lib/event_service.hpp
-@@ -602,7 +602,7 @@ inline void requestRoutesEventDestination(App& app)
+@@ -749,7 +749,7 @@ inline void requestRoutesEventDestination(App& app)
              subValue->retryPolicy = *retryPolicy;
          }
  

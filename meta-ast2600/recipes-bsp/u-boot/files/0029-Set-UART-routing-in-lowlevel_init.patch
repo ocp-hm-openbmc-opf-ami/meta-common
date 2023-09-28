@@ -8,6 +8,7 @@ to prevent any data dropping from the physical host serial until
 SOL service is activated.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/platform.S | 8 ++++++++
  1 file changed, 8 insertions(+)

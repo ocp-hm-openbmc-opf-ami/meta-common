@@ -1,7 +1,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/ipmbbridge.git;branch=master;protocol=https"
-SRCREV = "3c796a6fbb2265456e9c845f97a471febcc0a5ed"
+SRCREV = "e6b07fafc9489772f24925fed80f8bbf640b2f26"
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 SRC_URI += "file://0001-Add-dbus-method-SlotIpmbRequest.patch \
            file://0002-Add-log-count-limitation-to-requestAdd.patch \

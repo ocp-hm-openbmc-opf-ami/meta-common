@@ -7,6 +7,7 @@ Update the Software object path to bmc_active instead of random Id.
 
 Signed-off-by: Chalapathi <chalapathix.venkataramashetty@intel.com>
 
+Upstream-Status: Pending
 ---
  item_updater.cpp | 7 ++-----
  1 file changed, 2 insertions(+), 5 deletions(-)

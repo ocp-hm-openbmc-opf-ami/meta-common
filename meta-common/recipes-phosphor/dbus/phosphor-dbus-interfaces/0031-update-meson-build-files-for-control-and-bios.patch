@@ -4,6 +4,7 @@ Date: Tue, 8 Dec 2020 15:08:21 -0800
 Subject: [PATCH] update meson build files for control and bios
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
  .../Control/Power/RestoreDelay/meson.build         | 13 +++++++++++++
  gen/xyz/openbmc_project/Control/Power/meson.build  | 14 ++++++++++++++

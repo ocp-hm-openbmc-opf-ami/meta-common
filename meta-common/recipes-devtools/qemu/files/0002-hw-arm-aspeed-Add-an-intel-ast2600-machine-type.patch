@@ -4,6 +4,7 @@ Date: Mon, 16 Nov 2020 15:52:12 +0100
 Subject: [PATCH] hw/arm/aspeed: Add an intel-ast2600 machine type
 
 Signed-off-by: Wludzik, Jozef <jozef.wludzik@intel.com>
+Upstream-Status: Pending
 ---
  hw/arm/aspeed.c | 27 +++++++++++++++++++++++++++
  1 file changed, 27 insertions(+)

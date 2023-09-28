@@ -7,6 +7,7 @@ change#2
 add new dbus interface for BIOS attributes
 
 Signed-off-by: Jia, Chunhui <chunhui.jia@intel.com>
+Upstream-Status: Pending
 ---
  .../openbmc_project/Inventory/Item/Bios.interface.yaml   | 9 +++++++++
  1 file changed, 9 insertions(+)

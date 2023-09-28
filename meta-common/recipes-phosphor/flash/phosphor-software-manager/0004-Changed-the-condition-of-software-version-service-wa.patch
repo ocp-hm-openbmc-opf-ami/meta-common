@@ -9,6 +9,7 @@ This change modified the condition to also watch files that are "moved" into thi
 
 Signed-off-by: Jennifer Lee <jennifer1.lee@intel.com>
 Change-Id: I3e9cf1ffc3f5350d4649d32d3d3837991322a65b
+Upstream-Status: Pending
 ---
  watch.cpp | 5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)

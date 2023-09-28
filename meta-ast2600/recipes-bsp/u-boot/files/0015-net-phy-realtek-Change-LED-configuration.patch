@@ -9,6 +9,7 @@ LED1 (Left Orange): Link 10/100 + Blink on Tx/Rx
 LED2 (Left Green): Link 1000 + Blink on Tx/Rx
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  drivers/net/phy/realtek.c | 9 +++++++--
  1 file changed, 7 insertions(+), 2 deletions(-)

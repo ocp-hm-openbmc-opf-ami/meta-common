@@ -4,6 +4,7 @@ Date: Mon, 13 Feb 2023 07:50:55 +0000
 Subject: [PATCH] ExtendTimer increased to 6 mins for IFWI update
 
 Signed-off-by: moni kumar <monix.kumar@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/update_service.hpp | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

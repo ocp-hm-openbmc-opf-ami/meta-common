@@ -15,6 +15,7 @@ Updated to have USB multi function pin control to be programmed
 to enable USB2.0 device controller.
 
 Signed-off-by: Patel, Ankurkumar G <ankurkumar.g.patel@intel.com>
+Upstream-Status: Pending
 ---
  arch/arm/mach-aspeed/ast2600/platform.S | 6 ++++++
  1 file changed, 6 insertions(+)

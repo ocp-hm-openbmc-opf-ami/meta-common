@@ -1,4 +1,4 @@
-From 614c32e1c8bbfb090029291e95302806472b0e99 Mon Sep 17 00:00:00 2001
+From 41b8931a55271ead2b593edf852e769c27984c23 Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Mon, 14 Mar 2022 17:27:01 -0700
 Subject: [PATCH] systems: Add pfr and cpld postcode
@@ -10,15 +10,16 @@ PFR postcode provides platform state and is added to
 FirmwareProvisioning when system is PFR provisioned.
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/systems.hpp | 113 +++++++++++++++++++++++++++++++++++
  1 file changed, 113 insertions(+)
 
 diff --git a/redfish-core/lib/systems.hpp b/redfish-core/lib/systems.hpp
-index 58abbad3..f28b4ecc 100644
+index 609af715..edb7a05e 100644
 --- a/redfish-core/lib/systems.hpp
 +++ b/redfish-core/lib/systems.hpp
-@@ -889,6 +889,62 @@ inline void getBootProgressLastStateTime(
+@@ -938,6 +938,62 @@ inline void getBootProgressLastStateTime(
          });
  }
  
@@ -31,7 +32,7 @@ index 58abbad3..f28b4ecc 100644
 + */
 +inline void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 +{
-+    BMCWEB_LOG_DEBUG << "Get OEM information.";
++    BMCWEB_LOG_DEBUG("Get OEM information.");
 +    crow::connections::systemBus->async_method_call(
 +        [aResp](const boost::system::error_code ec,
 +                const std::vector<
@@ -39,7 +40,7 @@ index 58abbad3..f28b4ecc 100644
 +                    propertiesList) {
 +        if (ec)
 +        {
-+            BMCWEB_LOG_DEBUG << "DBUS response error " << ec;
++            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
 +            // not an error, don't have to have the interface
 +            return;
 +        }
@@ -61,13 +62,13 @@ index 58abbad3..f28b4ecc 100644
 +
 +        if ((errorSource == nullptr) || (powerState == nullptr))
 +        {
-+            BMCWEB_LOG_DEBUG << "Unable to get CPLD power sequence state.";
++            BMCWEB_LOG_DEBUG("Unable to get CPLD power sequence state.");
 +            messages::internalError(aResp->res);
 +            return;
 +        }
 +
-+        BMCWEB_LOG_DEBUG << "CPLD Boot Progress: " << *powerState << "Err "
-+                         << *errorSource;
++        BMCWEB_LOG_DEBUG("CPLD Boot Progress: {} Err {}", *powerState,
++                         *errorSource);
 +        aResp->res.jsonValue["BootProgress"]["Oem"]["CpldLastState"] =
 +            *powerState;
 +        aResp->res.jsonValue["BootProgress"]["Oem"]["CpldErr"] = *errorSource;
@@ -81,7 +82,7 @@ index 58abbad3..f28b4ecc 100644
  /**
   * @brief Retrieves boot override type over DBUS and fills out the response
   *
-@@ -1844,6 +1900,61 @@ inline void
+@@ -2082,6 +2138,61 @@ inline void
  }
  
  #ifdef BMCWEB_ENABLE_REDFISH_PROVISIONING_FEATURE
@@ -94,7 +95,7 @@ index 58abbad3..f28b4ecc 100644
 + */
 +inline void getPlatformState(std::shared_ptr<bmcweb::AsyncResp> aResp)
 +{
-+    BMCWEB_LOG_DEBUG << "Get OEM information.";
++    BMCWEB_LOG_DEBUG("Get OEM information.");
 +    crow::connections::systemBus->async_method_call(
 +        [aResp](const boost::system::error_code ec,
 +                const std::vector<
@@ -106,7 +107,7 @@ index 58abbad3..f28b4ecc 100644
 +
 +        if (ec)
 +        {
-+            BMCWEB_LOG_DEBUG << "DBUS response error " << ec;
++            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
 +            // not an error, don't have to have the interface
 +            return;
 +        }
@@ -128,7 +129,7 @@ index 58abbad3..f28b4ecc 100644
 +
 +        if ((postcode == nullptr) || (platformState == nullptr))
 +        {
-+            BMCWEB_LOG_DEBUG << "Unable to get PFR platform state.";
++            BMCWEB_LOG_DEBUG("Unable to get PFR platform state.");
 +            messages::internalError(aResp->res);
 +            return;
 +        }
@@ -143,22 +144,22 @@ index 58abbad3..f28b4ecc 100644
  /**
   * @brief Retrieves provisioning status
   *
-@@ -1903,6 +2014,7 @@ inline void getProvisioningStatus(std::shared_ptr<bmcweb::AsyncResp> aResp)
+@@ -2141,6 +2252,7 @@ inline void getProvisioningStatus(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
              {
                  oemPFR["ProvisioningStatus"] = "ProvisionedButNotLocked";
              }
-+            getPlatformState(aResp);
++            getPlatformState(asyncResp);
          }
          else
          {
-@@ -3032,6 +3144,7 @@ inline void requestRoutesSystems(App& app)
-         getBootProperties(asyncResp);
-         getBootProgress(asyncResp);
-         getBootProgressLastStateTime(asyncResp);
-+        getCPLDBootProgress(asyncResp);
-         getPCIeDeviceList(asyncResp, "PCIeDevices");
-         getHostWatchdogTimer(asyncResp);
-         getPowerRestorePolicy(asyncResp);
+@@ -3322,6 +3434,7 @@ inline void
+     getBootProperties(asyncResp);
+     getBootProgress(asyncResp);
+     getBootProgressLastStateTime(asyncResp);
++    getCPLDBootProgress(asyncResp);
+     pcie_util::getPCIeDeviceList(asyncResp, "PCIeDevices");
+     getHostWatchdogTimer(asyncResp);
+     getPowerRestorePolicy(asyncResp);
 -- 
 2.25.1
 

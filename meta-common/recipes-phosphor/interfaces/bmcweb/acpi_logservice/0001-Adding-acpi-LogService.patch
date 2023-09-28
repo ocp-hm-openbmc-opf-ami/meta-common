@@ -1,4 +1,4 @@
-From c31b8e8b3416157303753f8fa5895f289ea18380 Mon Sep 17 00:00:00 2001
+From 5d6070627766ae323a2e55fb7ce5832132dca434 Mon Sep 17 00:00:00 2001
 From: Arun Thomas Baby <arunx.thomas.baby.baby.mathew@intel.com>
 Date: Tue, 4 Oct 2022 22:58:14 -0700
 Subject: [PATCH] Adding acpi LogService.
@@ -8,16 +8,17 @@ Added the support for acpi log under System Logservice.
 Tested: Able to view the response for all the URI's under acpi logservice
 
 Signed-off-by: Arun Thomas Baby <arunx.thomas.baby.baby.mathew@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/include/redfish.hpp  |   5 +
  redfish-core/lib/log_services.hpp | 163 ++++++++++++++++++++++++++++++
  2 files changed, 168 insertions(+)
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index 22483b65..afa0b534 100644
+index e660e65d..c25ee913 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
-@@ -171,6 +171,11 @@ class RedfishService
+@@ -176,6 +176,11 @@ class RedfishService
          requestRoutesCrashdumpCollect(app);
  #endif // BMCWEB_ENABLE_REDFISH_CPU_LOG
  
@@ -30,19 +31,19 @@ index 22483b65..afa0b534 100644
          requestRoutesProcessor(app);
          requestRoutesOperatingConfigCollection(app);
 diff --git a/redfish-core/lib/log_services.hpp b/redfish-core/lib/log_services.hpp
-index 3bc4322c..72f5c1be 100644
+index 9cb1fe05..07e4edcf 100644
 --- a/redfish-core/lib/log_services.hpp
 +++ b/redfish-core/lib/log_services.hpp
 @@ -66,6 +66,8 @@ constexpr const char* crashdumpOnDemandInterface =
      "com.intel.crashdump.OnDemand";
  constexpr const char* crashdumpTelemetryInterface =
      "com.intel.crashdump.Telemetry";
-+static char const* acpiFilePath = "/var/lib/acpi/acpi2";
-+static char const* acpiFileName = "acpi2";
++static const char* acpiFilePath = "/var/lib/acpi/acpi2";
++static const char* acpiFileName = "acpi2";
  
  enum class DumpCreationProgress
  {
-@@ -1117,6 +1119,10 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
+@@ -1129,6 +1131,10 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
          logServiceArray.emplace_back(std::move(crashdump));
  #endif
  
@@ -53,7 +54,7 @@ index 3bc4322c..72f5c1be 100644
  #ifdef BMCWEB_ENABLE_REDFISH_HOST_LOGGER
          nlohmann::json::object_t hostlogger;
          hostlogger["@odata.id"] =
-@@ -4098,4 +4104,161 @@ inline void requestRoutesPostCodesEntry(App& app)
+@@ -4255,4 +4261,161 @@ inline void requestRoutesPostCodesEntry(App& app)
          });
  }
  
@@ -205,8 +206,8 @@ index 3bc4322c..72f5c1be 100644
 +            return;
 +        }
 +        std::ifstream ifs(acpiFilePath, std::ios::in | std::ios::binary);
-+        asyncResp->res.body() =
-+            std::string(std::istreambuf_iterator<char>{ifs}, {});
++        asyncResp->res.body() = std::string(std::istreambuf_iterator<char>{ifs},
++                                            {});
 +
 +        // Configure this to be a file download when accessed
 +        // from a browser

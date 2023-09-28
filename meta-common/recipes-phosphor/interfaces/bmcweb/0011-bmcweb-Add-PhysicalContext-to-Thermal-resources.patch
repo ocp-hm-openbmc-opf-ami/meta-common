@@ -33,6 +33,7 @@ Response:
 }
 Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
 Signed-off-by: Sunita Kumari <sunitax.kumari@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/sensors.hpp | 19 +++++++++++++++++++
  1 file changed, 19 insertions(+)

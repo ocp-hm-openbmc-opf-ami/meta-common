@@ -43,6 +43,7 @@ Signed-off-by: Anjaliintel-21 <anjali.ray@intel.com>
 Signed-off-by: Priyanka Chikane <priyanka.chikane@intel.com>
 
 %% original patch: 0038-Disabling-serial-console-if-FFUJ-is-enabled.patch
+Upstream-Status: Pending
 ---
  board/aspeed/ast2600_intel/intel.c |  6 ++----
  common/autoboot.c                  | 19 ++++++++++++++++++-

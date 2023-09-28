@@ -8,6 +8,7 @@ pre-timeout interrupt source. Add them as a dbus property,
 IPMI set/get watchdog commands will use it.
 
 Signed-off-by: Ren Yu <yux.ren@intel.com>
+Upstream-Status: Pending
 ---
  .../State/Watchdog.interface.yaml             | 22 +++++++++++++++++++
  1 file changed, 22 insertions(+)

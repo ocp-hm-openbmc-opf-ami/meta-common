@@ -5,7 +5,7 @@ LICENSE = "Apache-2.0"
 LIC_FILES_CHKSUM = "file://LICENSE;md5=615045c30a05cde5c0e924854d43c327"
 
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.libraries.mctpwplus.git;protocol=ssh;branch=main"
-SRCREV = "a3c7bb75c1927b650aad628cc875a63bf2f8e6f8"
+SRCREV = "bacc83457c6c666c4dbe8730216c26d6be5e1722"
 
 S = "${WORKDIR}/git"
 

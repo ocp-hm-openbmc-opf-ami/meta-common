@@ -8,6 +8,7 @@ This commit enables per-frame CRC calculation option to save network
 bandwidth by dropping off frames that don't have changes.
 
 Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
 ---
  start-ipkvm.service | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

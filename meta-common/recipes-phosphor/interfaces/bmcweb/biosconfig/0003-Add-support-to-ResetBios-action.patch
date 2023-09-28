@@ -1,4 +1,4 @@
-From 75406de3c19ad8408f788692ae8f3ef6303423a7 Mon Sep 17 00:00:00 2001
+From e579c9114b38c40484152502b82e2312cd4af1ee Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@linux.intel.com>
 Date: Wed, 6 Oct 2021 22:27:20 +0000
 Subject: [PATCH] Add support to ResetBios action
@@ -13,15 +13,16 @@ Signed-off-by: Kuiying Wang <kuiying.wang@intel.com>
 Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
 
 Signed-off-by: AppaRao Puli <apparao.puli@linux.intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/bios.hpp | 12 +++++++++---
  1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index 33ac56e4..09f1fb46 100644
+index f9d8466b..71c46251 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
-@@ -619,17 +619,23 @@ inline void
+@@ -634,17 +634,23 @@ inline void
          return;
      }
  
@@ -32,8 +33,8 @@ index 33ac56e4..09f1fb46 100644
          [asyncResp](const boost::system::error_code& ec) {
          if (ec)
          {
--            BMCWEB_LOG_ERROR << "Failed to reset bios: " << ec;
-+	    BMCWEB_LOG_ERROR << "doPost bios reset got error " << ec;
+-            BMCWEB_LOG_ERROR("Failed to reset bios: {}", ec);
++            BMCWEB_LOG_ERROR("doPost bios reset got error: {}", ec);
              messages::internalError(asyncResp->res);
              return;
          }

@@ -30,6 +30,7 @@ GET: https://<BMC IP>/redfish/v1/Systems/system/LogServices/EventLog/Entries/161
 
 Signed-off-by: Arun P. Mohanan <arun.p.m@linux.intel.com>
 Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
+Upstream-Status: Pending
 ---
  .../registries/openbmc_message_registry.hpp   | 31 ++++++++++++++++++-
  1 file changed, 30 insertions(+), 1 deletion(-)

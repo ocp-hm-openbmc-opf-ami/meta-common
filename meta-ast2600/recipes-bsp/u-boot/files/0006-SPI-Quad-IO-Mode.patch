@@ -7,6 +7,7 @@ This commit adds quad IO mode in SPI driver for AST2600.
 
 Note:- Removed n25q00 Quad I/O support for the time being due to clock issue
  with chip 'Micron 8UA15 - rw182 (128MB)' while enabling Quad I/O mode.
+Upstream-Status: Pending
 ---
  arch/arm/dts/ast2600-intel.dts |  6 ++----
  drivers/mtd/spi/spi-nor-ids.c  |  7 ++++++-

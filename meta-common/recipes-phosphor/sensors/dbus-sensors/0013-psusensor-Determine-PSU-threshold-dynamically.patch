@@ -1,4 +1,4 @@
-From cade8c1df93ed7848ce27f42fb338abb4b6469a9 Mon Sep 17 00:00:00 2001
+From 863753fb8de2dfac79d488d8a77f42a954f90d63 Mon Sep 17 00:00:00 2001
 From: Vikash Chandola <vikash.chandola@intel.com>
 Date: Wed, 27 Jul 2022 10:07:25 +0000
 Subject: [PATCH] psusensor: Determine PSU threshold dynamically
@@ -28,6 +28,7 @@ cases critical and warning thresholds were updated as per
 contain "ThresholdLabel" and "ScaleFactor" then "Value" was used.
 
 Signed-off-by: Vikash Chandola <vikash.chandola@intel.com>
+Upstream-Status: Pending
 ---
  src/PSUSensorMain.cpp |  2 +-
  src/Thresholds.cpp    | 65 ++++++++++++++++++++++++++++++++++++++-----
@@ -35,10 +36,10 @@ Signed-off-by: Vikash Chandola <vikash.chandola@intel.com>
  3 files changed, 61 insertions(+), 9 deletions(-)
 
 diff --git a/src/PSUSensorMain.cpp b/src/PSUSensorMain.cpp
-index e6351ca..4ba7612 100644
+index b4550bf..f6e5691 100644
 --- a/src/PSUSensorMain.cpp
 +++ b/src/PSUSensorMain.cpp
-@@ -843,7 +843,7 @@ static void createSensorsCallback(
+@@ -844,7 +844,7 @@ static void createSensorsCallback(
  
              std::vector<thresholds::Threshold> sensorThresholds;
              if (!parseThresholdsFromConfig(*sensorData, sensorThresholds,
@@ -48,7 +49,7 @@ index e6351ca..4ba7612 100644
                  std::cerr << "error populating thresholds for "
                            << sensorNameSubStr << "\n";
 diff --git a/src/Thresholds.cpp b/src/Thresholds.cpp
-index dad28b4..0994081 100644
+index b1d3381..012bb2c 100644
 --- a/src/Thresholds.cpp
 +++ b/src/Thresholds.cpp
 @@ -45,11 +45,48 @@ Direction findThresholdDirection(const std::string& direct)
@@ -86,8 +87,8 @@ index dad28b4..0994081 100644
 +        return std::nullopt;
 +    }
 +    auto& [type, nr, item] = fileParts.value();
-+    auto attrPath =
-+        boost::replace_all_copy(*sensorPathStr, item, hwmonFileSuffix->second);
++    auto attrPath = boost::replace_all_copy(*sensorPathStr, item,
++                                            hwmonFileSuffix->second);
 +    return readFile(attrPath, (1.0 / std::visit(VariantToDoubleVisitor(),
 +                                                scaleFactorFind->second)));
 +}
@@ -102,7 +103,7 @@ index dad28b4..0994081 100644
      for (const auto& [intf, cfg] : sensorData)
      {
 @@ -97,11 +134,9 @@ bool parseThresholdsFromConfig(
-                 std::visit(VariantToDoubleVisitor(), hysteresisFind->second);
+                                     hysteresisFind->second);
          }
  
 -        auto directionFind = cfg.find("Direction");
@@ -143,10 +144,10 @@ index dad28b4..0994081 100644
      }
      return true;
 diff --git a/src/Thresholds.hpp b/src/Thresholds.hpp
-index 7b45276..86f1bf7 100644
+index c6be154..18a67f7 100644
 --- a/src/Thresholds.hpp
 +++ b/src/Thresholds.hpp
-@@ -118,7 +118,8 @@ struct ThresholdTimer
+@@ -117,7 +117,8 @@ struct ThresholdTimer
  bool parseThresholdsFromConfig(
      const SensorData& sensorData,
      std::vector<thresholds::Threshold>& thresholdVector,

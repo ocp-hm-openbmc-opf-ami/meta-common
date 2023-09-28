@@ -1,8 +1,8 @@
 SUMMARY = "DIMM Devices Accessor"
 DESCRIPTION = "DIMM Devices Accessor"
 
-SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.dimm-devices-accessor.git;protocol=ssh;branch=main"
-SRCREV = "3b73130c07835f1ad69d4c00fda00c93122faa8e"
+SRC_URI = "git://git@github.com/intel-collab/firmware.bmc.openbmc.applications.dimm-devices-accessor.git;protocol=ssh;branch=main"
+SRCREV = "12dcac94fafd498ca8a98751230fa800d528346c"
 S = "${WORKDIR}/git"
 PV = "1.0+git${SRCPV}"
 

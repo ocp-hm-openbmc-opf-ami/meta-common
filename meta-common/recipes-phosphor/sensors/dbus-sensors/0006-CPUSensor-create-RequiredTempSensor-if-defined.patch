@@ -1,4 +1,4 @@
-From b4f10429940100bef187df77b7f00ee19b3c25ef Mon Sep 17 00:00:00 2001
+From 7a9fb04aedb246453de203907a5737c22fd1aa43 Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Tue, 11 May 2021 11:14:55 -0700
 Subject: [PATCH] CPUSensor: create RequiredTempSensor if defined
@@ -21,6 +21,7 @@ failure case. More work will follow to support a more generic
 "Required" sensor config.
 
 Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
+Upstream-Status: Pending
 ---
  src/IntelCPUSensor.cpp     | 68 ++++++++++++++++++++++++++++++++++++++
  src/IntelCPUSensor.hpp     |  9 +++++
@@ -28,7 +29,7 @@ Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
  3 files changed, 123 insertions(+), 8 deletions(-)
 
 diff --git a/src/IntelCPUSensor.cpp b/src/IntelCPUSensor.cpp
-index 9c5e9ef..b8c8499 100644
+index 07a2b82..ed4119b 100644
 --- a/src/IntelCPUSensor.cpp
 +++ b/src/IntelCPUSensor.cpp
 @@ -93,6 +93,74 @@ IntelCPUSensor::IntelCPUSensor(
@@ -107,7 +108,7 @@ index 9c5e9ef..b8c8499 100644
  {
      // close the input dev to cancel async operations
 diff --git a/src/IntelCPUSensor.hpp b/src/IntelCPUSensor.hpp
-index b23c0dc..2eb5f90 100644
+index 0417c6e..5c8639c 100644
 --- a/src/IntelCPUSensor.hpp
 +++ b/src/IntelCPUSensor.hpp
 @@ -29,6 +29,15 @@ class IntelCPUSensor :
@@ -127,10 +128,10 @@ index b23c0dc..2eb5f90 100644
      static constexpr unsigned int sensorScaleFactor = 1000;
      static constexpr unsigned int sensorPollMs = 1000;
 diff --git a/src/IntelCPUSensorMain.cpp b/src/IntelCPUSensorMain.cpp
-index 944e9ad..aeebe55 100644
+index 579198e..83b41a2 100644
 --- a/src/IntelCPUSensorMain.cpp
 +++ b/src/IntelCPUSensorMain.cpp
-@@ -330,10 +330,9 @@ bool createSensors(boost::asio::io_context& io,
+@@ -335,10 +335,9 @@ bool createSensors(boost::asio::io_context& io,
              {
                  if (debug)
                  {
@@ -143,8 +144,8 @@ index 944e9ad..aeebe55 100644
              }
  
              // check hidden properties
-@@ -638,9 +637,9 @@ void detectCpuAsync(
-     });
+@@ -660,9 +659,9 @@ void detectCpuAsync(
+     }
  }
  
 -bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
@@ -155,7 +156,7 @@ index 944e9ad..aeebe55 100644
                    sdbusplus::asio::object_server& objectServer)
  {
      bool useCache = false;
-@@ -699,6 +698,45 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
+@@ -721,6 +720,45 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                      iface->register_property("Present", *present);
                      iface->initialize();
                      inventoryIfaces[name] = std::move(iface);
@@ -201,7 +202,7 @@ index 944e9ad..aeebe55 100644
                  }
  
                  auto findBus = cfg.find("Bus");
-@@ -727,7 +765,6 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
+@@ -749,7 +787,6 @@ bool getCpuConfig(const std::shared_ptr<sdbusplus::asio::connection>& systemBus,
                      std::cout << "name: " << name << "\n";
                      std::cout << "type: " << type << "\n";
                  }
@@ -209,7 +210,7 @@ index 944e9ad..aeebe55 100644
                  cpuConfigs.emplace(bus, addr, name, State::OFF);
              }
          }
-@@ -763,7 +800,8 @@ int main()
+@@ -785,7 +822,8 @@ int main()
              return; // we're being canceled
          }
  
@@ -217,9 +218,9 @@ index 944e9ad..aeebe55 100644
 +        if (getCpuConfig(systemBus, cpuConfigs, sensorConfigs, io,
 +                         objectServer))
          {
-             detectCpuAsync(pingTimer, creationTimer, io, objectServer,
-                            systemBus, cpuConfigs, sensorConfigs);
-@@ -791,7 +829,7 @@ int main()
+             detectCpuAsync(pingTimer, fastPingSeconds, creationTimer, io,
+                            objectServer, systemBus, cpuConfigs, sensorConfigs);
+@@ -813,7 +851,7 @@ int main()
                  return; // we're being canceled
              }
  
@@ -227,7 +228,7 @@ index 944e9ad..aeebe55 100644
 +            if (getCpuConfig(systemBus, cpuConfigs, sensorConfigs, io,
                               objectServer))
              {
-                 detectCpuAsync(pingTimer, creationTimer, io, objectServer,
+                 detectCpuAsync(pingTimer, fastPingSeconds, creationTimer, io,
 -- 
 2.25.1
 

@@ -19,6 +19,7 @@ Signed-off-by: Yong Li <yong.b.li@linux.intel.com>
 Signed-off-by: Jason M. Bills <jason.m.bills@linux.intel.com>
 Signed-off-by: Johnathan Mantey <johnathanx.mantey@intel.com>
 Signed-off-by: Sunita Kumari <sunitax.kumari@intel.com>
+Upstream-Status: Pending
 ---
  src/watchdog.cpp | 230 ++++++++++++++++++++++++++++++++++++++++++++---
  src/watchdog.hpp |  23 ++++-

@@ -37,6 +37,7 @@ Response:
 }
 
 Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
+Upstream-Status: Pending
 ---
  redfish-core/lib/message_registries.hpp | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
