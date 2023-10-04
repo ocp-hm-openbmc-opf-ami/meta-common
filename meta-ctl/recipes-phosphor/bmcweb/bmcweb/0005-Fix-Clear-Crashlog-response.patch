@@ -1,0 +1,36 @@
+From 81173db90d0b272051441abbf1e2c6790cb56163 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Tue, 28 Feb 2023 08:48:29 +0000
+Subject: [PATCH] Fix Clear Crashlog response
+
+Updated Clear Crashlog interface
+
+Tested:
+Used postman tool to check following,
+ - Cleared crashlog when crashlog exists and get response 200 OK.
+ - Cleared crashlog request get response 200 OK when there is no crash log.
+
+Signed-off-by: Gade-Rajasekhar Reddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ redfish-core/lib/log_services.hpp | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/redfish-core/lib/log_services.hpp b/redfish-core/lib/log_services.hpp
+index 3e357463..2e00cd07 100644
+--- a/redfish-core/lib/log_services.hpp
++++ b/redfish-core/lib/log_services.hpp
+@@ -4480,8 +4480,7 @@ void inline requestRoutesCrashlogClear(App& app)
+             return;
+         }
+         crow::connections::systemBus->async_method_call(
+-            [asyncResp](const boost::system::error_code ec,
+-                        const std::string&) {
++            [asyncResp](const boost::system::error_code ec) {
+             if (ec)
+             {
+                 messages::internalError(asyncResp->res);
+-- 
+2.25.1
+

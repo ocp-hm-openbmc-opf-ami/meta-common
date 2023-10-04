@@ -1,0 +1,242 @@
+From 5c6e27c712a4ffcc1649ed515a8785d95ca826f0 Mon Sep 17 00:00:00 2001
+From: Vinay Kumar Pabboju <vinayx.kumar.pabboju@intel.com>
+Date: Mon, 10 Jul 2023 13:43:09 +0000
+Subject: [PATCH] CTL: Disable dead URLs in Redfish
+
+In CTL the following services are excluded NodeManager, CupsService,
+BiosAttributeRegistry, LicenseService and MemoryResilienceTechnology.
+Redfish validator is throwing errors for the above service requests.
+
+Disabling the related dead URLs present in the code.
+
+Tested:
+CTL system:
+Redfish validator not throwing errors for above services.
+Tested Separately each URL of above services and all are disabled.
+
+Non-CTL(BHS) system:
+Tested separately each URL of above services and all are enabled
+with and without code changes.
+Redfish validator test is giving same output with and without code
+changes. Hence nothing is breaking.
+
+Signed-off-by: Vinay Kumar Pabboju <vinayx.kumar.pabboju@intel.com>
+Signed-off-by: Nag, AbhrodeepX <abhrodeepx.nag@intel.com>
+Upstream-Status: Pending
+---
+ redfish-core/include/redfish.hpp        | 14 ++++++++------
+ redfish-core/lib/managers.hpp           |  3 ++-
+ redfish-core/lib/memory.hpp             |  4 ++--
+ redfish-core/lib/message_registries.hpp | 18 +++++++++++++++++-
+ redfish-core/lib/service_root.hpp       |  4 ++--
+ 5 files changed, 31 insertions(+), 12 deletions(-)
+
+diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
+index a0040138..121eb14f 100644
+--- a/redfish-core/include/redfish.hpp
++++ b/redfish-core/include/redfish.hpp
+@@ -86,12 +86,13 @@ class RedfishService
+      */
+     explicit RedfishService(App& app)
+     {
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+         requestRoutesNodeManagerService(app);
+         requestRoutesNodeManagerDomains(app);
+         requestRoutesNodeManagerPolicies(app);
+         requestRoutesNodeManagerThrottlingStatus(app);
+         requestRoutesNodeManagerTriggers(app);
+-
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+         requestAccountServiceRoutes(app);
+ #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+         requestRoutesAggregationService(app);
+@@ -205,7 +206,7 @@ class RedfishService
+         requestRoutesOperatingConfig(app);
+         requestRoutesMemoryCollection(app);
+         requestRoutesMemory(app);
+-
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+         requestRoutesMRT(app);
+         requestRoutesMRTConfig(app);
+         requestRoutesMemoryHealthScores(app);
+@@ -221,6 +222,7 @@ class RedfishService
+         requestRoutesMRTModelRemoveCustomAction(app);
+         requestRoutesMRTMicroLevelErrStatsCollection(app);
+         requestRoutesMRTMicroLevelErrStats(app);
++#endif
+ 
+         requestRoutesSystems(app);
+ 
+@@ -273,10 +275,10 @@ class RedfishService
+         requestRoutesSensorCollection(app);
+         requestRoutesSensor(app);
+         requestRoutesSensorPatching(app);
+-
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+         requestRoutesCupsService(app);
+         requestRoutesCupsSensors(app);
+-
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+         requestRoutesTaskMonitor(app);
+         requestRoutesTaskService(app);
+         requestRoutesTaskCollection(app);
+@@ -298,10 +300,10 @@ class RedfishService
+         requestRoutesMetricReport(app);
+         requestRoutesTriggerCollection(app);
+         requestRoutesTrigger(app);
+-
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+         requestLicenseServiceRoutes(app);
+         requestRoutesMeterStateData(app);
+-
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+         // Note, this must be the last route registered
+         requestRoutesRedfish(app);
+     }
+diff --git a/redfish-core/lib/managers.hpp b/redfish-core/lib/managers.hpp
+index 4dcf28ed..f9f327f4 100644
+--- a/redfish-core/lib/managers.hpp
++++ b/redfish-core/lib/managers.hpp
+@@ -1993,9 +1993,10 @@ inline void requestRoutesManager(App& app)
+         nlohmann::json& oemIntel = oem["Intel"];
+         oemIntel["@odata.type"] = "#OemManager.Intel";
+         oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+         oemIntel["NodeManager"] = {
+             {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
+-
++#endif // BMCWEB_CTL_DISABLE_ROUTES
+         oem["@odata.type"] = "#OemManager.Oem";
+         oem["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem";
+         oemOpenbmc["@odata.type"] = "#OemManager.OpenBmc";
+diff --git a/redfish-core/lib/memory.hpp b/redfish-core/lib/memory.hpp
+index 106b3a6c..3862da4c 100644
+--- a/redfish-core/lib/memory.hpp
++++ b/redfish-core/lib/memory.hpp
+@@ -805,7 +805,7 @@ inline void requestRoutesMemoryCollection(App& app)
+         asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
+         asyncResp->res.jsonValue["@odata.id"] =
+             "/redfish/v1/Systems/system/Memory";
+-
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+         nlohmann::json& intel = asyncResp->res.jsonValue["Oem"]["Intel"];
+         intel["@odata.type"] = "#OemMemoryCollection.Intel";
+ 
+@@ -814,7 +814,7 @@ inline void requestRoutesMemoryCollection(App& app)
+             "/redfish/v1/Systems/system/Memory/Oem/Intel/MemoryResilienceTechnology";
+         mrt["@odata.type"] =
+             "#MemoryResilienceTechnology.v1_0_0.MemoryResilienceTechnology";
+-
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+         constexpr std::array<std::string_view, 1> interfaces{
+             "xyz.openbmc_project.Inventory.Item.Dimm"};
+         collection_util::getCollectionMembers(
+diff --git a/redfish-core/lib/message_registries.hpp b/redfish-core/lib/message_registries.hpp
+index 96082337..25c09081 100644
+--- a/redfish-core/lib/message_registries.hpp
++++ b/redfish-core/lib/message_registries.hpp
+@@ -50,11 +50,19 @@ inline void handleMessageRegistryFileCollectionGet(
+     asyncResp->res.jsonValue["Name"] = "MessageRegistryFile Collection";
+     asyncResp->res.jsonValue["Description"] =
+         "Collection of MessageRegistryFiles";
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+     asyncResp->res.jsonValue["Members@odata.count"] = 6;
+-
++#else
++    asyncResp->res.jsonValue["Members@odata.count"] = 4;
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+     for (const char* memberName :
+          std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent", "BiosAttributeRegistry", "OpenBMC"}))
++#else
++    for (const char* memberName :
++         std::to_array({"Base", "TaskEvent", "ResourceEvent", "OpenBMC"}))
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+     {
+         nlohmann::json::object_t member;
+         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
+@@ -102,21 +110,25 @@ inline void handleMessageRoutesMessageRegistryFileGet(
+         header = &registries::openbmc::header;
+         dmtf.clear();
+     }
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+     else if (registry == "NodeManager")
+     {
+         header = &registries::nm::header;
+         dmtf.clear();
+     }
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+     else if (registry == "ResourceEvent")
+     {
+         header = &registries::resource_event::header;
+         url = registries::resource_event::url;
+     }
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+     else if (registry == "BiosAttributeRegistry")
+     {
+         header = &registries::bios::header;
+         url = registries::bios::url;
+     }
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+     else
+     {
+         messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+@@ -196,6 +208,7 @@ inline void handleMessageRegistryGet(
+             registryEntries.emplace_back(&entry);
+         }
+     }
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+     else if (registry == "NodeManager")
+     {
+         header = &registries::nm::header;
+@@ -204,6 +217,7 @@ inline void handleMessageRegistryGet(
+             registryEntries.emplace_back(&entry);
+         }
+     }
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+     else if (registry == "ResourceEvent")
+     {
+         header = &registries::resource_event::header;
+@@ -213,6 +227,7 @@ inline void handleMessageRegistryGet(
+             registryEntries.emplace_back(&entry);
+         }
+     }
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+     else if (registry == "BiosAttributeRegistry")
+     {
+         header = &registries::bios::header;
+@@ -221,6 +236,7 @@ inline void handleMessageRegistryGet(
+             registryEntries.emplace_back(&entry);
+         }
+     }
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+     else
+     {
+         messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+diff --git a/redfish-core/lib/service_root.hpp b/redfish-core/lib/service_root.hpp
+index e69d3cd6..be22b785 100644
+--- a/redfish-core/lib/service_root.hpp
++++ b/redfish-core/lib/service_root.hpp
+@@ -86,16 +86,16 @@ inline void handleServiceRootGetImpl(
+     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
+         "/redfish/v1/TelemetryService";
+     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
++#ifndef BMCWEB_CTL_DISABLE_ROUTES
+     asyncResp->res.jsonValue["LicenseService"]["@odata.id"] =
+         "/redfish/v1/LicenseService";
+-
+     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
+         "#OemServiceRoot.v1_0_0.Intel";
+     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] =
+         "/redfish/v1/#Oem/Intel";
+     asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
+         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
+-
++#endif  //BMCWEB_CTL_DISABLE_ROUTES
+     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
+         "/redfish/v1/Managers/bmc";
+ 
+-- 
+2.25.1
+

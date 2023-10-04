@@ -1,0 +1,68 @@
+From 2d90f2a6843f8227bcea7b6630f81b2c8cce8e6e Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Fri, 21 Apr 2023 11:09:22 +0000
+Subject: [PATCH] Added fix for lock release and integer overflow
+
+1) Fixed Lock release at fwupd_set_get_control
+2) Fixed Integer overflow for pc_type
+
+Tested:
+1) Verified sending modified image through IPMI, integrity check failed,
+    lock is released which allows to write expected settings
+    and all further requests are accepted.
+2) Verified pc_type is handled correctly.
+3) Force Firmware Update completed successfully.
+
+Signed-off-by: Gade-Rajasekhar Reddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/fw-update.c  | 5 ++---
+ board/aspeed/ast2600_intel/ipmi-fwupd.c | 1 +
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index 2da3c26b20..7c93e8b51b 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -922,7 +922,7 @@ static int verify_image(bool size_check)
+  *
+  * @return u8 protected content(PC) type
+  */
+-static u8 get_pc_type(void)
++static uint32_t get_pc_type(void)
+ {
+ 	uint32_t base_addr = IMAGE_LOAD_RAM_ADDR;
+ 	struct blk0* b0 = (struct blk0*) (base_addr);
+@@ -1017,7 +1017,6 @@ static int set_bb_active_image_value(ulong boot_addr)
+ static int set_boot_address(ulong boot_addr)
+ {
+ 	int rc = ERROR;
+-	u8 pc_type = get_pc_type();
+ 
+ 	// Sets active image for next boot
+ 	if (boot_addr == IMAGE_A_FIT_START_ADDR)
+@@ -1151,7 +1150,7 @@ static int flash_image(void) {
+ 
+ 	u32 dev_offset = IMAGE_A_OFFSET;
+ 	u32 blocks_to_skip = 0;
+-	u8 pc_type;
++	u32 pc_type;
+ 	u32 uboot_offset;
+ 	bool rot_a_update_done = false;
+ 
+diff --git a/board/aspeed/ast2600_intel/ipmi-fwupd.c b/board/aspeed/ast2600_intel/ipmi-fwupd.c
+index 19cfddb90a..4bfeee6d56 100644
+--- a/board/aspeed/ast2600_intel/ipmi-fwupd.c
++++ b/board/aspeed/ast2600_intel/ipmi-fwupd.c
+@@ -327,6 +327,7 @@ u16 fwupd_set_get_control(u8 *req, u16 req_len, u8 *res)
+ 		{
+ 			result->completion_code = IPMI_CC_INVALID_DATA_FIELD;
+ 			g_fwupd_settings.integrity_check_status = SHA2_INTEGRITY_FAIL;
++			fwupd_settings_unlock();
+ 			return sizeof(result->completion_code);
+ 
+ 		}
+-- 
+2.25.1
+

@@ -1,0 +1,116 @@
+From f492a4850c83b210d54431662d05154917623651 Mon Sep 17 00:00:00 2001
+From: Anoop S <anoopx.s@intel.com>
+Date: Wed, 31 Aug 2022 02:19:07 +0000
+Subject: [PATCH] Uboot FIT image format change and switching
+
+This change allows to switch the Uboot FIT image address between
+Image-A and Image-B depending on the Battery Backed register
+value.
+
+Tested:
+1.Set the Battery Backed register value to 0x01 and the Uboot FIT
+image load and booted from the Image A location successfully.
+2.Set the Battery Backed register value to 0x02 and the Uboot FIT
+image load and booted from the Image B location successfully.
+
+Signed-off-by: Anoop S <anoopx.s@intel.com>
+
+%% original patch: 0015-secureboot-dynamic-changes-of-Uboot-FIT-image-address-based-on-BBSRAM-register.patch
+Upstream-Status: Pending
+---
+ common/spl/spl_ram.c | 64 ++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 59 insertions(+), 5 deletions(-)
+
+diff --git a/common/spl/spl_ram.c b/common/spl/spl_ram.c
+index 954e91a004..5eb15f65fd 100644
+--- a/common/spl/spl_ram.c
++++ b/common/spl/spl_ram.c
+@@ -14,17 +14,49 @@
+ #include <mapmem.h>
+ #include <spl.h>
+ #include <linux/libfdt.h>
++#include <asm/io.h>
++#include <mmc.h>
++
++#define CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A     0x00010000
++#define CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_B     0x04010000
++
++#define BBSRAM_BASE                     0x1E6EF000
++/* store the successfully booted image value */
++#define BBSRAM_BOOT_SUCCESS             0x100
++/* store the failed booted image value */
++#define BBSRAM_BOOT_FAIL                0x104
++/* store the which ROT booted  value */
++#define BBSRAM_ROT_BOOT                 0x108
++#define FMC_WDT2_BASE                   0x1E620000
++#define WDT_LOAD_TIMER                  0x64
++#define FMC_WDT2_CONTROL                0x00EA0000
++#define PROTECTION_KEY                  0xDBA078E2
++#define BOOT_FLASH_SOURCE_INDICATOR_BIT 4
++#define IMAGE_A                         0x01
++#define IMAGE_B                         0x02
++#define IMAGE_NONE                      0x00
++#define MASK_VALUE_IMAGE_A              1
++#define MASK_VALUE_IMAGE_B              (1 << 1)
+ 
+-#ifndef CONFIG_SPL_LOAD_FIT_ADDRESS
+-# define CONFIG_SPL_LOAD_FIT_ADDRESS	0
+-#endif
+ 
+ static ulong spl_ram_load_read(struct spl_load_info *load, ulong sector,
+ 			       ulong count, void *buf)
+ {
+ 	debug("%s: sector %lx, count %lx, buf %lx\n",
+ 	      __func__, sector, count, (ulong)buf);
+-	memcpy(buf, (void *)(CONFIG_SPL_LOAD_FIT_ADDRESS + sector), count);
++        u32 img_sel = readl(BBSRAM_BASE + BBSRAM_BOOT_SUCCESS);
++        u32 img_fail = readl(BBSRAM_BASE + BBSRAM_BOOT_FAIL);
++        if ((img_sel == IMAGE_A) && !(img_fail & MASK_VALUE_IMAGE_A)) {
++
++            memcpy(buf, (void *)(CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A + sector), count);
++        }
++        else if ((img_sel == IMAGE_B) && !(img_fail & MASK_VALUE_IMAGE_B)) {
++            memcpy(buf, (void *)(CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_B + sector), count);
++        }
++        else {
++            memcpy(buf, (void *)(CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A + sector), count);
++        }
++
+ 	return count;
+ }
+ 
+@@ -32,8 +64,30 @@ static int spl_ram_load_image(struct spl_image_info *spl_image,
+ 			      struct spl_boot_device *bootdev)
+ {
+ 	struct image_header *header;
++        u32 abr_status = readl(FMC_WDT2_BASE + WDT_LOAD_TIMER);
++        writel(PROTECTION_KEY, BBSRAM_BASE);
++        if(abr_status & (1 << BOOT_FLASH_SOURCE_INDICATOR_BIT)){
++            writel(IMAGE_B, BBSRAM_BASE + BBSRAM_ROT_BOOT);
++        }
++        else{
++            writel(IMAGE_A, BBSRAM_BASE + BBSRAM_ROT_BOOT);
++        }
++        writel(FMC_WDT2_CONTROL, FMC_WDT2_BASE + WDT_LOAD_TIMER);
++        u32 img_sel = readl(BBSRAM_BASE + BBSRAM_BOOT_SUCCESS);
++        u32 img_fail = readl(BBSRAM_BASE + BBSRAM_BOOT_FAIL);
++        if ((img_sel == IMAGE_A) && !(img_fail & MASK_VALUE_IMAGE_A)) {
++            header = (struct image_header *)CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A;
++        }
++        else if ((img_sel == IMAGE_B) && !(img_fail & MASK_VALUE_IMAGE_B)) {
++            header = (struct image_header *)CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_B;
++        }
++        else
++        {
++            writel(IMAGE_NONE, BBSRAM_BASE + BBSRAM_BOOT_FAIL);
++            writel(IMAGE_A, BBSRAM_BASE + BBSRAM_BOOT_SUCCESS);
++            header = (struct image_header *)CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A;
++        }
+ 
+-	header = (struct image_header *)CONFIG_SPL_LOAD_FIT_ADDRESS;
+ 
+ #if CONFIG_IS_ENABLED(DFU)
+ 	if (bootdev->boot_device == BOOT_DEVICE_DFU)
+-- 
+2.17.1
+

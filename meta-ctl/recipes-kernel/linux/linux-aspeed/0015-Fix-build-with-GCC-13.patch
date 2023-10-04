@@ -1,0 +1,46 @@
+From 312dc53e7d4ea45e0f713c7440a1b19a3e2534d8 Mon Sep 17 00:00:00 2001
+From: "Jason M. Bills" <jason.m.bills@intel.com>
+Date: Wed, 12 Jul 2023 09:22:53 -0700
+Subject: [PATCH] Fix build with GCC 13
+
+For some reason, the 5.15 kernel build fails with this error:
+lib/arm-openbmc-linux-gnueabi/gcc/arm-openbmc-linux-gnueabi/13.1.0/plugin/include/gimple-fold.h:137:11: error: use of enum 'gsi_iterator_update' without previous declaration
+|   137 |      enum gsi_iterator_update,
+|       |           ^~~~~~~~~~~~~~~~~~~
+
+The related files all look the same in kernel 6.1 where the build
+passes, so I'm at a loss on what the real fix is.
+
+This workaround fixes the build by moving gimple-fold.h where
+gsi_iterator_update is used to after gimple-iterator.h where it is
+declared.
+
+Signed-off-by: Jason M. Bills <jason.m.bills@intel.com>
+Upstream-Status: Pending
+---
+ scripts/gcc-plugins/gcc-common.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/gcc-plugins/gcc-common.h b/scripts/gcc-plugins/gcc-common.h
+index 0c087614fc3e..3171b901e60c 100644
+--- a/scripts/gcc-plugins/gcc-common.h
++++ b/scripts/gcc-plugins/gcc-common.h
+@@ -78,7 +78,6 @@
+ #include "stor-layout.h"
+ #include "internal-fn.h"
+ #include "gimple-expr.h"
+-#include "gimple-fold.h"
+ #include "context.h"
+ #include "tree-ssa-alias.h"
+ #include "tree-ssa.h"
+@@ -96,6 +95,7 @@
+ #include "tree-phinodes.h"
+ #include "tree-cfg.h"
+ #include "gimple-iterator.h"
++#include "gimple-fold.h"
+ #include "gimple-ssa.h"
+ #include "ssa-iterators.h"
+ 
+-- 
+2.25.1
+

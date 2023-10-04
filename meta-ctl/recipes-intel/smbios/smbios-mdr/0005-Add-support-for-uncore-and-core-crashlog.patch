@@ -1,0 +1,357 @@
+From 1eb398c404275dc83ae8708da7fcb748f3cd6fbe Mon Sep 17 00:00:00 2001
+From: Vikash Chandola <vikash.chandola@intel.com>
+Date: Mon, 10 Jul 2023 12:23:53 +0000
+Subject: [PATCH] Add support for uncore and core crashlog
+
+Add support for core and uncore crashlog of CPU. Reduce time gap
+between consecutive espi requests to reduce overall crashlog
+collection time.
+
+Tested:
+BMC was able to fetch CPU and PCH crashlog. If any one of the
+crashlog was available only that was fetched and provided over dbus.
+
+Signed-off-by: Vikash Chandola <vikash.chandola@intel.com>
+Signed-off-by: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Upstream-Status: Pending
+---
+ src/crashlog.cpp | 199 ++++++++++++++++++++++++++++++++++++-----------
+ 1 file changed, 155 insertions(+), 44 deletions(-)
+
+diff --git a/src/crashlog.cpp b/src/crashlog.cpp
+index 76f860c..6d4c802 100644
+--- a/src/crashlog.cpp
++++ b/src/crashlog.cpp
+@@ -37,7 +37,7 @@
+ 
+ namespace cpu_info::crashlog
+ {
+-static constexpr bool debug = true;
++static constexpr bool debug = false;
+ static constexpr bool debug2 = false;
+ static bool inProgress;
+ static std::shared_ptr<sdbusplus::asio::object_server> server;
+@@ -54,6 +54,10 @@ static constexpr uint8_t cpuCrashlogCollectionCommandCode = 0x01;
+ static constexpr uint8_t cpuCrashlogRdPkgConfigIndex = 0x4A;
+ static constexpr uint8_t cpuCrashlogRdPkgConfigRdLen = 0x09;
+ 
++static constexpr uint32_t cpuUncoreCrashlogSize = 0x3d2;
++static constexpr uint32_t cpuCoreCrashlogSize = 0x288;
++static constexpr uint32_t pchCrashlogSize = 0x273;
++
+ static constexpr uint8_t pchCrashlogCollectionCommandCode = 0x20;
+ 
+ static Status
+@@ -205,7 +209,7 @@ static Status transact(boost::asio::yield_context yield,
+                        const Request& req, Response& resp,
+                        boost::system::error_code& ec, int retryCount = 3,
+                        std::chrono::duration<int, std::milli> transactDuration =
+-                           std::chrono::milliseconds(500))
++                           std::chrono::milliseconds(100))
+ {
+     constexpr size_t defaultResponseSize = 64;
+     std::vector<uint8_t> respPacket(defaultResponseSize);
+@@ -223,18 +227,32 @@ static Status transact(boost::asio::yield_context yield,
+         return retStatus;
+     }
+ 
+-    if (resp.sourceAddr != destAddr ||
+-                          resp.peciResponseCode != successResponse ||
+-                          resp.peciCompletionCode != successCompletion)
++    if (resp.sourceAddr != destAddr)
+     {
+-        std::cerr << "Error: Response source address :"
+-                  << static_cast<int>(resp.sourceAddr)
+-                  << " expected source address :" << static_cast<int>(destAddr)
+-                  << ", peci response code :" << resp.peciResponseCode
+-                  << ", peci completion code :" << resp.peciCompletionCode
+-                  << "\n";
++        std::cerr << "Error :Source address :" << static_cast<int>(resp.sourceAddr)
++                  << " expected source address :"
++                  << static_cast<int>(destAddr) << "\n";
++        return Status::error;
++    }
++    if (resp.peciResponseCode != successResponse)
++    {
++        std::cerr << "Error :peci response code :"
++                  << static_cast<int>(resp.peciResponseCode)
++                  << " expected response code :"
++                  << static_cast<int>(successResponse) << "\n";
++        return Status::error;
++    }
++#if 0
++    if (resp.peciCompletionCode != successCompletion){
++        std::cerr
++            << "Error :peci completion code :"
++            << static_cast<int>(resp.peciCompletionCode)
++            << " expected completion code :"
++            << static_cast<int>(successCompletion)
++            << "\n";
+         return Status::error;
+     }
++#endif
+ 
+     return Status::success;
+ }
+@@ -715,16 +733,19 @@ static Status getCrashlogData(const uint8_t peciAddr, nlohmann::json& manifest)
+ static Status collectCPUCrashlog(boost::asio::yield_context yield,
+                                  boost::asio::io_context& ioc,
+                                  espi::EspioobChannel_h oobHandle,
+-                                 std::vector<uint8_t>& cpuCrashlog)
++                                 std::vector<uint8_t>& cpuCrashlog,
++                                 uint32_t clIndex, uint32_t& lastClIndex,
++                                 const uint32_t& expectedClSize)
+ {
+-    poe::RdPkgConfig req(smbusSourceAddr,             // source address
+-                         MIN_CLIENT_ADDR,             // peci target address
+-                         cpuCrashlogRdPkgConfigRdLen, // read length
+-                         0x00,                        // host id
+-                         false,                       // retry
+-                         cpuCrashlogRdPkgConfigIndex, // peci RdPkgConfig Index
+-                         0x00,                        // parameter lsb
+-                         0x00                         // parameter msb
++    poe::RdPkgConfig req(
++        smbusSourceAddr,                               // source address
++        MIN_CLIENT_ADDR,                               // peci target address
++        cpuCrashlogRdPkgConfigRdLen,                   // read length
++        0x00,                                          // host id
++        false,                                         // retry
++        cpuCrashlogRdPkgConfigIndex,                   // peci RdPkgConfig Index
++        static_cast<uint8_t>(clIndex & 0xFF),          // parameter lsb
++        static_cast<uint8_t>((clIndex >> 0x08) & 0xFF) // parameter msb
+     );
+     std::vector<uint8_t> crashlogData;
+     poe::Response resp;
+@@ -758,19 +779,28 @@ static Status collectCPUCrashlog(boost::asio::yield_context yield,
+         std::cerr << "CPU crashlog is not present\n";
+         return Status::error;
+     }
++    if (expectedClSize != clSize)
++    {
++        std::cerr << "Expected CPU crashlog size(in dwords) " << expectedClSize
++                  << ", which does not match size from header :" << clSize
++                  << "\n";
++        return Status::error;
++    }
+     if constexpr (debug)
+     {
+-        std::cout << "Expecting " << clSize << " bytes of CPU Crashlog\n";
++        std::cout << "Expecting " << clSize
++                  << " double words of CPU Crashlog\n";
+     }
+     std::copy(resp.data.cbegin(), resp.data.cend(),
+               std::back_inserter(crashlogData));
+ 
+-    uint32_t clIndexUpperLimit = clSize / 2;
++    uint32_t clIndexUpperLimit = clIndex + clSize / 2;
+     if (clSize % 2)
+     {
+         clIndexUpperLimit += 1;
+     }
+-    for (uint32_t clIndex = 1; clIndex < clIndexUpperLimit; ++clIndex)
++    lastClIndex = clIndexUpperLimit;
++    for (++clIndex; clIndex < clIndexUpperLimit; ++clIndex)
+     {
+         req.lsb = static_cast<uint8_t>(clIndex & 0xFF);
+         req.msb = static_cast<uint8_t>((clIndex >> 0x08) & 0xFF);
+@@ -808,7 +838,8 @@ static Status collectCPUCrashlog(boost::asio::yield_context yield,
+ static Status collectPCHCrashlog(boost::asio::yield_context yield,
+                                  boost::asio::io_context& ioc,
+                                  espi::EspioobChannel_h oobHandle,
+-                                 std::vector<uint8_t>& pchCrashlog)
++                                 std::vector<uint8_t>& pchCrashlog,
++                                 const uint32_t& expectedClSize)
+ {
+     constexpr size_t PCHCrashlogResponseSize = 0x41;
+     const std::vector<uint8_t> reqPacket = {smbusSourceAddr};
+@@ -838,12 +869,22 @@ static Status collectPCHCrashlog(boost::asio::yield_context yield,
+     const uint32_t clSize = (*(reinterpret_cast<uint32_t*>(&respPacket[5])));
+     std::copy(respPacket.cbegin() + 1, respPacket.cend(),
+               std::back_inserter(crashlogData));
+-    if (clSize == 0)
++    if (clSize != expectedClSize)
+     {
+-        std::cerr << "PCH crashlog is not present\n";
++        std::cerr << "Expecting PCH crashlog of size " << expectedClSize
++                  << " dwords which does not match size from response header :"
++                  << clSize << "\n";
+         return Status::error;
+     }
+-    int clIndex = 1;
++
++    // Number of requests that need to be made to PCH for crashlog
++    const uint32_t maxClIndex = (clSize * 4) / (PCHCrashlogResponseSize - 1);
++    if ((clSize * 4) % (PCHCrashlogResponseSize - 1) != 0)
++    {
++        maxClIndex;
++    }
++
++    uint32_t clIndex = 1;
+     do
+     {
+         if (espiTransact(yield, ioc, oobHandle, smbusDestAddr,
+@@ -862,6 +903,10 @@ static Status collectPCHCrashlog(boost::asio::yield_context yield,
+         isLastPacket = (respPacket.size() != PCHCrashlogResponseSize);
+         std::copy(respPacket.cbegin() + 1, respPacket.cend(),
+                   std::back_inserter(crashlogData));
++        if (clIndex >= maxClIndex)
++        {
++            break;
++        }
+         if constexpr (debug2)
+         {
+             std::cout << "index :" << clIndex++ << " >";
+@@ -873,8 +918,29 @@ static Status collectPCHCrashlog(boost::asio::yield_context yield,
+             std::cout << std::dec << "\n";
+         }
+     } while (!isLastPacket);
+-    // PCH crashlog received is larger than size advertised in header. Trim
+-    // remaining portion.
++
++    // PCH crashlog ends with more than one responses. Flush receive queue by
++    // executing asyncReceive until nothing is there in queue. This resolves
++    // problem of PCH crashlog collection corrupting receive buffer for other
++    // eSPI applications.
++    bool do_repeat = true;
++    while (do_repeat)
++    {
++        boost::system::error_code ec;
++        std::vector<uint8_t> tmpBuffer(128);
++        boost::asio::steady_timer waiter(ioc, std::chrono::milliseconds(5000));
++        oobHandle->asyncReceive(
++            tmpBuffer,
++            [&do_repeat, &waiter](const boost::system::error_code& errorCode) {
++                if (errorCode)
++                {
++                    do_repeat = false;
++                }
++                waiter.cancel();
++            });
++        waiter.async_wait(yield[ec]);
++    }
++
+     if (crashlogData.size() < clSize * 4)
+     {
+         std::cerr << "PCH crashlog size smaller than expected. Collected :"
+@@ -882,8 +948,12 @@ static Status collectPCHCrashlog(boost::asio::yield_context yield,
+                   << " bytes, exptected :" << (clSize * 4) << " bytes\n";
+         return Status::error;
+     }
++    // PCH crashlog received is larger than size advertised in header. Trim
++    // remaining portion.
+     else if (crashlogData.size() > clSize * 4)
+     {
++        std::cout << "Trimming PCH Crashlog from " << crashlogData.size()
++                  << " bytes to " << clSize * 4 << " bytes\n";
+         crashlogData.resize(clSize * 4);
+     }
+     pchCrashlog = std::move(crashlogData);
+@@ -1001,26 +1071,60 @@ Status
+ {
+     nlohmann::json manifest;
+     auto oobHandle = espi::EspioobChannel::getHandle(ioc);
+-    Status status;
++    Status pchCollectionStatus, cpuCollectionStatus, cpuUcoreCollectionStatus;
++    uint32_t lastClIndex = 0;
+     if (!oobHandle)
+     {
+         std::cerr << "Failed to Get eSPI OOB handle";
+         return Status::error;
+     }
+-    std::vector<uint8_t> cpuCrashlog;
++    std::vector<uint8_t> cpuCrashlog;       // Complete CPU
++    std::vector<uint8_t> cpuUncoreCrashlog; // uncore
++    std::vector<uint8_t> cpuCoreCrashlog;   // core
+     std::vector<uint8_t> pchCrashlog;
+-    if ((status = collectCPUCrashlog(yield, ioc, oobHandle, cpuCrashlog)) !=
+-        Status::success)
++    cpuCollectionStatus =
++        collectCPUCrashlog(yield, ioc, oobHandle, cpuUncoreCrashlog,
++                           lastClIndex, lastClIndex, cpuUncoreCrashlogSize);
++    if (cpuCollectionStatus != Status::success)
+     {
+-        std::cerr << "Failed to collect CPU crashlog";
+-        return status;
++        std::cerr << "Failed to collect CPU Uncore crashlog\n";
++    }
++    else
++    {
++        // Possibility of having a core crashlog is only there if uncore
++        // was available. If there is no uncore crashlog there will be
++        // no core crashlog. If there is uncore crashlog then core
++        // crashlog might be there.
++        std::cout << "Successfully collected CPU Uncore crashlog\n";
++        cpuCrashlog = std::move(cpuUncoreCrashlog);
++        if (collectCPUCrashlog(yield, ioc, oobHandle, cpuCoreCrashlog,
++                               lastClIndex, lastClIndex,
++                               cpuCoreCrashlogSize) != Status::success)
++        {
++            std::cerr << "Failed to collect CPU Core crashlog\n";
++        }
++        else
++        {
++            std::cout << "Successfully collected CPU Core crashlog\n";
++            std::copy(cpuCoreCrashlog.cbegin(), cpuCoreCrashlog.cend(),
++                      std::back_inserter(cpuCrashlog));
++        }
+     }
+ 
+-    if ((status = collectPCHCrashlog(yield, ioc, oobHandle, pchCrashlog)) !=
+-        Status::success)
++    pchCollectionStatus =
++        collectPCHCrashlog(yield, ioc, oobHandle, pchCrashlog, pchCrashlogSize);
++    if (pchCollectionStatus != Status::success)
+     {
+-        std::cerr << "Failed to collect PCH crashlog";
+-        return status;
++        std::cerr << "Failed to collect PCH crashlog\n";
++    }
++    else
++    {
++        std::cout << "Successfully collected PCH crashlog\n";
++    }
++    if (pchCollectionStatus != Status::success && cpuCrashlog.size() == 0)
++    {
++        std::cerr << "Failed to collect any crashlog\n";
++        return Status::error;
+     }
+ 
+     uint8_t stepping = 0;
+@@ -1035,14 +1139,21 @@ Status
+         return Status::error;
+     }
+ 
+-    manifest::manifestCPUInfo(peciAddr, cpuModel, stepping, manifest);
+     manifest::manifestSysInfo(conn, peciAddr, manifest);
+-    saveCrashlogFile(0, peciAddr, cpuCrashlog, manifest);
+-    saveCrashlogFile(0, smbusDestAddr, pchCrashlog, manifest);
++    manifest::manifestCPUInfo(peciAddr, cpuModel, stepping, manifest);
++
++    if (cpuCrashlog.size() > 0)
++    {
++        saveCrashlogFile(0, peciAddr, cpuCrashlog, manifest);
++    }
++    if (pchCollectionStatus == Status::success)
++    {
++        saveCrashlogFile(0, smbusDestAddr, pchCrashlog, manifest);
++    }
+     manifest::writeManifest(crashlogDir, "manifest.json", manifest);
+ 
+     dbusAddCrashlog();
+-    return status;
++    return Status::success;
+ }
+ 
+ void init(boost::asio::io_context& ioc,
+@@ -1073,7 +1184,7 @@ void init(boost::asio::io_context& ioc,
+             dbusRemoveCrashlog();
+             if (collectCrashLogOverESPI(yield, ioc, conn) != Status::success)
+             {
+-                std::cerr << "Failed to collect crashlog";
++                std::cerr << "Failed to collect crashlog\n";
+             }
+             inProgress = false;
+         });
+-- 
+2.17.1
+

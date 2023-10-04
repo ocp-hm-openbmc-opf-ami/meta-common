@@ -1,0 +1,113 @@
+From d6531c4e889255c1a2ea1e8699b1cbec66a84540 Mon Sep 17 00:00:00 2001
+From: Anoop S <anoopx.s@intel.com>
+Date: Wed, 17 May 2023 17:16:02 +0000
+Subject: [PATCH] CTL:fan change foradapt kernel downgrade
+
+This chnage include the fan sensor changes to adpat
+kernel version downgrade to 5.15 to support ctl.
+
+Tested:
+1.Image build fine and booted in system.
+2.Fan and pwm sensors are populated in ipmitool sensor list.
+
+Signed-off-by: Anoop S <anoopx.s@intel.com>
+Upstream-Status: Pending
+---
+ src/FanMain.cpp | 54 ++++++++++++-------------------------------------
+ 1 file changed, 13 insertions(+), 41 deletions(-)
+
+diff --git a/src/FanMain.cpp b/src/FanMain.cpp
+index 85de747..5042fb6 100644
+--- a/src/FanMain.cpp
++++ b/src/FanMain.cpp
+@@ -41,15 +41,14 @@
+ namespace fs = std::filesystem;
+ 
+ // The following two structures need to be consistent
+-static auto sensorTypes{std::to_array<const char*>(
+-    {"AspeedFan", "I2CFan", "NuvotonFan", "HPEFan"})};
++static auto sensorTypes{
++    std::to_array<const char*>({"AspeedFan", "I2CFan", "NuvotonFan"})};
+ 
+ enum FanTypes
+ {
+     aspeed = 0,
+     i2c,
+     nuvoton,
+-    hpe,
+     max,
+ };
+ 
+@@ -63,46 +62,20 @@ static std::regex inputRegex(R"(fan(\d+)_input)");
+ // todo: power supply fan redundancy
+ std::optional<RedundancySensor> systemRedundancy;
+ 
+-static const std::map<std::string, FanTypes> compatibleFanTypes = {
+-    {"aspeed,ast2400-pwm-tacho", FanTypes::aspeed},
+-    {"aspeed,ast2500-pwm-tacho", FanTypes::aspeed},
+-    {"nuvoton,npcm750-pwm-fan", FanTypes::nuvoton},
+-    {"hpe,gxp-fan-ctrl", FanTypes::hpe}
+-    // add compatible string here for new fan type
+-};
+-
+ FanTypes getFanType(const fs::path& parentPath)
+ {
+-    fs::path linkPath = parentPath / "of_node";
+-    if (!fs::exists(linkPath))
+-    {
+-        return FanTypes::i2c;
+-    }
+-
+-    std::string canonical = fs::canonical(linkPath);
+-    std::string compatiblePath = canonical + "/compatible";
+-    std::ifstream compatibleStream(compatiblePath);
+-
+-    if (!compatibleStream)
++    fs::path linkPath = parentPath / "device";
++    std::string canonical = fs::read_symlink(linkPath);
++    if (canonical.ends_with("pwm-tacho-controller") ||
++        canonical.ends_with("pwm_tach:tach"))
+     {
+-        std::cerr << "Error opening " << compatiblePath << "\n";
+-        return FanTypes::i2c;
++        return FanTypes::aspeed;
+     }
+-
+-    std::string compatibleString;
+-    while (std::getline(compatibleStream, compatibleString))
++    if (canonical.ends_with("pwm-fan-controller"))
+     {
+-        compatibleString.pop_back(); // trim EOL before comparisons
+-
+-        std::map<std::string, FanTypes>::const_iterator compatibleIterator =
+-            compatibleFanTypes.find(compatibleString);
+-
+-        if (compatibleIterator != compatibleFanTypes.end())
+-        {
+-            return compatibleIterator->second;
+-        }
++        return FanTypes::nuvoton;
+     }
+-
++    // todo: will we need to support other types?
+     return FanTypes::i2c;
+ }
+ void enablePwm(const fs::path& filePath)
+@@ -323,11 +296,10 @@ void createSensors(
+                 {
+                     continue;
+                 }
+-                if (fanType == FanTypes::aspeed ||
+-                    fanType == FanTypes::nuvoton || fanType == FanTypes::hpe)
++                if (fanType == FanTypes::aspeed || fanType == FanTypes::nuvoton)
+                 {
+-                    // there will be only 1 aspeed or nuvoton or hpe sensor
+-                    // object in sysfs, we found the fan
++                    // there will be only 1 aspeed or nuvoton sensor object
++                    // in sysfs, we found the fan
+                     sensorData = &cfgData;
+                     break;
+                 }
+-- 
+2.17.1
+

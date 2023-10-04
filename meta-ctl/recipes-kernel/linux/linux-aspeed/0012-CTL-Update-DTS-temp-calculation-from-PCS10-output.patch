@@ -1,0 +1,47 @@
+From 68c8a89e35f2ea14d7d24933a670467aaaca2bf7 Mon Sep 17 00:00:00 2001
+From: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Date: Thu, 22 Dec 2022 03:04:49 +0000
+Subject: [PATCH] CTL: Update DTS temp calculation from PCS10 output
+
+Conversion format used to get DTS temp from PECI PCS index 10 used to
+be 10.6 format. For RPL, PECI PCS index 10 is in 8.8 conversion format.
+So updated the format from 10.6 to 8.8.
+
+Tested:
+Works as expected, compared 8.8 format output by calculating DTS temp
+from PECI PCS 10 with DTS temp after code changes.
+
+Signed-off-by: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Upstream-Status: Pending
+---
+ drivers/hwmon/peci-cputemp.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/hwmon/peci-cputemp.c b/drivers/hwmon/peci-cputemp.c
+index 92497560e1e0..c9300fdb0bdb 100644
+--- a/drivers/hwmon/peci-cputemp.c
++++ b/drivers/hwmon/peci-cputemp.c
+@@ -92,6 +92,11 @@ static s32 ten_dot_six_to_millidegree(s32 val)
+ 	return ((val ^ 0x8000) - 0x8000) * 1000 / 64;
+ }
+ 
++static s32 eight_dot_eight_to_millidegree(s32 val)
++{
++	return ((val ^ 0x8000) - 0x8000) / 256 * 1000;
++}
++
+ /*
+  * CPU can return invalid temperatures prior to BIOS-PCU handshake
+  * BIOS_RST_CPL3 completion is used to filter the invalid readings out.
+@@ -236,7 +241,7 @@ static int get_dts(struct peci_cputemp *priv)
+ 	if (dts_margin >= 0x8000 && dts_margin <= 0x81ff)
+ 		return -EIO;
+ 
+-	dts_margin = ten_dot_six_to_millidegree(dts_margin);
++	dts_margin = eight_dot_eight_to_millidegree(dts_margin);
+ 	if (dts_margin <= 0 && get_bios_reset_cfg(priv)) {
+ 		dev_dbg(priv->dev, "BIOS and Pcode Node ID isn't configured, ignore bad dts margin\n");
+ 		return -EAGAIN;
+-- 
+2.17.1
+

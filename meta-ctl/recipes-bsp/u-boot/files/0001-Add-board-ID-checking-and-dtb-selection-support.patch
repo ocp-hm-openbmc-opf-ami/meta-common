@@ -1,0 +1,82 @@
+From ab607034a58727e599515888173718abbf24f7ad Mon Sep 17 00:00:00 2001
+From: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Date: Tue, 9 Feb 2021 11:39:16 -0800
+Subject: [PATCH] Add board ID checking and dtb selection support
+
+This commit adds board ID checking logic and dtb selection support.
+
+Signed-off-by: Jae Hyun Yoo <jae.hyun.yoo@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/intel.c | 41 ++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
+
+diff --git a/board/aspeed/ast2600_intel/intel.c b/board/aspeed/ast2600_intel/intel.c
+index 0fe2d10a6fd9..ec6b70ae6659 100644
+--- a/board/aspeed/ast2600_intel/intel.c
++++ b/board/aspeed/ast2600_intel/intel.c
+@@ -558,6 +558,42 @@ static bool is_mfg_mode_phy_req(void)
+ 	return true;
+ }
+ 
++static u8 get_board_id(void)
++{
++	return ~(readl(AST_GPIO_BASE + GPIO_020) >> 8) & GENMASK(5,0);
++}
++
++static void set_dtb(u8 board_id)
++{
++#define BOARD_ID_ARCHER_CITY_M	0x02
++	const char acm_dtb[] = "#conf-aspeed-bmc-intel-ast2600-acm.dtb";
++	char *bootcmd;
++	char *trunc;
++
++	if (board_id == BOARD_ID_ARCHER_CITY_M) {
++		int buf_len, acm_dtb_len = strlen(acm_dtb);
++		char *buf;
++
++		bootcmd = env_get("bootcmd");
++		if (!bootcmd)
++			return;
++
++		trunc = strchr(bootcmd, '#');
++		if (trunc)
++			*trunc = '\0';
++
++		buf_len = strlen(bootcmd) + acm_dtb_len + 1;
++		buf = malloc(buf_len);
++		if (!buf) {
++			printf("%s: out of memory\n", __func__);
++			return;
++		}
++		snprintf(buf, buf_len, "%s%s", bootcmd, acm_dtb);
++		env_set("bootcmd", buf);
++		free(buf);
++	}
++}
++
+ extern void espi_init(void);
+ extern void kcs_init(void);
+ extern void timer_enable(int n, u32 interval_us, interrupt_handler_t *handler,
+@@ -567,6 +603,7 @@ int board_late_init(void)
+ #define ONE_MSEC_IN_USEC	1000
+ 	char value[11];
+ 	u32 boot_failures;
++	u8 board_id;
+ 
+ 	if (readl(SCU_BASE | SCU_014) == REV_ID_AST2600A0)
+ 		timer_enable(0, ONE_MSEC_IN_USEC, timer_callback, (void *)0);
+@@ -589,6 +626,10 @@ int board_late_init(void)
+ 	else
+ 		set_boot_failures(0);
+ 
++	board_id = get_board_id();
++	printf("Board ID: 0x%02x\n", board_id);
++	set_dtb(board_id);
++
+ 	/* Update the special mode in bootargs */
+ 	if (gd->reset_reason & SYS_PWR_RESET_FLAG && is_mfg_mode_phy_req())
+ 		update_bootargs_cmd("special", "mfg");
+-- 
+2.17.1
+

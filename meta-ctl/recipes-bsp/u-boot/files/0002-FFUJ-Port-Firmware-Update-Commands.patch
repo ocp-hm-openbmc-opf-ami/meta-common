@@ -1,0 +1,1876 @@
+From 4dd02ac09e563c22dec3e8f56cc07690d69b9bf9 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Fri, 18 Feb 2022 09:46:14 +0000
+Subject: [PATCH] FFUJ: Port Firmware Update Commands
+
+Porting Firmware Update Commands to U-Boot so that Firmware update can
+be done from host via KCS interface when BMC is in FFU mode
+
+Updates U-boot and Fit image
+
+Firmware update commands:
+1) Get BMC Execution Context(0x23)
+2) Get Firmware Update Random Number(0x26)
+3) Set Firmware Update Mode(0x27)
+4) Exit Firmware Update Mode(0x28)
+5) Set/Get Firmware Update Control(0x29)
+6) Get Firmware Update status(0x2A)
+7) Set Firmware Update Options(0x2B)
+8) Firmware Image Write(0x2C)
+
+Tested
+ - Tested the individual command implementation and negative
+   cases.
+ - Used debug tool for validating Firmware image transfer via
+   KCS and flashing.
+
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Signed-off-by: Gade-RajasekharReddy <raja.sekhar.reddy.gade@intel.com>
+Upstream-Status: Pending
+---
+ arch/arc/include/asm/types.h              |    3 +
+ board/aspeed/ast2600_intel/Makefile       |    2 +
+ board/aspeed/ast2600_intel/fw-update.c    | 1067 +++++++++++++++++++++
+ board/aspeed/ast2600_intel/fw-update.h    |   62 ++
+ board/aspeed/ast2600_intel/ipmi-fwupd.c   |  447 +++++++++
+ board/aspeed/ast2600_intel/ipmi-fwupd.h   |  104 ++
+ board/aspeed/ast2600_intel/ipmi-handler.c |   39 +-
+ board/aspeed/ast2600_intel/ipmi-handler.h |    4 +-
+ 8 files changed, 1705 insertions(+), 23 deletions(-)
+ create mode 100644 board/aspeed/ast2600_intel/fw-update.c
+ create mode 100644 board/aspeed/ast2600_intel/fw-update.h
+ create mode 100644 board/aspeed/ast2600_intel/ipmi-fwupd.c
+ create mode 100644 board/aspeed/ast2600_intel/ipmi-fwupd.h
+
+diff --git a/arch/arc/include/asm/types.h b/arch/arc/include/asm/types.h
+index f31dcdf28e..156840b1f9 100644
+--- a/arch/arc/include/asm/types.h
++++ b/arch/arc/include/asm/types.h
+@@ -10,6 +10,9 @@
+ 
+ typedef unsigned short umode_t;
+ 
++typedef unsigned char u8;
++typedef unsigned short u16;
++
+ #define BITS_PER_LONG 32
+ 
+ /* Dma addresses are 32-bits wide. */
+diff --git a/board/aspeed/ast2600_intel/Makefile b/board/aspeed/ast2600_intel/Makefile
+index a0587323af..07148d2a67 100644
+--- a/board/aspeed/ast2600_intel/Makefile
++++ b/board/aspeed/ast2600_intel/Makefile
+@@ -4,3 +4,5 @@ obj-y += ast-irq.o
+ obj-y += ast-timer.o
+ obj-y += ast-kcs.o
+ obj-y += ipmi-handler.o
++obj-y += ipmi-fwupd.o
++obj-y += fw-update.o
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+new file mode 100644
+index 0000000000..70f3912ba6
+--- /dev/null
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -0,0 +1,1067 @@
++// SPDX-License-Identifier: GPL-2.0+
++// Copyright (c) 2018-2022 Intel Corporation
++
++#include <common.h>
++#include <cli.h>
++#include <flash.h>
++#include <environment.h>
++#include <malloc.h>
++#include <spi.h>
++#include <spi_flash.h>
++
++#include "fw-update.h"
++
++#define RANDOM_NUM_TIMEOUT	30 /* in seconds */
++#define WAIT_STATE_TIMEOUT	10000 /* 10 seconds */
++
++#define PROTECT_OFF		0
++#define PROTECT_ON		1
++#define CONFIG_SYS_MAX_FLASH_BANKS 1
++
++extern struct fwupd_global_setting g_fwupd_settings;
++extern u32 g_write_addr;
++
++bool g_fwupd_settings_lock = false;
++unsigned long long g_etime = 0;
++
++#ifndef block_round
++#define block_round(ODD, BLK)                                                  \
++    ((ODD) + (((BLK) - ((ODD) & ((BLK)-1))) & ((BLK)-1)))
++#endif
++
++uint32_t blk0_magic = 0xb6eafd19;
++#define BLK0_PAD_SIZE   32
++struct blk0
++{
++    uint32_t magic;
++    uint32_t pc_length;
++    uint32_t pc_type;
++    uint32_t rsvd;
++    uint8_t sha256[32];
++    uint8_t sha384[48];
++    uint8_t pad[BLK0_PAD_SIZE];
++} __attribute__((packed));
++
++uint32_t root_key_magic = 0xa757a046;
++#define KEY_ENTRY_RSVD_SIZE     5
++struct key_entry
++{
++    uint32_t magic;
++    uint32_t curve;
++    uint32_t permissions;
++    uint32_t key_id;
++    uint8_t key_x[48];
++    uint8_t key_y[48];
++    uint32_t rsvd[KEY_ENTRY_RSVD_SIZE];
++} __attribute__((packed));
++
++#define BLOCK1_CSK_ENTRY_HASH_REGION_SIZE    (sizeof(struct key_entry) - sizeof(uint32_t))
++
++uint32_t csk_key_magic = 0x14711c2f;
++struct csk_entry
++{
++    struct key_entry key;
++    uint32_t sig_magic;
++    uint8_t sig_r[48];
++    uint8_t sig_s[48];
++} __attribute__((packed));
++
++uint32_t block0_sig_entry_magic = 0x15364367;
++struct block0_sig_entry
++{
++    uint32_t magic;
++    uint32_t sig_magic;
++    uint8_t sig_r[48];
++    uint8_t sig_s[48];
++} __attribute__((packed));
++
++uint32_t blk1_magic = 0xf27f28d7;
++
++#define BLK0BLK1_SIZE 1024
++#define BLK1_PAD_SIZE ((BLK0BLK1_SIZE - sizeof(struct blk0) - sizeof(uint32_t) * 4 - sizeof(struct key_entry) - sizeof(struct csk_entry) - sizeof(struct block0_sig_entry)) / sizeof(uint32_t))
++struct blk1
++{
++    uint32_t magic;
++    uint32_t pad[3];
++    struct key_entry root_key;
++    struct csk_entry csk;
++    struct block0_sig_entry block0_sig;
++    uint32_t rsvd[BLK1_PAD_SIZE];
++} __attribute__((packed));
++
++struct b0b1_signature
++{
++    struct blk0 b0;
++    struct blk1 b1;
++} __attribute__((packed));
++
++#define CANCEL_PAD_SIZE	9
++struct cancel_cert
++{
++    uint32_t magic;
++    uint32_t pc_length;
++    uint32_t pc_type;
++    uint8_t sha256[32];
++    uint8_t sha384[48];
++    uint32_t rsvd[CANCEL_PAD_SIZE];
++} __attribute__((packed));
++
++#define CANCEL_PAYLOAD_PAD_SIZE	31
++struct cancel_payload
++{
++    uint32_t csk_id;
++    uint32_t padding[CANCEL_PAYLOAD_PAD_SIZE];
++} __attribute__((packed));
++
++uint32_t pfr_pc_type_bmc_update = 0x04;
++uint32_t pfr_pc_type_cancel_cert = 0x100;
++size_t pfr_bmc_max_size = 32 * 1024 * 1024;    // 32 MB
++
++struct pfm
++{
++    uint32_t magic;
++    uint8_t svn;
++    uint8_t bkc;
++    uint16_t pfm_revision;
++    uint32_t rsvd;
++    uint8_t oem_data[16];
++    uint32_t length;
++} __attribute__((packed));
++
++struct pbc
++{
++    uint32_t magic;
++    uint32_t version;
++    uint32_t page_size;
++    uint32_t pattern_size;
++    uint32_t pattern;
++    uint32_t bitmap_size;
++    uint32_t payload_length;
++    uint8_t rsvd[100];
++} __attribute__((packed));
++
++struct spi_region
++{
++    uint8_t type;
++    uint8_t mask;
++    uint16_t hash_info;
++    uint32_t rsvd;
++    uint32_t start;
++    uint32_t end;
++} __attribute__((packed));
++
++uint8_t sha256_present = 0x01;
++uint8_t sha384_present = 0x02;
++size_t sha256_size = (256 / 8);
++size_t sha384_size = (384 / 8);
++
++uint8_t type_spi_region = 1;
++uint8_t type_smbus_rule = 2;
++uint8_t type_fvm_address = 3;
++size_t pfr_blk_size = 0x1000;
++size_t pfr_cancel_cert_size = 8;
++uint32_t pfr_max_key_id = 127;
++uint32_t curve_secp256r1 = 0xc7b88c74;
++uint32_t curve_secp384r1 = 0x08f07b47;
++uint32_t sig_magic_secp256r1 = 0xde64437d;
++uint32_t sig_magic_secp384r1 = 0xea2a50e9;
++uint32_t pfr_perm_sign_bmc_update = 0x08;
++uint32_t pfr_perm_sign_all = -1;
++uint32_t key_non_cancellable = -1;
++
++struct smbus_rule
++{
++    uint8_t type;
++    uint32_t rsvd;
++    uint8_t bus;
++    uint8_t rule;
++    uint8_t addr;
++    uint8_t whitelist[32];
++} __attribute__((packed));
++
++struct fvm_address
++{
++    uint8_t type;
++    uint16_t fvm_type;
++    uint32_t rsvd;
++    uint32_t addr;
++} __attribute__((packed));
++
++bool fwupd_settings_trylock(void)
++{
++	if (g_fwupd_settings_lock)
++		return false;
++
++	g_fwupd_settings_lock = true;
++	return g_fwupd_settings_lock;
++}
++
++void fwupd_settings_unlock(void)
++{
++	g_fwupd_settings_lock = false;
++}
++
++static void update_processing_status(const u8 status, const u8 percent)
++{
++	if (!fwupd_settings_trylock())
++		return;
++
++	g_fwupd_settings.processing_status = status;
++	g_fwupd_settings.percentage_completion = percent;
++
++	fwupd_settings_unlock();
++}
++
++static void reset_all_settings(void)
++{
++	if (!fwupd_settings_trylock())
++		return;
++
++	memset(&g_fwupd_settings, 0, sizeof(g_fwupd_settings));
++
++	fwupd_settings_unlock();
++}
++
++int generate_random_number(void)
++{
++	// Get current value of a monotonically increasing
++	// microsecond timer for seed
++	srand(timer_get_us());
++
++	if (!fwupd_settings_trylock()) {
++		printf("%s(): Lock failed\n", __func__);
++		return -1;
++	}
++	for (int i = 0; i < RAND_NUMBER_SIZE; i++)
++		g_fwupd_settings.rand_num[i] = (u8)(rand() & 0xFF);
++
++	g_fwupd_settings.random_number_valid = true;
++
++	fwupd_settings_unlock();
++
++	/* Random number should be cleared after 30sec timeout */
++	g_etime = endtick(RANDOM_NUM_TIMEOUT);
++
++	return 0;
++}
++
++static int sect_roundb(ulong *addr)
++{
++	flash_info_t *info;
++	ulong bank, sector_end_addr;
++	int found;
++	int i;
++
++	/* find the end addr of the sector where the *addr is */
++	found = 0;
++	for (bank = 0; bank < CONFIG_SYS_MAX_FLASH_BANKS && !found; ++bank) {
++		info = &flash_info[bank];
++		for (i = 0; i < info->sector_count && !found; ++i) {
++			/* get the end address of the sector */
++			if (i == info->sector_count - 1) {
++				sector_end_addr =
++					info->start[0] + info->size - 1;
++			} else {
++				sector_end_addr = info->start[i + 1] - 1;
++			}
++
++			if (*addr <= sector_end_addr &&
++			    *addr >= info->start[i]) {
++				found = 1;
++				/* adjust *addr if necessary */
++				if (*addr < sector_end_addr)
++					*addr = sector_end_addr;
++			} /* sector */
++		} /* bank */
++	}
++	if (!found) {
++		/* error, address not in flash */
++		printf("Error: end address (0x%08lx) not in flash!\n", *addr);
++		return 1;
++	}
++
++	return 0;
++}
++
++static int fill_flash_sect_ranges(ulong addr_first, ulong addr_last,
++				  int *s_first, int *s_last, int *s_count)
++{
++	/* TODO: For future use */
++	return 0;
++}
++
++static int erase_flash_sector(ulong addr_first, ulong addr_last)
++{
++	/* TODO: For future use */
++	return 0;
++}
++
++/**
++ * @brief This function verifies that a block matches a value
++ *
++ * @param data pointer to data to check
++ * @param len size of data to check
++ * @param val value to compare with data
++ *
++ * @ return true if len bytes of data match val; false otherwise
++ */
++static bool mem_check(const uint8_t* data, size_t len, uint8_t val)
++{
++    if (!data || !len)
++    {
++        return false;
++    }
++    bool has_mismatch = false;
++    for (size_t ind = 0; ind < len; ind++)
++    {
++        has_mismatch |= (data[ind] ^ val);
++    }
++    return !has_mismatch;
++}
++
++/**
++ * @brief This function checks the validity of Block 0
++ *
++ * @param b0 pointer to the block 0
++ * @param protected_content the start address of protected content
++ *
++ * @return bool SUCCESS if this Block 0 is valid; ERROR, otherwise
++ */
++static bool is_block0_valid(const struct blk0* b0, const uint8_t* protected_content)
++{
++	uint8_t digest[SHA384_DIGEST_LENGTH];
++	int value_len = 0;
++	char *algo ="sha384";
++	int cc = 0;
++
++	// Verify magic number
++	if (b0->magic != blk0_magic)
++	{
++		printf("Bad b0 magic: offset\n");
++		return ERROR;
++	}
++
++	// Verify that size of PC must be multiple of 128 bytes
++	if ((b0->pc_length < 128) || (b0->pc_length % 128 != 0))
++	{
++		printf("b0 pc_length wrong size\n");
++		return ERROR;
++	}
++
++	// Verify length of Protected Content (PC) is not larger than allowed
++	uint32_t pc_type = b0->pc_type;
++
++	if (pc_type == pfr_pc_type_bmc_update)
++	{
++		// For PFM, there's no max size, but it should be smaller than a capsule
++		// size for sure.
++		if (b0->pc_length > pfr_bmc_max_size)
++		{
++			printf("BMC image too big\n");
++			return ERROR;
++		}
++	}
++	else
++	{
++		printf("Content type other than BMC update not supported\n");
++		return ERROR;
++	}
++
++	// Check for the 0s in the reserved field
++	// This reduces the degree of freedom for attackers
++	for (size_t word_i = 0; word_i < BLK0_PAD_SIZE; word_i++)
++	{
++		if (b0->pad[word_i] != 0)
++		{
++			printf("Bad padding in block0\n");
++			return ERROR;
++		}
++	}
++
++	// Verify Hash256 is 0xff and Hash384 matches PC
++	if (!mem_check(b0->sha256, b0->pc_length, 0xff))
++	{
++		printf ("sha256 signature is not empty \n");
++		// do not enforce until images are generated correctly
++	}
++
++	cc = calculate_hash(protected_content, b0->pc_length, algo, digest, &value_len);
++	if (cc) {
++		printf ( "Unsupported hash algorithm\n");
++		return ERROR;
++	}
++
++	if (value_len !=  SHA384_DIGEST_LENGTH)
++	{
++		printf ("Bad hash value len\n");
++		return ERROR;
++	}
++
++	if (memcmp(digest, b0->sha384, value_len) != 0)
++	{
++		printf ("Hash verification failed\n");
++		return ERROR;
++	}
++	printf ("Hash verification success\n");
++
++	return SUCCESS;
++}
++
++/**
++ * @brief This function finds the in-flash pfm's root key
++ *
++ * @param root_key reference to key_entry where to store root key
++ * @return SUCCESS if the root key was found, ERROR otherwise
++ */
++static bool root_key_from_pfm(struct key_entry root_key)
++{
++	struct blk1 pfm_root;
++
++	// Seek to blk1 in pfm and read PFM root
++        uint32_t base_addr = IMAGE_LOAD_RAM_ADDR;
++	struct b0b1_signature *pfm_sig = (struct b0b1_signature *)(base_addr);
++
++	root_key = pfm_sig->b1.root_key;
++
++	if (sizeof(root_key))
++	{
++		return SUCCESS;
++	}
++	else
++	{
++		return ERROR;
++	}
++}
++
++/**
++ * @brief This function validates a Block 1 root entry
++ *
++ * @param root_entry pointer to the Block 1 root entry
++ * @return SUCCESS if this root entry is valid; ERROR, otherwise
++ */
++static bool is_root_entry_valid(const struct key_entry* root_entry,
++                                bool check_root_key)
++{
++	const uint8_t* key_x = root_entry->key_x;
++	const uint8_t* key_y = root_entry->key_y;
++	struct key_entry root_key;
++	bool match = 0;
++
++	// Verify magic number
++	if (root_entry->magic != root_key_magic)
++	{
++		printf("Bad root entry magic\n");
++		return ERROR;
++	}
++
++	// Verify curve magic number
++	if (root_entry->curve != curve_secp256r1 &&
++		root_entry->curve != curve_secp384r1)
++	{
++		printf("Bad root curve\n");
++		return ERROR;
++	}
++
++	// Must have the required permissions (-1).
++	if (root_entry->permissions != pfr_perm_sign_all)
++	{
++		printf("Bad root permissions\n");
++		return ERROR;
++	}
++
++	// Must have the required cancellation (-1).
++	if (root_entry->key_id != key_non_cancellable)
++	{
++		printf("Bad root key ID\n");
++		return ERROR;
++	}
++
++	if (!check_root_key)
++	{
++		return SUCCESS;
++	}
++
++	if (ERROR == root_key_from_pfm(root_key))
++	{
++		printf("Failed to read root key from pfm\n");
++		return ERROR;
++	}
++
++	match = memcmp(key_x, root_key.key_x, sizeof(key_x));
++	if (!match)
++	{
++		printf("Image root key signature_x does not match root key from pfm\n");
++		return ERROR;
++	}
++
++	match = memcmp(key_y, root_key.key_y, sizeof(key_x));
++	if (!match)
++	{
++		printf("Image root key signature_y does not match root key from pfm\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
++static inline uint32_t get_required_perm(uint32_t pc_type)
++{
++	if (pc_type == pfr_pc_type_bmc_update)
++	{
++		return pfr_perm_sign_bmc_update;
++	}
++	else
++	{
++		printf("Bad pc_type: %d\n", pc_type);
++		return ERROR;
++	}
++}
++
++static inline bool is_csk_key_valid(uint32_t pc_type, uint32_t key_id)
++{
++	// without pfr, we cannot check this
++	if (key_id <= pfr_max_key_id)
++	{
++		return SUCCESS;
++	}
++	else
++	{
++		return ERROR;
++	}
++}
++
++/**
++ * @brief This function validates a Block 1 csk entry
++ *
++ * @param key_perm_mask The required key permission mask
++ * @param root_entry Previous entry (the root entry)
++ * @param csk_entry pointer to the Block 1 csk entry
++ *
++ * @return bool SUCCESS if this csk entry is valid; ERROR, otherwise
++ */
++static bool is_csk_entry_valid(const struct key_entry* root_entry,
++                               const struct csk_entry* csk, uint32_t pc_type)
++{
++	// Verify magic number
++	if (csk->key.magic != csk_key_magic)
++	{
++		printf("csk bad magic\n");
++		return ERROR;
++	}
++
++	// Verify curve magic number
++	if (csk->key.curve != root_entry->curve)
++	{
++		printf("csk bad curve\n");
++		return ERROR;
++	}
++
++	// The key must have the required permissions
++	if (!(csk->key.permissions & get_required_perm(pc_type)))
++	{
++		printf("csk bad permissions: 0x%x & 0x%x\n", csk->key.permissions, get_required_perm(pc_type));
++		return ERROR;
++	}
++
++	// Check the CSK key ID
++	if (ERROR == is_csk_key_valid(pc_type, csk->key.key_id))
++	{
++		printf("csk bad key ID\n");
++		return ERROR;
++	}
++
++	// Check for the 0s in the reserved field
++	// This reduces the degree of freedom for attackers
++	for (size_t word_i = 0; word_i < KEY_ENTRY_RSVD_SIZE; word_i++)
++	{
++		if (csk->key.rsvd[word_i] != 0)
++		{
++			printf("csk bad padding\n");
++			return ERROR;
++		}
++	}
++
++	return SUCCESS;
++}
++
++/**
++ * @brief This function validates a Block 1 block 0 entry
++ *
++ * @param root_entry entry in the Block 1 prior to this entry (the csk entry)
++ * @param b0_entry pointer to the Block 1 block 0 entry
++ * @param b0 pointer to Block 0
++ *
++ * @return bool SUCCESS if this block 0 entry is valid; ERROR, otherwise
++ */
++static bool is_block0_sig_entry_valid(uint32_t curve,
++					const uint8_t* root_key_x,
++					const uint8_t* root_key_y,
++					const struct block0_sig_entry* block0_sig,
++					const struct blk0* b0)
++{
++	// Verify magic number
++	if (block0_sig->magic != block0_sig_entry_magic)
++	{
++		printf("block0_sig magic invalid\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
++/**
++ * @brief This function validates Block 1
++ *
++ * @param b0 pointer to block 0
++ * @param b1 pointer to block 1
++ * @param is_key_cancellation_cert true if this signature is part of a signed
++ * key cancellation certificate.
++ *
++ * @return bool SUCCESS if this Block 1 is valid; ERROR, otherwise
++ */
++static bool is_block1_valid(const struct blk0* b0,
++				const struct blk1* b1,
++				bool is_key_cancellation_cert,
++				bool check_root_key)
++{
++	// Verify magic number
++	if (b1->magic != blk1_magic)
++	{
++		printf("b1 magic invalid\n");
++		return ERROR;
++	}
++
++	// Validate Block1 Root Entry
++	const struct key_entry* root_entry = &b1->root_key;
++	if (ERROR == is_root_entry_valid(root_entry, check_root_key))
++	{
++		printf("root_entry invalid\n");
++		return ERROR;
++	}
++
++	if (is_key_cancellation_cert)
++	{
++		// In the signature of the Key Cancellation Certificate, there's no CSK entry
++		const struct block0_sig_entry* b0_entry = &b1->block0_sig;
++
++		// Validate Block 0 Entry in Block 1
++		return is_block0_sig_entry_valid(root_entry->curve,
++						root_entry->key_x,
++						root_entry->key_y,
++						b0_entry,
++						b0);
++	}
++
++	// Validate Block1 CSK Entry
++	const struct csk_entry* csk = &b1->csk;
++	if (ERROR == is_csk_entry_valid(root_entry, csk, b0->pc_type))
++	{
++		printf("csk_entry invalid\n");
++		return ERROR;
++	}
++
++	// Validate Block 0 Entry in Block 1
++	const struct block0_sig_entry* block0_sig = &b1->block0_sig;
++	if (is_block0_sig_entry_valid(root_entry->curve,
++				csk->key.key_x,
++				csk->key.key_y,
++				block0_sig, b0))
++	{
++		printf("block0_sig_entry invalid\n");
++		return ERROR;
++	}
++	printf("Signature entry verification success\n");
++	return SUCCESS;
++}
++
++/**
++ * @brief This function validates the content of a key cancellation certificate.
++ * The 124 bytes of reserved field must be all 0s. The CSK Key ID must be within
++ * 0-127 (inclusive).
++ *
++ * @param cert pointer to the key cancellation certificate.
++ *
++ * @return SUCCESS if this key cancellation certificate is valid; ERROR,
++ * otherwise
++ */
++static uint32_t is_key_can_cert_valid(const struct cancel_cert* cert)
++{
++	// Check for the 0s in the reserved field
++	// This reduces the degree of freedom for attackers
++	const uint32_t* key_can_cert_reserved = cert->rsvd;
++	for (uint32_t word_i = 0; word_i < CANCEL_PAD_SIZE / 4; word_i++)
++	{
++		if (key_can_cert_reserved[word_i] != 0)
++		{
++			return ERROR;
++		}
++	}
++
++	struct cancel_payload* cancel = (struct cancel_payload*)(cert + 1);
++
++	// If the key ID is within 0-127 (inclusive), return SUCCESS
++	if (cancel->csk_id <= pfr_max_key_id)
++	{
++		return SUCCESS;
++	}
++	else
++	{
++		return ERROR;
++	}
++}
++
++/**
++ * @brief This function authenticate a given signed payload.
++ * Please refer to the specification regarding the format of signed payload.
++ * This function authenticate the Block 0 (containing hash of the payload)
++ * first, then authenticate the Block 1 (containing signature over Block0). For
++ * key cancellation certificate, this function also validate the certificate
++ * content for security reasons.
++ *
++ * @param sig the start address of the signed payload (i.e. beginning of a
++ * signature.)
++ *
++ * @return uint32_t SUCCESS if this keychain is valid; ERROR, otherwise
++ */
++static bool is_signature_valid(struct b0b1_signature* sig, bool check_root_key)
++{
++	struct blk0* b0 = &sig->b0;
++	struct blk1* b1 = &sig->b1;
++	bool is_key_cancellation_cert = b0->pc_type & pfr_pc_type_cancel_cert;
++
++	// Get pointer to protected content
++	const uint8_t *pc = (uint8_t *)(sig + 1);
++	struct cancel_cert* cc_content = (struct cancel_cert*)(pc);
++
++	if (is_key_cancellation_cert)
++	{
++		// Check the size of the cancellation certificate
++		if (b0->pc_length != pfr_cancel_cert_size)
++		{
++			printf("Cancellation cert size mismatch\n");
++			return ERROR;
++		}
++
++		// Validate the cancellation certificate content
++		if (is_key_can_cert_valid(pc))
++		{
++			printf("Cancel cert invalid\n");
++			return ERROR;
++		}
++	}
++
++	// Validate block0 (contains hash of the protected content)
++	if (ERROR == is_block0_valid(b0, pc))
++	{
++		printf("block0 failed authentication\n");
++		return ERROR;
++	}
++
++	// Validate block1 (contains the signature chain used to sign block0)
++	if (ERROR == is_block1_valid(b0, b1, is_key_cancellation_cert, check_root_key))
++	{
++		printf("block1 failed authentication\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
++static int verify_image(void)
++{
++	uint32_t img_size = g_write_addr;
++	bool check_root_key = true;
++	uint16_t blk0blk1_size = 1024;
++
++	uint32_t base_addr = IMAGE_LOAD_RAM_ADDR;
++
++	struct b0b1_signature *sig = (struct b0b1_signature *)(base_addr);
++
++	// check for basic shape
++	if (img_size < blk0blk1_size || (sig->b0.pc_length + blk0blk1_size) != img_size)
++	{
++		printf("Bad file size\n");
++		return ERROR;
++	}
++
++	// check signature
++	if (ERROR == is_signature_valid(sig, check_root_key))
++	{
++		printf("FVM signature not valid\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
++static int flash_image(void) {
++	struct spi_flash *flash_dev;
++	struct udevice *new_dev, *bus_dev;
++	int ret = 0;
++
++	unsigned int bus   = CONFIG_SF_DEFAULT_BUS;
++	unsigned int cs    = CONFIG_SF_DEFAULT_CS;
++	unsigned int speed = CONFIG_SF_DEFAULT_SPEED;
++	unsigned int mode  = CONFIG_SF_DEFAULT_MODE;
++
++	uint16_t blk0blk1_size = 1024;    // 1 Kb page size
++	uint32_t pfm_addr = 0;
++	uint8_t pfm_block_size = 128;
++
++	bool recovery_reset = 0;
++
++	uint32_t wr_count = 1;
++	uint32_t er_count = 1;
++	uint32_t erase_end_addr = 0;
++	uint32_t write_end_addr = 0;
++	u8 *data = NULL;
++
++	uint32_t offset = IMAGE_LOAD_RAM_ADDR;    //0x83000000;
++
++	// SPI Flash
++	// Remove the old device, otherwise probe will just be a nop //
++	speed = 0, mode = 0;
++
++	ret = spi_find_bus_and_cs(bus, cs, &bus_dev, &new_dev);
++	if (!ret) {
++		device_remove(new_dev, DM_REMOVE_NORMAL);
++	}
++	flash_dev = NULL;
++
++	ret = spi_flash_probe_bus_cs(bus, cs, speed, mode, &new_dev);
++	if (ret) {
++		printf("Failed to initialize SPI flash at %u:%u (error %d)\n", bus, cs, ret);
++		return 1;
++	}
++
++	flash_dev = dev_get_uclass_priv(new_dev);
++
++	// walk the bitmap, erase and copy
++	offset += (blk0blk1_size * 2); // one blk0blk1 for package, one for pfm signature
++
++	struct pfm *pfm_hdr = (struct pfm *)(offset);    //0x800
++
++	// pfm_data (0x800 size) = PFM signature + PFM
++	size_t pfm_size = block_round(pfm_hdr->length, pfm_block_size);    //0x800
++
++	pfm_addr = offset - blk0blk1_size;
++
++	offset += pfm_size;
++	struct pbc *pbc_hdr = (struct pbc *)(offset);    // 0xC00
++
++	offset += sizeof(struct pbc);
++	uint8_t *act_map = (uint8_t *)(offset);    // 0xc80
++
++	offset += pbc_hdr->bitmap_size / 8;
++	uint8_t *pbc_map = (uint8_t *)(offset);    // 0x1c80
++
++	// copy the pfm manually (not part of the compression bitmap)
++	size_t pfm_region_size = 0x20000;
++	spi_flash_erase(flash_dev, PFM_ADDRESS, pfm_region_size);
++	spi_flash_write(flash_dev, PFM_ADDRESS, pfm_region_size, pfm_addr);
++
++	// set offset to the beginning of the compressed data
++	offset += pbc_hdr->bitmap_size / 8;    	// 0x2c80
++
++	// Un-compress payload and erase, write to SPI flash
++	for (uint32_t blk = 0; blk < pbc_hdr->bitmap_size; blk += wr_count)
++	{
++		if ((blk % 8) == 0)
++		{
++			wr_count = 1;
++			er_count = 1;
++			if ((blk + 8) < pbc_hdr->bitmap_size)
++			{
++				uint32_t b8 = blk / 8;
++				// try to do 64k first
++				// 64k erase is fine if all erase bits are set and either
++				// all copy bits or no copy bits are set
++				er_count = (act_map[b8] == 0xff && act_map[b8 + 1] == 0xff) ? 16 : 1;
++				wr_count = ((pbc_map[b8] == 0xff && pbc_map[b8 + 1] == 0xff) ||
++						(pbc_map[b8] == 0 && pbc_map[b8 + 1] == 0))
++						? 16
++						: 1;
++			}
++		}
++
++		bool erase = (act_map[blk / 8] >> (7 - blk % 8)) & 1;
++		bool copy = (pbc_map[blk / 8] >> (7 - blk % 8)) & 1;
++
++		if (!erase)
++		{
++			continue;
++		}
++
++		if (!copy)
++		{
++			// skip erase if the block is in an unsigned segment
++			uint8_t *region_offset = (uint8_t *)(pfm_hdr + 1);
++			uint8_t region_end = region_offset + pfm_size;
++
++			bool region_is_unsigned = true;
++			struct spi_region *region;
++			while (region_offset < region_end)
++			{
++				region = (struct spi_region*)(region_offset);
++				if (region->type == type_spi_region)
++				{
++					// check if the first block is within this region
++					if (region->start <= blk * pfr_blk_size)
++					{
++						// check if the last block is within this region
++						if ((blk + er_count) * pfr_blk_size <= region->end)
++						{
++							region_is_unsigned = (region->hash_info == 0);
++							break;
++						}
++						// check if a single block is within this region
++						if ((blk + 1) * pfr_blk_size <= region->end)
++						{
++							er_count = 1;
++							region_is_unsigned = (region->hash_info == 0);
++							break;
++						}
++					}
++					region_offset +=
++						sizeof(struct spi_region) +
++						(region->hash_info & sha256_present ? sha256_size : 0) +
++						(region->hash_info & sha384_present ? sha384_size : 0);
++				}
++				else if (region->type == type_smbus_rule)
++				{
++					region_offset += sizeof(struct smbus_rule);
++				}
++				else if (region->type == type_fvm_address)
++				{
++					region_offset += sizeof(struct fvm_address);
++				}
++				else
++				{
++					break;
++				}
++			}
++			if (region_is_unsigned && !recovery_reset)
++			{
++				continue;
++			}
++		}
++
++		if (blk % 16 == 0)
++		{
++			if (er_count == 1)
++			{
++				er_count = 16;
++			}
++
++			spi_flash_erase(flash_dev, pfr_blk_size * blk, pfr_blk_size * er_count);
++
++			// erase_end_addr value is calculated to allign boundry of the sector
++			erase_end_addr = (pfr_blk_size * (blk + er_count)) - 1;
++		}
++
++		if (copy)
++		{
++			write_end_addr = (pfr_blk_size * (blk + wr_count)) - 1;
++
++			// Check if current write address wasn't part of previous 64K sector
++			// erase. and erase it here.
++			if ((write_end_addr > erase_end_addr) ||
++				((pfr_blk_size * blk) > erase_end_addr))
++			{
++				// Currently 4K erases are not working hence making it always
++				// 64K erase.
++				// TODO: Fix 4K erase issue and fix the below logic to do
++				// incremental 4K erases.
++
++				spi_flash_erase(flash_dev, erase_end_addr + 1, pfr_blk_size * 16);
++
++				erase_end_addr += pfr_blk_size * 16;
++			}
++
++			spi_flash_write(flash_dev,
++					pfr_blk_size * blk,
++					pfr_blk_size * wr_count,
++					offset);
++
++			offset += pfr_blk_size * wr_count;
++		}
++	}
++
++	return 0;
++}
++
++void start_fw_update_loop(void)
++{
++	int rc;
++	ulong boot_addr;
++	char boot_cmd[20];
++
++	while (1) {
++		if (g_fwupd_settings.random_number_valid) {
++			/* Random number should be cleared after 30seconds */
++			if (get_ticks() >= g_etime) {
++				printf("Clearing random number\n");
++
++				if (!fwupd_settings_trylock())
++					continue;
++				memset(g_fwupd_settings.rand_num, 0, RAND_NUMBER_SIZE);
++				g_fwupd_settings.random_number_valid = false;
++				fwupd_settings_unlock();
++			}
++		}
++
++		if (g_fwupd_settings.start_update) {
++			update_processing_status(IMG_VALIDATING, 0);
++
++			rc = verify_image();
++			if (rc == ERROR) {
++				update_processing_status(UPDATE_ERROR, 100);
++				/* Adding delay to make consumer gets status */
++				mdelay(WAIT_STATE_TIMEOUT);
++
++				reset_all_settings();
++				continue;
++			}
++
++			update_processing_status(IMG_PROGRAMMING, 10);
++
++			rc = flash_image();
++			if (rc == SUCCESS) {
++				update_processing_status(UPDATE_SUCCESSFUL, 100);
++			} else {
++				update_processing_status(UPDATE_ERROR, 100);
++			}
++
++			/* Adding delay to make sure consumer gets status */
++			mdelay(WAIT_STATE_TIMEOUT);
++
++			reset_all_settings();
++
++			if (g_fwupd_settings.options_value & DEFER_BMC_RST_BIT)
++			{
++				update_processing_status(AC_CYCLE_REQUIRED, 100);
++			}
++			else
++			{
++				do_reset(NULL, 0, 0, NULL);
++			}
++			break;
++		}
++		mdelay(WAIT_STATE_TIMEOUT);
++	}
++
++	return;
++}
++
++#ifdef DEBUG
++int do_fwupd(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
++{
++	if (argc != 1)
++		return 1;
++
++	start_fw_update_loop();
++	return 0;
++}
++U_BOOT_CMD(fwupd, 1, 0, do_fwupd, "Start Firmware update process", "");
++#endif
++
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+new file mode 100644
+index 0000000000..5674d8e058
+--- /dev/null
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -0,0 +1,62 @@
++// SPDX-License-Identifier: GPL-2.0
++// Copyright (c) 2018-2022 Intel Corporation
++
++#include <common.h>
++#include <image.h>
++
++#define IMAGE_LOAD_RAM_ADDR             0x83000000
++
++/* SPI flash map */
++#define PRIMARY_FIT_IMAGE_START_ADDR    0x20b00000
++#define MAX_FIT_IMAGE_SIZE              0x1F00000
++#define UBOOT_IMAGE_START_ADDR          0x00
++#define MAX_UBOOT_IMAGE_SIZE            0x80000
++#define PFM_ADDRESS                     0x80000
++
++#define MAX_FILENAME_LENGTH             256
++#define RAND_NUMBER_SIZE                8
++
++#define SUCCESS                         0
++#define ERROR                           1
++
++#define SHA256_DIGEST_LENGTH            32
++#define SHA384_DIGEST_LENGTH            48
++#define NO_DOWN_REV_BIT                 0x01
++#define DEFER_BMC_RST_BIT               0x02
++#define SHA2_INTEGRITY_BIT              0x04
++
++enum boot_image {
++	PRIMARY_IMAGE = 0x01
++};
++
++enum update_status {
++	INITIALIZING = 0,
++	IDLE,
++	IMG_DOWNLOADING,
++	IMG_VALIDATING,
++	IMG_PROGRAMMING,
++	UPDATE_SUCCESSFUL,
++	UPDATE_ERROR = 0x0F,
++	UPDATE_FORBIDDEN = 0x80,
++	AC_CYCLE_REQUIRED = 0x83
++};
++
++struct fwupd_global_setting {
++	bool fwupd_mode_active;
++	bool start_update;
++	bool random_number_valid;
++	u8 ctrl_state;
++	u8 options_mask;
++	u8 options_value;
++	u8 processing_status;
++	u8 percentage_completion;
++	u8 integrity_check_status;
++	u8 filename_len;
++	u8 filename[MAX_FILENAME_LENGTH];
++	u8 rand_num[RAND_NUMBER_SIZE];
++	u8 integrity_check_value[SHA384_DIGEST_LENGTH];
++};
++
++bool fwupd_settings_trylock(void);
++void fwupd_settings_unlock(void);
++int generate_random_number(void);
+diff --git a/board/aspeed/ast2600_intel/ipmi-fwupd.c b/board/aspeed/ast2600_intel/ipmi-fwupd.c
+new file mode 100644
+index 0000000000..19cfddb90a
+--- /dev/null
++++ b/board/aspeed/ast2600_intel/ipmi-fwupd.c
+@@ -0,0 +1,447 @@
++// SPDX-License-Identifier: GPL-2.0
++// Copyright (c) 2018-2022 Intel Corporation
++
++#include "ipmi-fwupd.h"
++
++struct fwupd_global_setting g_fwupd_settings;
++u32 g_write_addr = 0;
++
++u16 fwupd_get_execution_ctx(u8 *req, u16 req_len, u8 *res) {
++
++	/* Get firmware update execution context */
++	struct fwupd_get_exe_ctx_res *result = (struct fwupd_get_exe_ctx_res *)res;
++
++	/* For PFR platforms, only primary/active image always */
++	result->partition_ptr = PRIMARY_IMAGE;
++	result->execution_ctx = 0x11; /* Forced Firmware Update mode */
++	result->completion_code = IPMI_CC_OK;
++
++	return sizeof(struct fwupd_get_exe_ctx_res);
++}
++
++u16 fwupd_get_rand_number(u8 *req, u16 req_len, u8 *res)
++{
++	struct fwupd_rand_num_res *result = (struct fwupd_rand_num_res *)res;
++
++	if (req_len != 0) {
++		printf("%s(): Invalid request length\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	/* Check is critical operation is going on */
++	if (g_fwupd_settings.start_update) {
++		printf("%s(): Update in progress.\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	/* Check is it already in fwupdate mode */
++	if (g_fwupd_settings.fwupd_mode_active) {
++		printf("%s(): Already in firmware update mode\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	if (generate_random_number() != 0) {
++		printf("%s(): Random number generation failed\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	result->completion_code = IPMI_CC_OK;
++	memcpy(result->rand_num, g_fwupd_settings.rand_num, RAND_NUMBER_SIZE);
++
++	return sizeof(struct fwupd_rand_num_res);
++}
++
++u16 fwupd_enter_update_mode(u8 *req, u16 req_len, u8 *res)
++{
++	struct fwupd_set_update_mode_res *result =
++		(struct fwupd_set_update_mode_res *)res;
++
++	if (req_len != RAND_NUMBER_SIZE) {
++		printf("%s(): Invalid request length\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	/* Check is critical operation is going on */
++	if (g_fwupd_settings.start_update) {
++		printf("%s(): Update in progress.\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	/* Check is it already in fwupdate mode */
++	if (g_fwupd_settings.fwupd_mode_active) {
++		printf("%s(): Already in firmware update mode\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	/* This command should excute within 30 seconds
++	 * after random number generation. */
++	if (!g_fwupd_settings.random_number_valid) {
++		printf("%s(): No valid random number exist.\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_CODE;
++		return sizeof(result->completion_code);
++	}
++
++	/* Validate the key to enter this mode */
++	for (int i = 0; i < RAND_NUMBER_SIZE; i++) {
++		if (req[i] != g_fwupd_settings.rand_num[i]) {
++			printf("%s(): Invalid key entered\n", __func__);
++			result->completion_code = IPMI_CC_INVALID_CODE;
++			return sizeof(result->completion_code);
++		}
++	}
++
++	if (!fwupd_settings_trylock()) {
++		printf("%s(): Lock failed\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++	/* Reset all the settings */
++	memset(&g_fwupd_settings, 0, sizeof(g_fwupd_settings));
++	g_fwupd_settings.fwupd_mode_active = true;
++	fwupd_settings_unlock();
++
++	result->completion_code = IPMI_CC_OK;
++
++	return sizeof(struct fwupd_set_update_mode_res);
++}
++
++u16 fwupd_exit_update_mode(u8 *req, u16 req_len, u8 *res)
++{
++	struct fwupd_exit_update_mode_res *result =
++		(struct fwupd_exit_update_mode_res *)res;
++
++	if (req_len != 0) {
++		printf("%s(): Invalid request length\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	if (!g_fwupd_settings.fwupd_mode_active) {
++		printf("%s(): Invalid command entered\n", __func__);
++		result->completion_code = IPMI_CC_NOT_SUPPORTED_IN_STATE;
++		return sizeof(result->completion_code);
++	}
++
++	if (!fwupd_settings_trylock()) {
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++	g_fwupd_settings.fwupd_mode_active = false;
++	fwupd_settings_unlock();
++
++	result->completion_code = IPMI_CC_OK;
++
++	return sizeof(struct fwupd_exit_update_mode_res);
++}
++
++u16 fwupd_set_options(u8 *req, u16 req_len, u8 *res)
++{
++	struct fwupd_options_req *options_req = (struct fwupd_options_req *)req;
++	struct fwupd_options_res *result = (struct fwupd_options_res *)res;
++
++	if (req_len < 2) {
++		printf("%s(): Invalid request length\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	/* Check is critical operation is going on */
++	if (g_fwupd_settings.start_update) {
++		printf("%s(): Update in progress.\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	/* Setting any reserved bits will result the command being rejected */
++	if (((options_req->options_mask & 0xF8) != 0) ||
++	    ((options_req->options_value & 0xF8) != 0)) {
++		printf("%s(): Invalid request\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_FIELD;
++		return sizeof(result->completion_code);
++	}
++
++	if (!fwupd_settings_trylock()) {
++		printf("%s(): Lock failed\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	// Length check for the Integrity Verification
++	if (options_req->options_value & SHA2_INTEGRITY_BIT)
++	{
++		if (req_len  == (SHA384_DIGEST_LENGTH + 2)) {
++			printf("Integrity length check success\n");
++			g_fwupd_settings.integrity_check_status = SHA2_INTEGRITY_REQ;
++			memset(g_fwupd_settings.integrity_check_value, NULL, SHA384_DIGEST_LENGTH);
++			memcpy(g_fwupd_settings.integrity_check_value,
++					options_req->integrity_check_value,
++					sizeof(options_req->integrity_check_value));
++		}
++		else
++		{
++			fwupd_settings_unlock();
++			printf("%s(): Invalid request length\n", __func__);
++			result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++			return sizeof(result->completion_code);
++		}
++	}
++
++	g_fwupd_settings.options_value &= ~(options_req->options_mask & ~options_req->options_value);
++	g_fwupd_settings.options_value |= (options_req->options_mask & options_req->options_value);
++
++	fwupd_settings_unlock();
++
++	result->completion_code = IPMI_CC_OK;
++	return sizeof(struct fwupd_options_res);
++}
++uint8_t verify_sha(uint32_t *img_data, uint32_t img_size, uint8_t *hash_check)
++{
++        uint8_t digest[SHA384_DIGEST_LENGTH];
++        int value_len = 0;
++        char *algo ="sha384";
++        int cc = 0;
++
++
++        cc = calculate_hash(img_data, img_size, algo, digest, &value_len);
++        if (cc) {
++                printf ("Unsupported hash algorithm\n");
++                return ERROR;
++        }
++
++        if (value_len !=  SHA384_DIGEST_LENGTH)
++        {
++                printf ("Bad hash value len\n");
++                return ERROR;
++        }
++
++	if (memcmp(digest, hash_check, value_len) != 0)
++        {
++                printf ("Integrity check hash verification failed\n");
++                return ERROR;
++        }
++
++	printf ("Integrity check hash verification success\n");
++	return SUCCESS;
++}
++
++u16 fwupd_set_get_control(u8 *req, u16 req_len, u8 *res)
++{
++	struct fwupd_control_req *ctrl_req = (struct fwupd_control_req *)req;
++	struct fwupd_control_res *result = (struct fwupd_control_res *)res;
++	struct fwupd_options_req *options_req = (struct fwupd_options_req *)req;
++	uint8_t hash_result = 0;
++	uint32_t *img_base_addr = IMAGE_LOAD_RAM_ADDR;
++	uint32_t img_size = g_write_addr;
++
++	if (req_len < 1) {
++		printf("%s(): Invalid request length\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	/* Check is critical operation is going on */
++	if (g_fwupd_settings.start_update) {
++		printf("%s(): Update in progress.\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	if ((ctrl_req->ctrl_state == SET_FW_FILENAME) && (req_len < 3)) {
++		printf("%s(): Invalid request data\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	} else if ((ctrl_req->ctrl_state != SET_FW_FILENAME) &&
++		   (req_len != 1)) {
++		printf("%s(): Invalid request data\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	if ((!g_fwupd_settings.fwupd_mode_active) &&
++	    (ctrl_req->ctrl_state != GET_CTRL_STATE)) {
++		printf("%s(): Invalid request. Control State: %d.\n", __func__,
++		       ctrl_req->ctrl_state);
++		result->completion_code = IPMI_CC_NOT_SUPPORTED_IN_STATE;
++		return sizeof(result->completion_code);
++	}
++
++	switch (ctrl_req->ctrl_state) {
++	case GET_CTRL_STATE:
++		break;
++	case IMG_TRANSFER_START:
++		if ((g_fwupd_settings.ctrl_state &
++		     IMG_TRANSFER_CTRL_BIT_START)) {
++			printf("%s(): Invalid request\n", __func__);
++			result->completion_code =
++				IPMI_CC_NOT_SUPPORTED_IN_STATE;
++			return sizeof(result->completion_code);
++		}
++
++		if (!fwupd_settings_trylock()) {
++			printf("%s(): Lock failed\n", __func__);
++			result->completion_code = IPMI_CC_NODE_BUSY;
++			return sizeof(result->completion_code);
++		}
++		g_fwupd_settings.processing_status = IMG_DOWNLOADING;
++		/* Reset control state during start */
++		g_fwupd_settings.ctrl_state = 0x00;
++		g_fwupd_settings.ctrl_state |= IMG_TRANSFER_CTRL_BIT_START;
++		/* Set current write address to ZERO */
++		g_write_addr = 0x00;
++		fwupd_settings_unlock();
++		break;
++	case IMG_TRANSFER_END:
++		if (!(g_fwupd_settings.ctrl_state &
++		      IMG_TRANSFER_CTRL_BIT_START)) {
++			printf("%s(): Invalid request\n", __func__);
++			result->completion_code =
++				IPMI_CC_NOT_SUPPORTED_IN_STATE;
++			return sizeof(result->completion_code);
++		}
++
++		if (!fwupd_settings_trylock()) {
++			result->completion_code = IPMI_CC_NODE_BUSY;
++			return sizeof(result->completion_code);
++		}
++
++		g_fwupd_settings.ctrl_state |= IMG_TRANSFER_CTRL_BIT_END;
++		g_fwupd_settings.ctrl_state &= ~(IMG_TRANSFER_CTRL_BIT_START |
++						 IMG_TRANSFER_CTRL_BIT_ABORT);
++
++		// verify SHA2 of image
++		if (g_fwupd_settings.integrity_check_status == SHA2_INTEGRITY_REQ)
++		{
++			hash_result = verify_sha(img_base_addr,
++							img_size,
++							g_fwupd_settings.integrity_check_value);
++		}
++
++		if (ERROR == hash_result)
++		{
++			result->completion_code = IPMI_CC_INVALID_DATA_FIELD;
++			g_fwupd_settings.integrity_check_status = SHA2_INTEGRITY_FAIL;
++			return sizeof(result->completion_code);
++
++		}
++
++		g_fwupd_settings.integrity_check_status = SHA2_INTEGRITY_SUCCESS;
++		g_fwupd_settings.start_update = true;
++
++		fwupd_settings_unlock();
++		break;
++	case IMG_TRANSFER_ABORT:
++		if (!(g_fwupd_settings.ctrl_state &
++		      IMG_TRANSFER_CTRL_BIT_START)) {
++			printf("%s(): Invalid request\n", __func__);
++			result->completion_code =
++				IPMI_CC_NOT_SUPPORTED_IN_STATE;
++			return sizeof(result->completion_code);
++		}
++
++		if (!fwupd_settings_trylock()) {
++			printf("%s(): Lock failed\n", __func__);
++			result->completion_code = IPMI_CC_NODE_BUSY;
++			return sizeof(result->completion_code);
++		}
++		g_fwupd_settings.processing_status = UPDATE_ERROR;
++		g_fwupd_settings.ctrl_state |= IMG_TRANSFER_CTRL_BIT_ABORT;
++		g_fwupd_settings.ctrl_state &= ~(IMG_TRANSFER_CTRL_BIT_START |
++						 IMG_TRANSFER_CTRL_BIT_END);
++		fwupd_settings_unlock();
++		break;
++	case SET_FW_FILENAME:
++		/* Not supporting now */
++		/* TODO: Used for TFTP update but not implemented yet. */
++		/* TODO: Verify image and write to flash */
++	case USB_DEV_ATTACH:
++	case USB_DEV_DETACH:
++		/* Not supporting now */
++		result->completion_code = IPMI_CC_NOT_SUPPORTED_IN_STATE;
++		return sizeof(result->completion_code);
++	default:
++		printf("%s(): Invalid request\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_FIELD;
++		return sizeof(result->completion_code);
++	}
++
++	result->completion_code = IPMI_CC_OK;
++	result->curr_state = g_fwupd_settings.ctrl_state;
++	return sizeof(struct fwupd_control_res);
++}
++
++u16 fwupd_get_update_status(u8 *req, u16 req_len, u8 *res)
++{
++	struct fwupd_get_update_status_res *result =
++		(struct fwupd_get_update_status_res *)res;
++
++	if (req_len != 0) {
++		printf("%s(): Invalid request length\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	result->processing_status = g_fwupd_settings.processing_status;
++	result->percent_completion = g_fwupd_settings.percentage_completion;
++	result->check_status = g_fwupd_settings.integrity_check_status;
++	/* We don't support error code messages cmd(0x0EH) in uboot.*/
++	result->error_code = 0;
++
++	result->completion_code = IPMI_CC_OK;
++
++	return sizeof(struct fwupd_get_update_status_res);
++}
++
++u16 fwupd_image_write(u8 *req, u16 req_len, u8 *res)
++{
++	struct fwupd_image_write_res *result =
++		(struct fwupd_image_write_res *)res;
++
++	if (req_len < 1) {
++		printf("%s(): Invalid request length\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	/* Check is critical operation is going on */
++	if (g_fwupd_settings.start_update) {
++		printf("%s(): Update in progress.\n", __func__);
++		result->completion_code = IPMI_CC_NODE_BUSY;
++		return sizeof(result->completion_code);
++	}
++
++	if (!g_fwupd_settings.fwupd_mode_active) {
++		printf("%s(): Invalid request\n", __func__);
++		result->completion_code = IPMI_CC_NOT_SUPPORTED_IN_STATE;
++		return sizeof(result->completion_code);
++	}
++
++	if (!(g_fwupd_settings.ctrl_state & IMG_TRANSFER_CTRL_BIT_START)) {
++		printf("%s(): Invalid request\n", __func__);
++		result->completion_code = IPMI_CC_NOT_SUPPORTED_IN_STATE;
++		return sizeof(result->completion_code);
++	}
++
++	if ((g_write_addr + req_len) > MAX_FIT_IMAGE_SIZE) {
++		printf("%s(): Request length exceeded max size\n", __func__);
++		result->completion_code = IPMI_CC_INVALID_DATA_LENGTH;
++		return sizeof(result->completion_code);
++	}
++
++	u8 *mem_addr = (u8 *)(IMAGE_LOAD_RAM_ADDR + g_write_addr);
++
++	memcpy(mem_addr, req, req_len);
++	g_write_addr += req_len;
++
++	result->completion_code = IPMI_CC_OK;
++	result->no_of_bytes_written = (u8)req_len;
++
++	return sizeof(struct fwupd_image_write_res);
++}
++
+diff --git a/board/aspeed/ast2600_intel/ipmi-fwupd.h b/board/aspeed/ast2600_intel/ipmi-fwupd.h
+new file mode 100644
+index 0000000000..8e91f7acc2
+--- /dev/null
++++ b/board/aspeed/ast2600_intel/ipmi-fwupd.h
+@@ -0,0 +1,104 @@
++// SPDX-License-Identifier: GPL-2.0
++// Copyright (c) 2018-2022 Intel Corporation
++
++#ifndef _IPMI_FWUPD_H_
++#define _IPMI_FWUPD_H_ 1
++
++#include "ipmi-handler.h"
++#include "fw-update.h"
++
++
++#define SHA2_INTEGRITY_NONE     0
++#define SHA2_INTEGRITY_REQ      1
++#define SHA2_INTEGRITY_SUCCESS  2
++#define SHA2_INTEGRITY_FAIL     0xE2
++
++enum control_state {
++	GET_CTRL_STATE = 0,
++	IMG_TRANSFER_START,
++	IMG_TRANSFER_END,
++	IMG_TRANSFER_ABORT,
++	SET_FW_FILENAME,
++	USB_DEV_ATTACH,
++	USB_DEV_DETACH
++}__attribute__((packed));
++
++enum control_state_bit {
++	IMG_TRANSFER_CTRL_BIT_START = (0x01 << 0),
++	IMG_TRANSFER_CTRL_BIT_END = (0x01 << 1),
++	IMG_TRANSFER_CTRL_BIT_ABORT = (0x01 << 2),
++	USB_CTRL_BIT_ATTACH = (0x01 << 3)
++}__attribute__((packed));
++
++enum update_options_bit {
++	NO_DOWN_REVISION = 0,
++	DEFER_BMC_RESET = 1,
++	SHA32_INTEGRITY_CHECK = 2,
++	CRC32_INTEGRITY_CHECK = 3
++}__attribute__((packed));
++
++struct fwupd_get_exe_ctx_res {
++	u8 completion_code;
++	u8 execution_ctx;
++	u8 partition_ptr;
++}__attribute__((packed));
++
++struct fwupd_rand_num_res {
++	u8 completion_code;
++	u8 rand_num[RAND_NUMBER_SIZE];
++}__attribute__((packed));
++
++struct fwupd_set_update_mode_res {
++	u8 completion_code;
++}__attribute__((packed));
++
++struct fwupd_exit_update_mode_res {
++	u8 completion_code;
++}__attribute__((packed));
++
++struct fwupd_options_req {
++	u8 options_mask;
++	u8 options_value;
++	u8 integrity_check_value[SHA384_DIGEST_LENGTH];
++}__attribute__((packed));
++
++struct fwupd_options_res {
++	u8 completion_code;
++	u8 options_value;
++}__attribute__((packed));
++
++struct fwupd_control_req {
++	u8 ctrl_state;
++	u8 filename_len;
++	u8 filename[MAX_FILENAME_LENGTH];
++}__attribute__((packed));
++
++struct fwupd_control_res {
++	u8 completion_code;
++	u8 curr_state;
++}__attribute__((packed));
++
++struct fwupd_get_update_status_res {
++	u8 completion_code;
++	u8 processing_status;
++	u8 percent_completion;
++	u8 check_status;
++	u8 error_code;
++}__attribute__((packed));
++
++struct fwupd_image_write_res {
++	u8 completion_code;
++	u8 no_of_bytes_written;
++}__attribute__((packed));
++
++u16 fwupd_get_execution_ctx(u8 *req, u16 req_len, u8 *res);
++u16 fwupd_get_rand_number(u8 *req, u16 req_len, u8 *res);
++u16 fwupd_enter_update_mode(u8 *req, u16 req_len, u8 *res);
++u16 fwupd_exit_update_mode(u8 *req, u16 req_len, u8 *res);
++u16 fwupd_set_options(u8 *req, u16 req_len, u8 *res);
++u16 fwupd_set_get_control(u8 *req, u16 req_len, u8 *res);
++u16 fwupd_get_update_status(u8 *req, u16 req_len, u8 *res);
++u16 fwupd_image_write(u8 *req, u16 req_len, u8 *res);
++
++#endif
++
+diff --git a/board/aspeed/ast2600_intel/ipmi-handler.c b/board/aspeed/ast2600_intel/ipmi-handler.c
+index c7eaece3a1..a3ac40f201 100644
+--- a/board/aspeed/ast2600_intel/ipmi-handler.c
++++ b/board/aspeed/ast2600_intel/ipmi-handler.c
+@@ -1,8 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+-// Copyright (c) 2018-2020 Intel Corporation
+-
+-#include "ipmi-handler.h"
++// Copyright (c) 2018-2022 Intel Corporation
+ 
++#include "ipmi-fwupd.h"
+ /* IPMI network function codes */
+ #define NETFN_APP		0x06
+ #define NETFN_FIRMWARE		0x08
+@@ -12,6 +11,13 @@
+ #define CMD_GET_DEV_ID			0x01
+ #define CMD_GET_SELF_TEST_RESULTS	0x04
+ #define CMD_FWUPD_GET_EXECUTION_CTX 	0x23
++#define CMD_FWUPD_GET_RANDOM_NUMBER     0x26
++#define CMD_FWUPD_SET_UPDATE_MODE       0x27
++#define CMD_FWUPD_EXIT_UPDATE_MODE      0x28
++#define CMD_FWUPD_CONTROL_GET_SET       0x29
++#define CMD_FWUPD_GET_UPDATE_STATUS     0x2A
++#define CMD_FWUPD_SET_OPTIONS           0x2B
++#define CMD_FWUPD_IMAGE_WRITE           0x2C
+ #define CMD_INTL_OEM_GET_BUFFER_SIZE	0x66
+ #define CMD_INTL_OEM_GET_SEC_MODE	0xB3
+ #define CMD_INTL_OEM_SET_SEC_MODE	0xB4
+@@ -45,11 +51,6 @@ struct self_test_res {
+ 	u8 completion_code;
+ 	u8 res_byte[2];
+ };
+-struct fwupd_get_exe_ctx_res {
+-	u8 completion_code;
+-	u8 execution_ctx;
+-	u8 partition_ptr;
+-};
+ struct intc_get_buf_size_res {
+ 	u8 completion_code;
+ 	u8 kcs_size;
+@@ -116,19 +117,6 @@ static u16 get_self_test_result(u8 *req, u16 req_len, u8 *res)
+ 	return sizeof(struct self_test_res);
+ }
+ 
+-u16 fwupd_get_execution_ctx(u8 *req, u16 req_len, u8 *res) {
+-
+-	/* Get firmware update execution context */
+-	struct fwupd_get_exe_ctx_res *result = (struct fwupd_get_exe_ctx_res *)res;
+-
+-	/* For PFR platforms, only primary/active image always */
+-	result->partition_ptr = PRIMARY_IMAGE;
+-	result->execution_ctx = 0x11; /* Forced Firmware Update mode */
+-	result->completion_code = IPMI_CC_OK;
+-
+-	return sizeof(struct fwupd_get_exe_ctx_res);
+-}
+-
+ static u16 intel_get_buffer_size(u8 *req, u16 req_len, u8 *res) {
+ 
+ 	/* Get buffer size */
+@@ -197,7 +185,14 @@ static u16 intel_set_security_mode(u8 *req, u16 req_len, u8 *res) {
+ const struct ipmi_cmd_table cmd_info[] = {
+ 	{ NETFN_APP, CMD_GET_DEV_ID, get_device_id},
+ 	{ NETFN_APP, CMD_GET_SELF_TEST_RESULTS, get_self_test_result},
+-	{ NETFN_FIRMWARE, CMD_FWUPD_GET_EXECUTION_CTX, fwupd_get_execution_ctx},
++	{ NETFN_FIRMWARE, CMD_FWUPD_GET_EXECUTION_CTX,	fwupd_get_execution_ctx},
++	{ NETFN_FIRMWARE, CMD_FWUPD_GET_RANDOM_NUMBER,	fwupd_get_rand_number },
++	{ NETFN_FIRMWARE, CMD_FWUPD_SET_UPDATE_MODE,	fwupd_enter_update_mode },
++	{ NETFN_FIRMWARE, CMD_FWUPD_EXIT_UPDATE_MODE,	fwupd_exit_update_mode },
++	{ NETFN_FIRMWARE, CMD_FWUPD_CONTROL_GET_SET,	fwupd_set_get_control },
++	{ NETFN_FIRMWARE, CMD_FWUPD_GET_UPDATE_STATUS,	fwupd_get_update_status },
++	{ NETFN_FIRMWARE, CMD_FWUPD_SET_OPTIONS,	fwupd_set_options },
++	{ NETFN_FIRMWARE, CMD_FWUPD_IMAGE_WRITE,	fwupd_image_write },
+ 	{ NETFN_INTEL_OEM, CMD_INTL_OEM_GET_BUFFER_SIZE, intel_get_buffer_size},
+ 	{ NETFN_INTEL_OEM, CMD_INTL_OEM_GET_SEC_MODE, intel_get_security_mode},
+ 	{ NETFN_INTEL_OEM, CMD_INTL_OEM_SET_SEC_MODE, intel_set_security_mode}
+diff --git a/board/aspeed/ast2600_intel/ipmi-handler.h b/board/aspeed/ast2600_intel/ipmi-handler.h
+index 11a2e91fe2..a9f9d44178 100644
+--- a/board/aspeed/ast2600_intel/ipmi-handler.h
++++ b/board/aspeed/ast2600_intel/ipmi-handler.h
+@@ -1,16 +1,18 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+-/* Copyright (c) 2018-2020 Intel Corporation */
++/* Copyright (c) 2018-2022 Intel Corporation */
+ 
+ #include "ast-kcs.h"
+ 
+ /* IPMI completion codes */
+ #define IPMI_CC_OK			0x00
++#define IPMI_CC_INVALID_CODE            0x80
+ #define IPMI_CC_NODE_BUSY		0xC0
+ #define IPMI_CC_INVALID_CMD		0xC1
+ #define IPMI_CC_INVALID_CMD_LUN		0xC2
+ #define IPMI_CC_OUT_OF_SPACE		0xC4
+ #define IPMI_CC_INVALID_DATA_LENGTH	0xC7
+ #define IPMI_CC_INVALID_DATA_FIELD	0xCC
++#define IPMI_CC_NOT_SUPPORTED_IN_STATE  0xD5
+ #define IPMI_CC_UNSPECIFIED		0xFF
+ 
+ /* BMC IPMB LUNs */
+-- 
+2.25.1
+

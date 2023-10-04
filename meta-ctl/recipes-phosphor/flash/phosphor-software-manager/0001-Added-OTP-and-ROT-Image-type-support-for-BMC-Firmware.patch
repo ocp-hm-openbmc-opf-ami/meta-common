@@ -1,0 +1,73 @@
+From 50779b8231c9248a44a4ee79c63a02b73290101e Mon Sep 17 00:00:00 2001
+From: Hardik Panchal <hardikx.panchal@intel.com>
+Date: Tue, 15 Nov 2022 11:48:01 +0000
+Subject: [PATCH] Added OTP and ROT Image type support for BMC Firmware update
+
+Description:
+Updated software-manager to support ROT image type (0xF1) and OTP image
+type(0xF2)
+
+The image type 0x04(BMC firmware image) will have U-boot + Kernel Fit image .
+
+The image type 0XF1(Secure boot image) will have ROT SPL + U-boot + Kernel Fit image.
+This image update will be done only if there is change in ROT SPL.
+
+The image type 0xF2(OTP image) will have secure boot keys, which are programmed to OTP.
+
+Tested:
+BMC firmware update for image type 0xf1 is successful.
+BMC booted successfully with the update image.
+Unit tested the update of OTP image, working as expected
+
+Signed-off-by: Aqeeb Khan <aqeebx.khan@intel.com>
+Signed-off-by: <Gade-Rajasekhar Reddy raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: Hardik Panchal <hardikx.panchal@intel.com>
+Upstream-Status: Pending
+---
+ pfr_image_manager.cpp | 7 +++++--
+ pfr_image_manager.hpp | 4 +++-
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/pfr_image_manager.cpp b/pfr_image_manager.cpp
+index 11280e7..7eb309c 100644
+--- a/pfr_image_manager.cpp
++++ b/pfr_image_manager.cpp
+@@ -213,7 +213,9 @@ int Manager::verifyImage(const std::filesystem::path imgPath,
+                 "Image Type", phosphor::logging::entry(
+                                   "IMAGETYPE=0x%x", static_cast<int>(imgType)));
+ 
+-            if (imgType == pfrBMCUpdateCap || imgType == pfrBMCPFM)
++            if (imgType == pfrBMCUpdateCap || imgType == pfrBMCPFM ||
++                imgType == bmcSecureBootRotCap ||
++                imgType == bmcSecureBootOTPCap)
+             {
+                 purposeString = verPurpose + "BMC";
+             }
+@@ -222,7 +224,8 @@ int Manager::verifyImage(const std::filesystem::path imgPath,
+             {
+                 purposeString = verPurpose + "Host";
+             }
+-            else if (imgType == pfrCPLDUpdateCap || imgType == pfrAFMUpdateCap ||
++            else if (imgType == pfrCPLDUpdateCap ||
++                     imgType == pfrAFMUpdateCap ||
+                      imgType == pfrCmpstCPLDUpdCap)
+             {
+                 purposeString = verPurpose + "Other";
+diff --git a/pfr_image_manager.hpp b/pfr_image_manager.hpp
+index 99fb9e3..7c2d78f 100644
+--- a/pfr_image_manager.hpp
++++ b/pfr_image_manager.hpp
+@@ -24,7 +24,9 @@ enum pfrImgPCType
+     pfrBMCUpdateCap = 0x04,
+     seamlessPCHUpdCap = 0x05,
+     pfrAFMUpdateCap = 0x06,
+-    pfrCmpstCPLDUpdCap = 0x07
++    pfrCmpstCPLDUpdCap = 0x07,
++    bmcSecureBootRotCap = 0xf1,
++    bmcSecureBootOTPCap = 0xf2
+ };
+ 
+ /* PFR image block 0 - As defined in HAS */
+-- 
+2.17.1
+

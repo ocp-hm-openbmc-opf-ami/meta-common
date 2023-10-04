@@ -1,0 +1,294 @@
+From 24fcd019adf91729547c750df0c8d11e892eda45 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Thu, 28 Jul 2022 08:44:29 +0000
+Subject: [PATCH] Add get and set boot address api
+
+1. Gets fit image boot address based on active partition
+    image value read from battery backed register
+    before FW update
+2. Sets active partition image value to battery backed
+    register based on fit image boot address
+    after FW update success
+3. Sets fit image boot address to environment variable
+    after flash success
+
+Tested:
+1. Read active partition image value from battery backed register
+2. Write active partition image value to battery backed register
+3. Write fit image boot address to environment variable
+
+Signed-off-by: Gade-RajasekharReddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/fw-update.c | 195 ++++++++++++++++++++++++-
+ board/aspeed/ast2600_intel/fw-update.h |  11 +-
+ 2 files changed, 203 insertions(+), 3 deletions(-)
+
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index dc773a303f..17fcaf978b 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -11,6 +11,8 @@
+ 
+ #include "fw-update.h"
+ 
++#define BOOTCMD_BOOTM_STR	"bootm "
++#define ENV_STRING_MAX		128
+ #define RANDOM_NUM_TIMEOUT	30 /* in seconds */
+ #define WAIT_STATE_TIMEOUT	10000 /* 10 seconds */
+ 
+@@ -800,6 +802,166 @@ static int verify_image(void)
+ 	return SUCCESS;
+ }
+ 
++/**
++ * @brief
++ * This function gets the protected content(PC) type of image
++ *
++ * @param none
++ *
++ * @return u8 protected content(PC) type
++ */
++static u8 get_pc_type(void)
++{
++	uint32_t base_addr = IMAGE_LOAD_RAM_ADDR;
++	struct blk0* b0 = (struct blk0*) (base_addr);
++	uint32_t pc_type = b0->pc_type;
++
++	return(pc_type);
++}
++
++/**
++ * @brief
++ * This function gets fit image boot address based on
++ * active partition image value read from battery backed register
++ *
++ * @param none
++ *
++ * @return ulong fit image boot address
++ */
++static ulong get_boot_address(void)
++{
++	ulong boot_addr = PRIMARY_FIT_IMAGE_START_ADDR;
++	void __iomem *base;
++
++	base = ioremap(BASE_ADDRESS, SZ_64);
++	if (!base)
++	{
++		printf("%s:: Cannot allocate memory\n", __func__);
++		return -ENOMEM;
++	}
++
++	u8 active_image = readb(base + ACTIVE_IMAGE_OFFSET);
++
++	if (active_image == IMAGE_A)
++	{
++		boot_addr = SECONDARY_FIT_IMAGE_START_ADDR;
++	}
++	else
++	{
++		boot_addr = PRIMARY_FIT_IMAGE_START_ADDR;
++	}
++
++	iounmap(base);
++
++	return (boot_addr);
++}
++
++/**
++ * @brief
++ * This function sets active image value to battery backed register
++ * based on fit image boot address
++ *
++ * @param ulong fit image boot address
++ *
++ * @return SUCCESS; ENOMEM, otherwise
++ */
++static int set_bb_active_image_value(ulong boot_addr)
++{
++	u8 active_image = 0;
++	void __iomem *base;
++
++	if (boot_addr == SECONDARY_FIT_IMAGE_START_ADDR)
++	{
++		active_image = IMAGE_B;
++	}
++	else
++	{
++		active_image = IMAGE_A;
++	}
++
++	base = ioremap(BASE_ADDRESS, SZ_64);
++	if (!base)
++	{
++		printf("%s:: Cannot allocate memory\n", __func__);
++		return -ENOMEM;
++	}
++
++	writel(UNLOCK_BB_REG_VALUE, base);
++	writeb(active_image, base + ACTIVE_IMAGE_OFFSET);
++
++	iounmap(base);
++
++	return SUCCESS;
++}
++
++/**
++ * @brief
++ * This function sets fit image boot address to environment variable
++ *
++ * @param ulong fit image boot address
++ *
++ * @return SUCCESS; ERROR, otherwise
++ */
++static int set_env_boot_address(ulong boot_addr)
++{
++	char buf[ENV_STRING_MAX] = {0};
++
++	if (snprintf(buf, ENV_STRING_MAX , "%s%x", BOOTCMD_BOOTM_STR, boot_addr) < 0)
++	{
++		printf("Failed to add boot command string\n");
++		return ERROR;
++	}
++
++	if (env_set("bootcmd", buf) || env_save())
++	{
++		printf("Failed to set environment variable\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
++/**
++ * @brief
++ * This function sets active image value to BB register
++ *
++ * @param ulong fit image boot address
++ *
++ * @return SUCCESS; ERROR, otherwise
++ */
++static int set_boot_address(ulong boot_addr)
++{
++	int rc = ERROR;
++	u8 pc_type = get_pc_type();
++
++	if (boot_addr == PRIMARY_FIT_IMAGE_START_ADDR)
++	{
++		boot_addr = SECONDARY_FIT_IMAGE_START_ADDR;
++	}
++	else
++	{
++		boot_addr = PRIMARY_FIT_IMAGE_START_ADDR;
++	}
++
++	// Set active image value to BB register
++	rc = set_bb_active_image_value(boot_addr);
++	if (rc != SUCCESS)
++	{
++		printf("Failed to set active image value to battery backed register\n");
++		return ERROR;
++	}
++
++	// Set fit image boot address to environment variable
++	rc = set_env_boot_address(boot_addr);
++	if (rc != SUCCESS)
++	{
++		printf("Failed to set fit image boot address to environment variable\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
+ static int flash_image(void) {
+ 	struct spi_flash *flash_dev;
+ 	struct udevice *new_dev, *bus_dev;
+@@ -998,10 +1160,19 @@ static int flash_image(void) {
+ 
+ void start_fw_update_loop(void)
+ {
+-	int rc;
+-	ulong boot_addr;
++	int rc = ERROR;
+ 	char boot_cmd[20];
+ 
++	// Get fit image boot address
++	ulong boot_address = get_boot_address();
++	if ((boot_address != PRIMARY_FIT_IMAGE_START_ADDR) &&
++	    (boot_address != SECONDARY_FIT_IMAGE_START_ADDR))
++	{
++		printf("Invalid boot address: %lx\n", boot_address);
++		boot_address = PRIMARY_FIT_IMAGE_START_ADDR;
++		printf("Setting default partition: %lx\n", boot_address);
++	}
++
+ 	while (1) {
+ 		if (g_fwupd_settings.random_number_valid) {
+ 			/* Random number should be cleared after 30seconds */
+@@ -1035,8 +1206,28 @@ void start_fw_update_loop(void)
+ 			if (rc == SUCCESS) {
+ 				update_processing_status(UPDATE_SUCCESSFUL, 100);
+ 				printf("Flash completed\n");
++
++				// Set fit image boot address
++				rc = set_boot_address(boot_address);
++				if (rc == ERROR)
++				{
++					printf("Failed to set fit image boot address\n");
++					update_processing_status(UPDATE_ERROR, 100);
++
++					/* Adding delay to make consumer gets status */
++					mdelay(WAIT_STATE_TIMEOUT);
++
++					reset_all_settings();
++					continue;
++				}
+ 			} else {
+ 				update_processing_status(UPDATE_ERROR, 100);
++
++				/* Adding delay to make consumer gets status */
++				mdelay(WAIT_STATE_TIMEOUT);
++
++				reset_all_settings();
++				continue;
+ 			}
+ 
+ 			if (g_fwupd_settings.options_value & DEFER_BMC_RST_BIT)
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+index 5674d8e058..7749cd98ff 100644
+--- a/board/aspeed/ast2600_intel/fw-update.h
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -3,11 +3,14 @@
+ 
+ #include <common.h>
+ #include <image.h>
++#include <linux/io.h>
++#include <linux/sizes.h>
+ 
+ #define IMAGE_LOAD_RAM_ADDR             0x83000000
+ 
+ /* SPI flash map */
+-#define PRIMARY_FIT_IMAGE_START_ADDR    0x20b00000
++#define PRIMARY_FIT_IMAGE_START_ADDR    0x20B00000
++#define SECONDARY_FIT_IMAGE_START_ADDR  0x240A0000
+ #define MAX_FIT_IMAGE_SIZE              0x1F00000
+ #define UBOOT_IMAGE_START_ADDR          0x00
+ #define MAX_UBOOT_IMAGE_SIZE            0x80000
+@@ -25,6 +28,12 @@
+ #define DEFER_BMC_RST_BIT               0x02
+ #define SHA2_INTEGRITY_BIT              0x04
+ 
++#define BASE_ADDRESS                    0x1E6EF000
++#define ACTIVE_IMAGE_OFFSET             0x100
++#define UNLOCK_BB_REG_VALUE             0xDBA078E2
++#define IMAGE_A                         0x01
++#define IMAGE_B                         0x02
++
+ enum boot_image {
+ 	PRIMARY_IMAGE = 0x01
+ };
+-- 
+2.25.1
+

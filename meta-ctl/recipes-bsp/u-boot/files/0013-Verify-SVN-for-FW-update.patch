@@ -1,0 +1,117 @@
+From c51151ef4986ebaf5ce0585e1e8e86b8cbdfde03 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Fri, 23 Sep 2022 05:06:27 +0000
+Subject: [PATCH] Verify SVN for FW update
+
+Checks SVN before FW update
+
+Tested:
+SVN check passed before firmware update
+
+Signed-off-by: Gade-Rajasekhar Reddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/fw-update.c | 46 ++++++++++++++++++++++++++
+ board/aspeed/ast2600_intel/fw-update.h |  4 ++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index 85f9ebd291..128ab9fc0d 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -23,6 +23,7 @@
+ static ulong get_boot_address(void);
+ int init_spi_dev(void);
+ static int verify_image(bool size_check);
++static int verify_SVN(void);
+ 
+ extern struct fwupd_global_setting g_fwupd_settings;
+ extern u32 g_write_addr;
+@@ -802,6 +803,45 @@ static bool is_signature_valid(struct b0b1_signature* sig, bool check_root_key)
+ 	return SUCCESS;
+ }
+ 
++/**
++ * @brief
++ * This function verify Security Version Number of
++ * image to be flashed with SVN from environment
++ * variable.
++ *
++ * @param none
++ *
++ * @return SUCCESS; ERROR, otherwise
++ */
++
++static int verify_SVN(void)
++{
++        struct pfm* pfm_struct = (struct pfm*) (IMAGE_LOAD_RAM_ADDR + PFM_IMAGE_OFFSET);
++
++	uint64_t image_svn = pfm_struct->svn;
++	uint64_t env_svn;
++
++	// Checks for valid SVN range of 0 - 63
++	if (image_svn >= SVN_MAX)
++	{
++		printf("Invalid SVN\n");
++		return ERROR;
++	}
++
++	// SVN will be in power of 2 [(2 ^ n) -1]
++	image_svn = (1 << image_svn) -1;
++
++	env_svn = env_get_ulong("svn", 10, 0);
++
++	if (image_svn < env_svn)
++	{
++		printf("FW SVN: %llu, is less than expected SVN: %llu\n", image_svn, env_svn);
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
+ int verify_spi_pfm(void)
+ {
+ 	int rc = ERROR;
+@@ -1141,6 +1181,12 @@ static int flash_image(void) {
+ 	u32 uboot_offset;
+ 	bool rot_a_update_done = false;
+ 
++	if (ERROR == verify_SVN())
++	{
++		printf("Verify SVN failed\n");
++		return ERROR;
++	}
++
+ 	// When booted with active partition, FW update done on passive partition.
+ 	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
+ 	{
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+index f69150c8d7..ba65783b2c 100644
+--- a/board/aspeed/ast2600_intel/fw-update.h
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -20,10 +20,11 @@
+ #define BLOCKS_SKIP                     0xA80
+ #define FIT_IMAGE_BLOCK                 0xb00
+ #define UBOOT_START_BLOCK               0x10
+-
+ #define MAX_FILENAME_LENGTH             256
+ #define RAND_NUMBER_SIZE                8
+ #define MAX_PFM_SIZE                    0x20000
++#define PFM_IMAGE_OFFSET                0x800
++#define SVN_MAX                         64
+ 
+ #define SUCCESS                         0
+ #define ERROR                           1
+@@ -43,6 +44,7 @@
+ #define ROT_UPDATER_ENABLED             1
+ #define ROT_UPDATER_DISABLED            0
+ 
++
+ enum boot_image {
+ 	PRIMARY_IMAGE = 0x01
+ };
+-- 
+2.25.1
+

@@ -1,0 +1,140 @@
+From 8eb04edcb3fd54f03f76d5b7e2ec7d97302b8ba1 Mon Sep 17 00:00:00 2001
+From: Anoop S <anoopx.s@intel.com>
+Date: Wed, 14 Jun 2023 11:49:59 +0000
+Subject: [PATCH] CTL:Fix for wrong image boot after firmware update
+
+After successful firmware update BMC failed to boot with intended
+partition. This change fixes by removing the corrupt partition register
+check from boot condition. This also includes clearing corresponding
+bit in corrupt partition register in case of successful boot.
+
+Test Result:
+1. After firmware update System up and running.
+2. Corrupted uboot-A, system booted completely
+   with image-B(uboot-B and kernel-B).
+3.Corrupted uboot-B, system booted completely
+   with image-A(uboot-A and kernel-A).
+4.Corrupted Kernel-A, system booted completely
+   with image-B(uboot-B and kernel-B).
+5.Corrupted Kernel-B, system booted completely
+   with image-A(uboot-A and kernel-A).
+6.both uboots and kernels are Corrupted, system
+  will not boot beyond SPL and stay in SPL.
+
+Signed-off-by: Anoop S <anoopx.s@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/intel.c |  2 ++
+ common/spl/spl_ram.c               |  8 ++++----
+ include/secureboot_bbsram.h        | 24 ++++++++++++++++++++++--
+ 3 files changed, 28 insertions(+), 6 deletions(-)
+
+diff --git a/board/aspeed/ast2600_intel/intel.c b/board/aspeed/ast2600_intel/intel.c
+index c0520f7d05..0a300e692b 100644
+--- a/board/aspeed/ast2600_intel/intel.c
++++ b/board/aspeed/ast2600_intel/intel.c
+@@ -9,6 +9,7 @@
+ #include <malloc.h>
+ #include <wdt.h>
+ #include <pwm.h>
++#include <secureboot_bbsram.h>
+ 
+ #define SYS_PWR_RESET_FLAG	BIT(0) /* from scu_info.c */
+ #define WATCHDOG_RESET_BIT	BIT(20)
+@@ -721,6 +722,7 @@ int board_late_init(void)
+ 	board_id = get_board_id();
+ 	printf("Board ID: 0x%02x\n", board_id);
+ 	set_dtb(board_id);
++	clear_boot_failure_bit();
+ 
+ 	/* Update the special mode in bootargs */
+ 	if (gd->reset_reason & SYS_PWR_RESET_FLAG && is_mfg_mode_phy_req())
+diff --git a/common/spl/spl_ram.c b/common/spl/spl_ram.c
+index dfa2271796..2dbdb6035c 100644
+--- a/common/spl/spl_ram.c
++++ b/common/spl/spl_ram.c
+@@ -48,7 +48,7 @@ static ulong spl_ram_load_read(struct spl_load_info *load, ulong sector,
+ 	      __func__, sector, count, (ulong)buf);
+         u32 img_sel = readl(BBSRAM_BASE + BBSRAM_BOOT_SUCCESS);
+         u32 img_fail = readl(BBSRAM_BASE + BBSRAM_BOOT_FAIL);
+-        if ((img_sel == IMAGE_A) && !(img_fail & MASK_VALUE_IMAGE_A)) {
++        if (img_sel == IMAGE_A) {
+             if(ABR_INDICATOR) {
+                 memcpy(buf, (void *)(CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_B + sector), count);
+             }
+@@ -57,7 +57,7 @@ static ulong spl_ram_load_read(struct spl_load_info *load, ulong sector,
+                 memcpy(buf, (void *)(CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A + sector), count);
+             }
+         }
+-        else if ((img_sel == IMAGE_B) && !(img_fail & MASK_VALUE_IMAGE_B)) {
++        else if (img_sel == IMAGE_B) {
+             if(ABR_INDICATOR) {
+                 memcpy(buf, (void *)(CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A + sector), count);
+             }
+@@ -97,7 +97,7 @@ static int spl_ram_load_image(struct spl_image_info *spl_image,
+         }
+         u32 img_sel = readl(BBSRAM_BASE + BBSRAM_BOOT_SUCCESS);
+         u32 img_fail = readl(BBSRAM_BASE + BBSRAM_BOOT_FAIL);
+-        if ((img_sel == IMAGE_A) && !(img_fail & MASK_VALUE_IMAGE_A)) {
++        if (img_sel == IMAGE_A) {
+             printf("\n Loading from Uboot-A ...");
+ 	    /* If the Source indicator is set, the uboot-A is preset in 0x04010000
+ 	     * address and load uboot from that address.
+@@ -109,7 +109,7 @@ static int spl_ram_load_image(struct spl_image_info *spl_image,
+                 header = (struct image_header *)CONFIG_SPL_LOAD_FIT_ADDRESS_IMAGE_A;
+             }
+         }
+-        else if ((img_sel == IMAGE_B) && !(img_fail & MASK_VALUE_IMAGE_B)) {
++        else if (img_sel == IMAGE_B) {
+             printf("\n Loading from Uboot-B ...");
+ 	    /* If the Source indicator is set, the uboot-B is preset in 0x00010000
+              * address and load uboot from that address.
+diff --git a/include/secureboot_bbsram.h b/include/secureboot_bbsram.h
+index 029e7310bf..501ec5ae5a 100644
+--- a/include/secureboot_bbsram.h
++++ b/include/secureboot_bbsram.h
+@@ -13,8 +13,9 @@
+ #define BBSRAM_BOOT_FAILURE     0x104
+ #define PROTECTION_KEY_UNLOCK   0xDBA078E2
+ #define PROTECTION_KEY_LOCK     0xFFFFFFFF
+-#define MASK_VALUE_IMAGE_A      1
+-#define MASK_VALUE_IMAGE_B      (1 << 1)
++#define MASK_VALUE_IMAGE_A      BIT(0)
++#define MASK_VALUE_IMAGE_B      BIT(1)
++#define MASK_VALUE_IMAGE_BOTH   MASK_VALUE_IMAGE_A | MASK_VALUE_IMAGE_B
+ 
+ enum {
+         IMAGE_NONE        = 0x00,
+@@ -26,6 +27,7 @@ enum {
+ static int secureboot_image_recovery (void)
+ {
+     u32 img_fail = readl(BBSRAM_BASE + BBSRAM_BOOT_FAILURE);
++    img_fail = img_fail & MASK_VALUE_IMAGE_BOTH;
+     writel(PROTECTION_KEY_UNLOCK, BBSRAM_BASE);
+     if (img_fail == BOTH_IMAGE_FAILED)
+     {
+@@ -69,4 +71,22 @@ static int secureboot_image_recovery (void)
+     writel(PROTECTION_KEY_LOCK, BBSRAM_BASE);
+ }
+ 
++static void clear_boot_failure_bit()
++{
++    u32 img_sel = readl(BBSRAM_BASE + BBSRAM_BOOT_SUCCESS);
++    u32 img_fail = readl(BBSRAM_BASE + BBSRAM_BOOT_FAILURE);
++    writel(PROTECTION_KEY_UNLOCK, BBSRAM_BASE);
++    if (img_sel == IMAGE_A)
++    {
++        img_fail = img_fail & (~MASK_VALUE_IMAGE_A);
++        writel(img_fail, BBSRAM_BASE + BBSRAM_BOOT_FAILURE);
++    }
++    else if (img_sel == IMAGE_B)
++    {
++        img_fail = img_fail & (~MASK_VALUE_IMAGE_B);
++        writel(img_fail, BBSRAM_BASE + BBSRAM_BOOT_FAILURE);
++    }
++    writel(PROTECTION_KEY_LOCK, BBSRAM_BASE);
++}
++
+ #endif
+-- 
+2.17.1

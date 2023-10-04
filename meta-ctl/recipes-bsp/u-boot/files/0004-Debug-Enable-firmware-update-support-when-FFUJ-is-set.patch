@@ -1,0 +1,167 @@
+From afb47494c87f66677fd0aed5d5afac8fd96129f4 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Tue, 5 Jul 2022 01:56:58 +0000
+Subject: [PATCH] Enable firmware update support when FFUJ is set
+
+Description of changes made in this patch:
+1. Added "intel_ffuj_enabled" API that allows easy reading
+    of the FFUJ from other functions, such as abortboot.
+    This API inturn call read_ffuj and gets the status of FFUJ.
+2. When FFUJ is set, "start fw update loop" is triggered for
+    accepting KCS data and serial console is disabled for key inputs
+    till flash is completed.
+3. Post FFUJ check, intel_failed_boot is called instead of gpio_abort
+    to avoid repeated call to read_ffuj.
+4. Moved intel_ffuj_enabled() call after "bootdelay" check.
+    so, the user can enter into uboot command line interface on hitting any key.
+
+Tested:
+1. Uboot shell login enabled by hitting any key (autoboot aborted)
+2. When FFUJ is set, boot stops at u-boot
+    Serial console inputs are disabled and
+    accepts the FW update KCS commands
+    Once flash complete,
+        - System reboots if No Differ reboot is selected from Update Option command (0x2B)
+        - Serial console input is enabled if Differ reboot is selected from Update Option command (0x2B)
+3. When FFUJ is unset and boot failure detected,
+    then boot stops at u-boot and serial console input is enabled
+4. When FFUJ is unset and no boot failure, then it allows normal kernel boot
+
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ .../include/asm/arch-aspeed/ast-2600-intel.h  | 20 ++++++++++++++++++
+ arch/arm/include/asm/arch-aspeed/platform.h   |  1 +
+ board/aspeed/ast2600_intel/fw-update.c        | 12 +++++------
+ board/aspeed/ast2600_intel/intel.c            |  8 +++++++
+ common/autoboot.c                             | 21 +++++++++++++++++--
+ 5 files changed, 54 insertions(+), 8 deletions(-)
+ create mode 100644 arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
+
+diff --git a/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h b/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
+new file mode 100644
+index 0000000000..d8980397c6
+--- /dev/null
++++ b/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
+@@ -0,0 +1,20 @@
++/*
++ * Copyright 2022 Intel Corporation
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++
++#ifndef __AST_INTEL_2600_H__
++#define __AST_INTEL_2600_H__
++
++#define AST_2600_INTEL 1
++
++#ifndef __ASSEMBLY__
++int intel_ffuj_enabled(void);
++void start_fw_update_loop(void);
++#endif
++
++#endif /* __AST_INTEL_2600_H__ */
+diff --git a/arch/arm/include/asm/arch-aspeed/platform.h b/arch/arm/include/asm/arch-aspeed/platform.h
+index f016bdaba3..fe03468e1e 100644
+--- a/arch/arm/include/asm/arch-aspeed/platform.h
++++ b/arch/arm/include/asm/arch-aspeed/platform.h
+@@ -55,6 +55,7 @@
+ #define ASPEED_SRAM_BASE	0x10000000
+ #define ASPEED_SRAM_SIZE	0x16000
+ #define ASPEED_FMC_CS0_BASE	0x20000000
++#include <asm/arch/ast-2600-intel.h>
+ #else
+ #err "No define for platform.h"
+ #endif
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index 70f3912ba6..10b39283d3 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -1028,24 +1028,24 @@ void start_fw_update_loop(void)
+ 			rc = flash_image();
+ 			if (rc == SUCCESS) {
+ 				update_processing_status(UPDATE_SUCCESSFUL, 100);
++				printf("Flash completed\n");
+ 			} else {
+ 				update_processing_status(UPDATE_ERROR, 100);
+ 			}
+ 
+-			/* Adding delay to make sure consumer gets status */
+-			mdelay(WAIT_STATE_TIMEOUT);
+-
+-			reset_all_settings();
+-
+ 			if (g_fwupd_settings.options_value & DEFER_BMC_RST_BIT)
+ 			{
+ 				update_processing_status(AC_CYCLE_REQUIRED, 100);
++
++				/* Adding delay to make sure consumer gets status */
++				mdelay(WAIT_STATE_TIMEOUT);
++				reset_all_settings();
++				break;
+ 			}
+ 			else
+ 			{
+ 				do_reset(NULL, 0, 0, NULL);
+ 			}
+-			break;
+ 		}
+ 		mdelay(WAIT_STATE_TIMEOUT);
+ 	}
+diff --git a/board/aspeed/ast2600_intel/intel.c b/board/aspeed/ast2600_intel/intel.c
+index 51ad801b58..070d1de800 100644
+--- a/board/aspeed/ast2600_intel/intel.c
++++ b/board/aspeed/ast2600_intel/intel.c
+@@ -107,6 +107,14 @@ int read_ffuj(void)
+ 	return 0;
+ }
+ 
++int intel_ffuj_enabled(void)
++{
++	int ffuj = 0;
++	ffuj = read_ffuj();
++	printf("FFUJ: %d\n", ffuj);
++	return ffuj <= 0 ? 0 : 1;
++}
++
+ /* gpio_abort is a weak symbol in common/autoboot.c */
+ int gpio_abort(void)
+ {
+diff --git a/common/autoboot.c b/common/autoboot.c
+index e23de568fe..329e679b32 100644
+--- a/common/autoboot.c
++++ b/common/autoboot.c
+@@ -274,8 +274,25 @@ static int abortboot(int bootdelay)
+ 	if (bootdelay >= 0)
+ 		abort = __abortboot(bootdelay);
+ 
+-	if (!abort)
+-		abort =	gpio_abort();
++	/*
++	 * Check ffuj to abort the autoboot and start fw update loop.
++	 * This also disables serial console input till flash is completed.
++	 */
++	if (!abort && intel_ffuj_enabled())
++	{
++		printf ("FFUJ jumper is asserted so booting stops at u-boot and "
++				"accept only FW update commands via KCS\n");
++		start_fw_update_loop();
++		/* Control can reach here when Defer BMC Restart selected at debug mode */
++		abort=1;
++		goto exit;
++	}
++
++	if (intel_failed_boot())
++	{
++		abort=1;
++		goto exit;
++	}
+ 
+ #ifdef CONFIG_SILENT_CONSOLE
+ 	if (abort)
+-- 
+2.25.1
+

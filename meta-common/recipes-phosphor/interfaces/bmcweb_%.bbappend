@@ -57,13 +57,31 @@ SRC_URI += " \
 
 # EventService: Temporary pulled to downstream. See eventservice\README for details
 SRC_URI += " \
+            file://eventservice/0001-Conditional-verify-certificate-check-in-HttpClient.patch \
+            file://eventservice/0002-Remove-Base-registry-from-Supported-Registries.patch \
+            file://eventservice/0004-Log-Redfish-Events-for-all-subscription-actions.patch \
+            file://eventservice/0006-DeliveryRetryPolicy-support-for-EventDestination.patch \
+            file://eventservice/0007-Add-Configure-Self-support-for-Event-Subscriptions.patch \
+            file://eventservice/0008-Adopt-upstream-ConnectionPolicy.patch \
+            file://eventservice/0009-Fix-SSE-Subscription-with-upstream-sync.patch \
+            file://eventservice/0010-Add-EventService-SSE-filter-support.patch \
+            file://eventservice/0011-Fix-for-EventService-subscription-collection-fail.patch \
 "
 
 # Temporary downstream mirror of upstream patches, see telemetry\README for details
-SRC_URI += " "
+SRC_URI += " file://telemetry/0001-Revert-Remove-LogService-from-TelemetryService.patch \
+             file://telemetry/0004-Add-PUT-and-PATCH-for-MetricReportDefinition.patch \
+             file://telemetry/0006-Improved-telemetry-service-error-handling.patch \
+             file://telemetry/0007-Add-telemetry-triggers-to-the-message-registry.patch \
+             file://telemetry/0008-Restore-PUT-method-for-MRD.patch \
+"
 
 # Temporary downstream patch for routing and privilege changes
-SRC_URI += " "
+SRC_URI += " \
+            file://http_routing/0001-Fix-Adaptor-scope-issue-in-upgraded-connection.patch \
+            file://http_routing/0002-Move-privileges-to-separate-entity.patch \
+            file://http_routing/0003-Add-Privileges-to-SSE-and-Websockets.patch \
+"
 
 # ACPI LogService:
 SRC_URI += " \
@@ -87,10 +105,18 @@ SRC_URI += "file://power_utility.hpp;subdir=git/redfish-core/lib/node-manager \
 "
 
 # OOB Config features:
-SRC_URI += " "
+SRC_URI += " \
+            file://oob-config/0001-Adding-schema-for-OnDemand-Oem-URI-s.patch \
+            file://oob-config/0002-Optimising-the-License-Service-as-per-the-review-com.patch \
+"
 
 # Telemetry Features:
-SRC_URI += " "
+SRC_URI += " \
+            file://telemetry-pkg/0001-cups-service-schema-XML-files-added.patch \
+            file://telemetry-pkg/0002-cups-service-features-added.patch \
+            file://telemetry-pkg/0003-Kafka-streaming-configuration-support.patch \
+            file://telemetry-pkg/0004-Redfish-Schema-for-Kafka-Streaming-Support.patch \
+"
 
 # Enable PFR support
 EXTRA_OEMESON += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', '-Dredfish-provisioning-feature=enabled', '', d)}"

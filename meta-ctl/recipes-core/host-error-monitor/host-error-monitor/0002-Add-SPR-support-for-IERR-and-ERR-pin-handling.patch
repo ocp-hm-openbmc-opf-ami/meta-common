@@ -1,0 +1,167 @@
+From fa0c1bd9b26f0db74922f4874412d16ae3ff35f8 Mon Sep 17 00:00:00 2001
+From: "Jason M. Bills" <jason.m.bills@linux.intel.com>
+Date: Tue, 9 Mar 2021 16:06:21 -0800
+Subject: [PATCH] Add SPR support for IERR and ERR pin handling
+
+This adds support for SPR for the CPU-specific register reads
+on IERR and ERR[x].
+
+Tested:
+Confirmed that the registers can be read successfully on Archer
+City
+
+Change-Id: Ic48a29f8a47c722cda0d247b7e42f15bef211514
+Signed-off-by: Jason M. Bills <jason.m.bills@linux.intel.com>
+Upstream-Status: Pending
+---
+ include/error_monitors/ierr_monitor.hpp | 105 ++++++++++++++++++++++++
+ include/host_error_monitor.hpp          |  17 ++++
+ 2 files changed, 122 insertions(+)
+
+diff --git a/include/error_monitors/ierr_monitor.hpp b/include/error_monitors/ierr_monitor.hpp
+index 7fda1af..bb8b461 100644
+--- a/include/error_monitors/ierr_monitor.hpp
++++ b/include/error_monitors/ierr_monitor.hpp
+@@ -299,6 +299,111 @@ class IERRMonitor :
+                     }
+                     break;
+                 }
++                case spr:
++                {
++                    // First check the MCA_ERR_SRC_LOG to see if this is the CPU
++                    // that caused the IERR
++                    uint32_t mcaErrSrcLog = 0;
++                    peciStatus = peci_RdPkgConfig(addr, 0, 5, 4,
++                                                  (uint8_t*)&mcaErrSrcLog, &cc);
++                    if (peciError(peciStatus, cc))
++                    {
++                        printPECIError("MCA_ERR_SRC_LOG", addr, peciStatus, cc);
++                        continue;
++                    }
++                    // Check MSMI_INTERNAL (20) and IERR_INTERNAL (27)
++                    if ((mcaErrSrcLog & (1 << 20)) ||
++                        (mcaErrSrcLog & (1 << 27)))
++                    {
++                        // TODO: Light the CPU fault LED?
++                        cpuIERRFound = true;
++                        incrementCPUErrorCount(cpu);
++                        // Next check if it's a CPU/VR mismatch by reading the
++                        // IA32_MC4_STATUS MSR (0x411)
++                        uint64_t mc4Status = 0;
++                        peciStatus =
++                            peci_RdIAMSR(addr, 0, 0x411, &mc4Status, &cc);
++                        if (peciError(peciStatus, cc))
++                        {
++                            printPECIError("IA32_MC4_STATUS", addr, peciStatus,
++                                           cc);
++                            continue;
++                        }
++                        // Check MSEC bits 31:24 for
++                        // MCA_SVID_VCCIN_VR_ICC_MAX_FAILURE (0x40),
++                        // MCA_SVID_VCCIN_VR_VOUT_FAILURE (0x42), or
++                        // MCA_SVID_CPU_VR_CAPABILITY_ERROR (0x43)
++                        uint64_t msec = (mc4Status >> 24) & 0xFF;
++                        if (msec == 0x40 || msec == 0x42 || msec == 0x43)
++                        {
++                            cpuIERRLog(cpu, "CPU/VR Mismatch");
++                            continue;
++                        }
++
++                        // Next check if it's a Core FIVR fault by looking for a
++                        // non-zero value of CORE_FIVR_ERR_LOG (B(31) D30 F6
++                        // offsets 90h and 94h)
++                        uint32_t coreFIVRErrLog0 = 0;
++                        uint32_t coreFIVRErrLog1 = 0;
++                        peciStatus = peci_RdEndPointConfigPciLocal(
++                            addr, 0, 31, 30, 6, 0x90, sizeof(uint32_t),
++                            (uint8_t*)&coreFIVRErrLog0, &cc);
++                        if (peciError(peciStatus, cc))
++                        {
++                            printPECIError("CORE_FIVR_ERR_LOG_0", addr,
++                                           peciStatus, cc);
++                            continue;
++                        }
++                        peciStatus = peci_RdEndPointConfigPciLocal(
++                            addr, 0, 31, 30, 6, 0x94, sizeof(uint32_t),
++                            (uint8_t*)&coreFIVRErrLog1, &cc);
++                        if (peciError(peciStatus, cc))
++                        {
++                            printPECIError("CORE_FIVR_ERR_LOG_1", addr,
++                                           peciStatus, cc);
++                            continue;
++                        }
++                        if (coreFIVRErrLog0 || coreFIVRErrLog1)
++                        {
++                            cpuIERRLog(cpu, "Core FIVR Fault");
++                            continue;
++                        }
++
++                        // Next check if it's an Uncore FIVR fault by looking
++                        // for a non-zero value of UNCORE_FIVR_ERR_LOG (B(31)
++                        // D30 F2 offset 84h)
++                        uint32_t uncoreFIVRErrLog = 0;
++                        peciStatus = peci_RdEndPointConfigPciLocal(
++                            addr, 0, 31, 30, 2, 0x84, sizeof(uint32_t),
++                            (uint8_t*)&uncoreFIVRErrLog, &cc);
++                        if (peciError(peciStatus, cc))
++                        {
++                            printPECIError("UNCORE_FIVR_ERR_LOG", addr,
++                                           peciStatus, cc);
++                            continue;
++                        }
++                        if (uncoreFIVRErrLog)
++                        {
++                            cpuIERRLog(cpu, "Uncore FIVR Fault");
++                            continue;
++                        }
++
++                        // TODO: Update MSEC/MSCOD_31_24 check
++                        // Last if CORE_FIVR_ERR_LOG and UNCORE_FIVR_ERR_LOG are
++                        // both zero, but MSEC bits 31:24 have either
++                        // MCA_FIVR_CATAS_OVERVOL_FAULT (0x51) or
++                        // MCA_FIVR_CATAS_OVERCUR_FAULT (0x52), then log it as
++                        // an uncore FIVR fault
++                        if (!coreFIVRErrLog0 && !coreFIVRErrLog1 &&
++                            !uncoreFIVRErrLog && (msec == 0x51 || msec == 0x52))
++                        {
++                            cpuIERRLog(cpu, "Uncore FIVR Fault");
++                            continue;
++                        }
++                        cpuIERRLog(cpu);
++                    }
++                    break;
++                }
+             }
+         }
+ #endif
+diff --git a/include/host_error_monitor.hpp b/include/host_error_monitor.hpp
+index 8a3d90b..7828343 100644
+--- a/include/host_error_monitor.hpp
++++ b/include/host_error_monitor.hpp
+@@ -185,6 +185,23 @@ static void checkErrPinCPUs(const size_t errPin,
+                 errPinCPUs[cpu] = (errpinsts & (1 << errPin)) != 0;
+                 break;
+             }
++            case spr:
++            {
++                // Check the ERRPINSTS to see if this is the CPU that
++                // caused the ERRx (B(30) D0 F3 offset 274h)
++                uint32_t errpinsts = 0;
++                peciStatus = peci_RdEndPointConfigPciLocal(
++                    addr, 0, 30, 0, 3, 0x274, sizeof(uint32_t),
++                    (uint8_t*)&errpinsts, &cc);
++                if (peciError(peciStatus, cc))
++                {
++                    printPECIError("ERRPINSTS", addr, peciStatus, cc);
++                    continue;
++                }
++
++                errPinCPUs[cpu] = (errpinsts & (1 << errPin)) != 0;
++                break;
++            }
+             case icx:
+             {
+                 // Check the ERRPINSTS to see if this is the CPU that
+-- 
+2.25.1
+

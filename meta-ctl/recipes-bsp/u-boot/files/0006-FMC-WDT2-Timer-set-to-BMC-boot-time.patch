@@ -1,0 +1,69 @@
+From 717924b03628325df740a4947afc20568986f4bb Mon Sep 17 00:00:00 2001
+From: Anoop S <anoopx.s@intel.com>
+Date: Thu, 4 Aug 2022 05:19:39 +0000
+Subject: [PATCH] FMC_WDT2 set to BMC boot time.
+
+Enable FMC_WDT2 Timer and set the value around 15s.
+The ROT image boot time around 6s.So with buffer time
+kept the FMC_WDT2 Timer value as 15s.
+
+Tetsed
+Flashed the image and system is booting fine.
+Enable the ABR by manually and bmc is booted fine before FMC_WDT2 Timer
+expired.
+
+Signed-off-by: Anoop S <anoopx.s@intel.com>
+
+%% original patch: 0006-FMC-WDT2-Timer-set-to-BMC-boot-time.patch
+
+%% original patch: 0006-FMC-WDT2-Timer-set-to-BMC-boot-time.patch
+Upstream-Status: Pending
+---
+ arch/arm/mach-aspeed/ast2600/platform.S | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/mach-aspeed/ast2600/platform.S b/arch/arm/mach-aspeed/ast2600/platform.S
+index 1d2dbc9831..ef272099b4 100644
+--- a/arch/arm/mach-aspeed/ast2600/platform.S
++++ b/arch/arm/mach-aspeed/ast2600/platform.S
+@@ -63,6 +63,7 @@
+ #define AST_FMC_SW_RST_CTRL	(AST_FMC_BASE + 0x050)
+ #define AST_FMC_WDT1_CTRL_MODE	(AST_FMC_BASE + 0x060)
+ #define AST_FMC_WDT2_CTRL_MODE	(AST_FMC_BASE + 0x064)
++#define AST_FMC_WDT2_TIMER_RELOAD  (AST_FMC_BASE + 0x068)
+ 
+ #define AST_MAC1_BASE		(0x1E660000)
+ #define AST_MAC1_CTRL2		(AST_MAC1_BASE + 0x058)
+@@ -98,6 +99,10 @@
+ #define REV_ID_AST2600A1	0x05010303
+ #define REV_ID_AST2620A1	0x05010203
+ 
++/* Boot time for the ROT image is around 6s .
++ * So with buffer, it was kept as 15 secs. */
++#define AST_FMC_WDT2_TIMER_VALUE 0x00000096
++
+ .macro scu_unlock
+ 	movw	r0, #0xA8A8
+ 	movt	r0, #0x1688	@; magic key to unlock SCU
+@@ -371,9 +376,15 @@ wait_lock:
+ 	ldr   r1, =0x00000013
+ 	str   r1, [r0]
+ #endif
+-#if 0
+-	ldr	r1, =AST_FMC_WDT2_CTRL_MODE
+-	str	r0, [r1]
++#ifdef CONFIG_HW_WATCHDOG
++        /* Enable FMC_WDT2 Timer set to BMC boot time. */
++        ldr     r1, =AST_FMC_WDT2_CTRL_MODE
++        str     r0, [r1]
++
++        ldr   r0, =AST_FMC_WDT2_TIMER_RELOAD
++        ldr   r1, =AST_FMC_WDT2_TIMER_VALUE
++        str   r1, [r0]
++
+ #endif
+ 
+ 	/* do not fill FMC50[1] if boot from eMMC */
+-- 
+2.17.1
+

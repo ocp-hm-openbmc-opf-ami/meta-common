@@ -1,0 +1,590 @@
+From 1ebeeefbe686d7814bdabc9fd1f4e59d000c1ed8 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Tue, 27 Jun 2023 06:37:30 +0000
+Subject: [PATCH] Add support for crashlog collection in Redfish
+
+Added following crashlog APIs
+requestRoutesCrashlogService(app);
+requestRoutesCrashlogEntryCollection(app);
+requestRoutesCrashlogEntry(app);
+requestRoutesCrashlogFile(app);
+requestRoutesCrashlogClear(app);
+
+Tested:
+Verified Crashlog collection
+
+Signed-off-by: Gade-Rajasekhar Reddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Signed-off-by: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Upstream-Status: Pending
+
+---
+ redfish-core/include/redfish.hpp  |  12 +-
+ redfish-core/lib/log_services.hpp | 509 +++++++++++++++++++++++++++++-
+ 2 files changed, 511 insertions(+), 10 deletions(-)
+
+diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
+index e3f00bf1..83793df6 100644
+--- a/redfish-core/include/redfish.hpp
++++ b/redfish-core/include/redfish.hpp
+@@ -185,12 +185,12 @@ class RedfishService
+ #endif
+ 
+ #ifdef BMCWEB_ENABLE_REDFISH_CPU_LOG
+-        requestRoutesCrashdumpService(app);
+-        requestRoutesCrashdumpEntryCollection(app);
+-        requestRoutesCrashdumpEntry(app);
+-        requestRoutesCrashdumpFile(app);
+-        requestRoutesCrashdumpClear(app);
+-        requestRoutesCrashdumpCollect(app);
++        requestRoutesCrashlogService(app);
++        requestRoutesCrashlogEntryCollection(app);
++        requestRoutesCrashlogEntry(app);
++        requestRoutesCrashlogFile(app);
++        requestRoutesCrashlogClear(app);
++        requestRoutesCrashlogCollect(app);
+         requestRoutesSendRawPECI(app);
+ #endif // BMCWEB_ENABLE_REDFISH_CPU_LOG
+ 
+diff --git a/redfish-core/lib/log_services.hpp b/redfish-core/lib/log_services.hpp
+index b64de764..481748a5 100644
+--- a/redfish-core/lib/log_services.hpp
++++ b/redfish-core/lib/log_services.hpp
+@@ -1125,10 +1125,15 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
+ #endif
+ 
+ #ifdef BMCWEB_ENABLE_REDFISH_CPU_LOG
+-        nlohmann::json::object_t crashdump;
+-        crashdump["@odata.id"] =
+-            "/redfish/v1/Systems/system/LogServices/Crashdump";
+-        logServiceArray.emplace_back(std::move(crashdump));
++        // nlohmann::json::object_t crashdump;
++        // crashdump["@odata.id"] =
++        //    "/redfish/v1/Systems/system/LogServices/Crashdump";
++        // logServiceArray.push_back(std::move(crashdump));
++
++        nlohmann::json::object_t crashlog;
++        crashlog["@odata.id"] =
++            "/redfish/v1/Systems/system/LogServices/Crashlog";
++        logServiceArray.push_back(std::move(crashlog));
+ #endif
+ 
+         nlohmann::json::object_t acpilogger;
+@@ -3484,6 +3489,7 @@ enum class OEMDiagnosticType
+ {
+     onDemand,
+     telemetry,
++    systemDiagnostics,
+     invalid,
+ };
+ 
+@@ -3497,6 +3503,10 @@ inline OEMDiagnosticType getOEMDiagnosticType(std::string_view oemDiagStr)
+     {
+         return OEMDiagnosticType::telemetry;
+     }
++    if (oemDiagStr == "SystemDiagnostics")
++    {
++        return OEMDiagnosticType::systemDiagnostics;
++    }
+ 
+     return OEMDiagnosticType::invalid;
+ }
+@@ -4537,4 +4547,495 @@ inline void requestRoutesAcpiFile(App& app)
+         });
+ }
+ 
++// CRASHLOG changes START
++constexpr const char* crashlogObject = "com.intel.crashlog";
++constexpr const char* crashlogPath = "/xyz/openbmc_project/dump/crashlog";
++constexpr const char* crashlogInterface = "com.intel.crashlog";
++constexpr const char* crashlogSystemDiagnosticsInterface =
++    "xyz.openbmc_project.Dump.Create";
++
++using GetManagedPropertyType =
++    boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
++
++using GetManagedObjectsType = boost::container::flat_map<
++    sdbusplus::message::object_path,
++    boost::container::flat_map<std::string, GetManagedPropertyType>>;
++
++static void logCrashlogEntry(
++    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string logID,
++    boost::container::flat_map<std::string, GetManagedPropertyType> interfaces,
++    nlohmann::json& logEntryJson)
++{
++    uint64_t size = 0;
++
++    for (auto& [interface, properties] : interfaces)
++    {
++        if (interface == "xyz.openbmc_project.Dump.Entry")
++        {
++            for (auto& [property, value] : properties)
++            {
++                if (property == "Size")
++                {
++                    const uint64_t* sizePtr = std::get_if<uint64_t>(&value);
++                    if (sizePtr == nullptr)
++                    {
++                        messages::internalError(asyncResp->res);
++                        break;
++                    }
++                    size = *sizePtr;
++                    break;
++                }
++            }
++        }
++        else if (interface == "xyz.openbmc_project.Time.EpochTime")
++        {
++            for (auto& [property, value] : properties)
++            {
++                if (property == "Elapsed")
++                {
++                    const uint64_t* usecsTimeStamp =
++                        std::get_if<uint64_t>(&value);
++                    if (usecsTimeStamp == nullptr)
++                    {
++                        messages::internalError(asyncResp->res);
++                        break;
++                    }
++                    break;
++                }
++            }
++        }
++    }
++
++    std::filesystem::path crashlogURI =
++        std::filesystem::path(
++            "/redfish/v1/Systems/system/LogServices/Crashlog/Entries") /
++        logID / logID;
++    crashlogURI.replace_extension(".zip");
++    nlohmann::json logEntry = {{"@odata.type", "#LogEntry.v1_9_0.LogEntry"},
++                               {"@odata.id", "/redfish/v1/Systems/system/"
++                                             "LogServices/Crashlog/Entries/" +
++                                                 logID},
++                               {"Name", "CPU Crashlog"},
++                               {"Id", logID},
++                               {"EntryType", "Oem"},
++                               {"AdditionalDataURI", std::move(crashlogURI)},
++                               {"AdditionalDataSizeBytes", std::move(size)},
++                               {"DiagnosticDataType", "OEM"},
++                               {"OEMDiagnosticDataType", "SystemDiagnostics"}};
++
++    // If logEntryJson references an array of LogEntry resources ('Members'
++    // list), then push this as a new entry, otherwise set it directly
++    if (logEntryJson.is_array())
++    {
++        logEntryJson.push_back(logEntry);
++        asyncResp->res.jsonValue["Members@odata.count"] = logEntryJson.size();
++    }
++    else
++    {
++        logEntryJson = logEntry;
++    }
++}
++
++inline void requestRoutesCrashlogService(App& app)
++{
++    // Note: Deviated from redfish privilege registry for GET & HEAD
++    // method for security reasons.
++    /**
++     * Functions triggers appropriate requests on DBus
++     */
++    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Crashlog/")
++        // This is incorrect, should be:
++        //.privileges(redfish::privileges::getLogService)
++        .privileges({{"ConfigureManager"}})
++        .methods(boost::beast::http::verb::get)(
++            [&app](const crow::Request& req,
++                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
++                   const std::string& systemName) {
++        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
++        {
++            return;
++        }
++        if (systemName != "system")
++        {
++            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
++                                       systemName);
++            return;
++        }
++
++        // Copy over the static data to include the entries added by
++        // SubRoute
++        asyncResp->res.jsonValue["@odata.id"] =
++            "/redfish/v1/Systems/system/LogServices/Crashlog";
++        asyncResp->res.jsonValue["@odata.type"] =
++            "#LogService.v1_2_0.LogService";
++        asyncResp->res.jsonValue["Name"] = "Open BMC Oem Crashlog Service";
++        asyncResp->res.jsonValue["Description"] = "Oem Crashlog Service";
++        asyncResp->res.jsonValue["Id"] = "Oem Crashlog";
++        asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
++        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1;
++
++        std::pair<std::string, std::string> redfishDateTimeOffset =
++            redfish::time_utils::getDateTimeOffsetNow();
++        asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
++        asyncResp->res.jsonValue["DateTimeLocalOffset"] =
++            redfishDateTimeOffset.second;
++
++        asyncResp->res.jsonValue["Entries"]["@odata.id"] =
++            "/redfish/v1/Systems/system/LogServices/Crashlog/Entries";
++        asyncResp->res.jsonValue["Actions"]["#LogService.ClearLog"]["target"] =
++            "/redfish/v1/Systems/system/LogServices/Crashlog/Actions/LogService.ClearLog";
++        asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"]
++                                ["target"] =
++            "/redfish/v1/Systems/system/LogServices/Crashlog/Actions/LogService.CollectDiagnosticData";
++
++        asyncResp->res.jsonValue["Actions"]["Oem"] = {
++            {"#Crashlog.SendRawPeci",
++             {{"target",
++               "/redfish/v1/Systems/system/LogServices/Crashlog/Actions/Oem/Crashlog.SendRawPeci"}}}};
++        });
++}
++
++void inline requestRoutesCrashlogClear(App& app)
++{
++    BMCWEB_ROUTE(
++        app,
++        "/redfish/v1/Systems/<str>/LogServices/Crashlog/Actions/LogService.ClearLog/")
++        // This is incorrect, should be:
++        //.privileges(redfish::privileges::postLogService)
++        .privileges({{"ConfigureComponents"}})
++        .methods(boost::beast::http::verb::post)(
++            [&app](const crow::Request& req,
++                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
++                   const std::string& systemName) {
++        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
++        {
++            return;
++        }
++        if (systemName != "system")
++        {
++            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
++                                       systemName);
++            return;
++        }
++        crow::connections::systemBus->async_method_call(
++            [asyncResp](const boost::system::error_code ec,
++                        const std::string&) {
++            if (ec)
++            {
++                messages::internalError(asyncResp->res);
++                return;
++            }
++            messages::success(asyncResp->res);
++            },
++            crashlogObject, crashlogPath, deleteAllInterface, "DeleteAll");
++        });
++}
++
++inline void requestRoutesCrashlogEntryCollection(App& app)
++{
++    // Note: Deviated from redfish privilege registry for GET & HEAD
++    // method for security reasons.
++    /**
++     * Functions triggers appropriate requests on DBus
++     */
++    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Crashlog/Entries/")
++        // This is incorrect, should be.
++        //.privileges(redfish::privileges::postLogEntryCollection)
++        .privileges({{"ConfigureComponents"}})
++        .methods(boost::beast::http::verb::get)(
++            [&app](const crow::Request& req,
++                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
++                   const std::string& systemName) {
++        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
++        {
++            return;
++        }
++        if (systemName != "system")
++        {
++            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
++                                       systemName);
++            return;
++        }
++
++        asyncResp->res.jsonValue["@odata.type"] =
++            "#LogEntryCollection.LogEntryCollection";
++        asyncResp->res.jsonValue["@odata.id"] =
++            "/redfish/v1/Systems/system/LogServices/Crashlog/Entries";
++        asyncResp->res.jsonValue["Name"] = "Open BMC Crashlog Entries";
++        asyncResp->res.jsonValue["Description"] =
++            "Collection of Crashlog Entries";
++        asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
++        asyncResp->res.jsonValue["Members@odata.count"] = 0;
++
++        crow::connections::systemBus->async_method_call(
++            [asyncResp](const boost::system::error_code ec,
++                        GetManagedObjectsType& resp) {
++            if (ec)
++            {
++                BMCWEB_LOG_DEBUG("failed to get crashlog entries ec: {}",
++                                 ec.message());
++                messages::internalError(asyncResp->res);
++                return;
++            }
++            for (auto& [path, interfaces] : resp)
++            {
++                // Add the log entry to the array
++                logCrashlogEntry(asyncResp, path.filename(), interfaces,
++                                 asyncResp->res.jsonValue["Members"]);
++            }
++            },
++            "com.intel.crashlog", "/xyz/openbmc_project/dump/crashlog",
++            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
++        });
++}
++
++inline void requestRoutesCrashlogEntry(App& app)
++{
++    // Note: Deviated from redfish privilege registry for GET & HEAD
++    // method for security reasons.
++
++    BMCWEB_ROUTE(
++        app, "/redfish/v1/Systems/<str>/LogServices/Crashlog/Entries/<str>/")
++        // this is incorrect, should be
++        // .privileges(redfish::privileges::getLogEntry)
++        .privileges({{"ConfigureComponents"}})
++        .methods(boost::beast::http::verb::get)(
++            [&app](const crow::Request& req,
++                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
++                   const std::string& systemName, const std::string& param) {
++        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
++        {
++            return;
++        }
++        if (systemName != "system")
++        {
++            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
++                                       systemName);
++            return;
++        }
++        const std::string& logID = param;
++
++        if (!boost::starts_with(logID, "crashlog"))
++        {
++            messages::resourceNotFound(asyncResp->res, "LogEntry", logID);
++            return;
++        }
++        crow::connections::systemBus->async_method_call(
++            [asyncResp, logID](const boost::system::error_code ec,
++                               GetManagedObjectsType& resp) {
++            if (ec)
++            {
++                BMCWEB_LOG_DEBUG("failed to get crashlog entries ec: {}",
++                                 ec.message());
++                messages::internalError(asyncResp->res);
++                return;
++            }
++
++            for (auto& [path, interfaces] : resp)
++            {
++                if (path.filename() == logID)
++                {
++                    logCrashlogEntry(asyncResp, path.filename(), interfaces,
++                                     asyncResp->res.jsonValue);
++                    return;
++                }
++            }
++
++            // No log entry found, so return an error
++            messages::resourceNotFound(asyncResp->res, "LogEntry", logID);
++            },
++            "com.intel.crashlog", "/xyz/openbmc_project/dump/crashlog",
++            "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
++        });
++}
++
++inline void requestRoutesCrashlogFile(App& app)
++{
++    // Note: Deviated from redfish privilege registry for GET & HEAD
++    // method for security reasons.
++    BMCWEB_ROUTE(
++        app,
++        "/redfish/v1/Systems/<str>/LogServices/Crashlog/Entries/<str>/<str>/")
++        .privileges(redfish::privileges::getLogEntry)
++        .methods(boost::beast::http::verb::get)(
++            [](const crow::Request& req,
++               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
++               const std::string& systemName, const std::string& logID,
++               const std::string& fileName) {
++        // Do not call getRedfishRoute here since the crashlog file is not a
++        // Redfish resource.
++
++        if (systemName != "system")
++        {
++            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
++                                       systemName);
++            return;
++        }
++
++        if (!boost::starts_with(logID, "crashlog"))
++        {
++            messages::resourceNotFound(asyncResp->res, "LogEntry", logID);
++            return;
++        }
++        // Strip out any potential paths and keep just the filename
++        // from fileName.  Then check that the filename is what was
++        // requested
++        const std::filesystem::path fileNameClean =
++            std::filesystem::path(fileName).filename();
++        if (fileNameClean != fileName)
++        {
++            messages::internalError(asyncResp->res);
++            return;
++        }
++
++        std::filesystem::path filePath = "/tmp/crashlog" / fileNameClean;
++
++        // The stem() should now match the logID, so check it to
++        // make sure the full URI was correct
++        if (filePath.stem() != logID)
++        {
++            messages::internalError(asyncResp->res);
++            return;
++        }
++
++        // Check that the file exists and is not a symlink to
++        // another file
++        if (!std::filesystem::exists(filePath))
++        {
++            messages::resourceMissingAtURI(asyncResp->res, req.url());
++            return;
++        }
++        if (std::filesystem::is_symlink(filePath))
++        {
++            messages::internalError(asyncResp->res);
++            return;
++        }
++
++        std::ifstream ifs(filePath, std::ios::in | std::ios::binary);
++        asyncResp->res.body() = std::string(std::istreambuf_iterator<char>{ifs},
++                                            {});
++
++        // Configure this to be a file download when accessed from
++        // a browser
++        asyncResp->res.addHeader("Content-Disposition", "attachment");
++        });
++}
++
++inline void requestRoutesCrashlogCollect(App& app)
++{
++    // Note: Deviated from redfish privilege registry for GET & HEAD
++    // method for security reasons.
++    BMCWEB_ROUTE(
++        app,
++        "/redfish/v1/Systems/<str>/LogServices/Crashlog/Actions/LogService.CollectDiagnosticData/")
++        // The below is incorrect;  Should be ConfigureManager
++        //.privileges(redfish::privileges::postLogService)
++        .privileges({{"ConfigureComponents"}})
++        .methods(boost::beast::http::verb::post)(
++            [&app](const crow::Request& req,
++                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
++                   const std::string& systemName) {
++        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
++        {
++            return;
++        }
++
++        if (systemName != "system")
++        {
++            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
++                                       systemName);
++            return;
++        }
++
++        std::string diagnosticDataType;
++        std::string oemDiagnosticDataType;
++        if (!redfish::json_util::readJsonAction(
++                req, asyncResp->res, "DiagnosticDataType", diagnosticDataType,
++                "OEMDiagnosticDataType", oemDiagnosticDataType))
++        {
++            return;
++        }
++
++        if (diagnosticDataType != "OEM")
++        {
++            BMCWEB_LOG_ERROR(
++                "Only OEM DiagnosticDataType supported for Crashlog");
++            messages::actionParameterValueFormatError(
++                asyncResp->res, diagnosticDataType, "DiagnosticDataType",
++                "CollectDiagnosticData");
++            return;
++        }
++
++        OEMDiagnosticType oemDiagType =
++            getOEMDiagnosticType(oemDiagnosticDataType);
++
++        std::string iface;
++        std::string method;
++        std::string taskMatchStr;
++
++        if (oemDiagType == OEMDiagnosticType::systemDiagnostics)
++        {
++            iface = crashlogSystemDiagnosticsInterface;
++            method = "CreateDump";
++            taskMatchStr = "type='signal',"
++                           "interface='org.freedesktop.DBus.ObjectManager',"
++                           "member='InterfacesAdded',"
++                           "path='xyz/openbmc_project/dump/crashlog'";
++        }
++        else
++        {
++            BMCWEB_LOG_ERROR("Unsupported OEMDiagnosticDataType: {}",
++                             oemDiagnosticDataType);
++            messages::actionParameterValueFormatError(
++                asyncResp->res, oemDiagnosticDataType, "OEMDiagnosticDataType",
++                "CollectDiagnosticData");
++            return;
++        }
++
++        auto collectCrashlogCallback =
++            [asyncResp, payload(task::Payload(req)),
++             taskMatchStr](const boost::system::error_code ec,
++                           const std::string&) mutable {
++            if (ec)
++            {
++                if (ec.value() == boost::system::errc::operation_not_supported)
++                {
++                    messages::resourceInStandby(asyncResp->res);
++                }
++                else if (ec.value() ==
++                         boost::system::errc::device_or_resource_busy)
++                {
++                    messages::serviceTemporarilyUnavailable(asyncResp->res,
++                                                            "60");
++                }
++                else
++                {
++                    messages::internalError(asyncResp->res);
++                }
++                return;
++            }
++            std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
++                [](boost::system::error_code err, sdbusplus::message_t&,
++                   const std::shared_ptr<task::TaskData>& taskData) {
++                if (!err)
++                {
++                    taskData->messages.emplace_back(messages::taskCompletedOK(
++                        std::to_string(taskData->index)));
++                    taskData->state = "Completed";
++                }
++                return task::completed;
++                },
++                taskMatchStr);
++
++            task->startTimer(std::chrono::minutes(5));
++            task->populateResp(asyncResp->res);
++            task->payload.emplace(std::move(payload));
++        };
++
++        crow::connections::systemBus->async_method_call(
++            std::move(collectCrashlogCallback), crashlogObject, crashlogPath,
++            iface, method);
++        });
++}
++
+ } // namespace redfish
+-- 
+2.25.1
+

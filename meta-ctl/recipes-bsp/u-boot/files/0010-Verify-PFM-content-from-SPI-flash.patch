@@ -1,0 +1,235 @@
+From 327f3b9c7a0b1f62beee73de25d469fc747475bf Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Wed, 17 Aug 2022 18:21:11 +0000
+Subject: [PATCH] Verify PFM content from SPI flash
+
+Reads PFM content from SPI flash at boot time.
+Verifies PFM content.
+
+Tested:
+Read PFM content from SPI flash
+Verified PFM content
+
+Signed-off-by: Gade-RajasekharReddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ .../include/asm/arch-aspeed/ast-2600-intel.h  |  1 +
+ board/aspeed/ast2600_intel/fw-update.c        | 82 +++++++++++++++++--
+ board/aspeed/ast2600_intel/fw-update.h        |  2 +
+ common/autoboot.c                             |  6 ++
+ 4 files changed, 82 insertions(+), 9 deletions(-)
+
+diff --git a/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h b/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
+index d8980397c6..2de960773e 100644
+--- a/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
++++ b/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
+@@ -15,6 +15,7 @@
+ #ifndef __ASSEMBLY__
+ int intel_ffuj_enabled(void);
+ void start_fw_update_loop(void);
++int verify_spi_pfm(void);
+ #endif
+ 
+ #endif /* __AST_INTEL_2600_H__ */
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index 971fa6fbbd..dc2552f08c 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -22,6 +22,7 @@
+ 
+ static ulong get_boot_address(void);
+ int init_spi_dev(void);
++static int verify_image(bool size_check);
+ 
+ extern struct fwupd_global_setting g_fwupd_settings;
+ extern u32 g_write_addr;
+@@ -121,6 +122,7 @@ struct cancel_payload
+ } __attribute__((packed));
+ 
+ uint32_t pfr_pc_type_bmc_update = 0x04;
++uint32_t pc_type_bmc_pfm = 0x03;
+ uint32_t pc_type_rot_update = 0xf1;
+ uint32_t pfr_pc_type_cancel_cert = 0x100;
+ size_t pfr_bmc_max_size = 32 * 1024 * 1024;    // 32 MB
+@@ -173,6 +175,7 @@ uint32_t curve_secp256r1 = 0xc7b88c74;
+ uint32_t curve_secp384r1 = 0x08f07b47;
+ uint32_t sig_magic_secp256r1 = 0xde64437d;
+ uint32_t sig_magic_secp384r1 = 0xea2a50e9;
++uint32_t perm_sign_bmc_pfm = 0x04;
+ uint32_t pfr_perm_sign_bmc_update = 0x08;
+ uint32_t perm_sign_rot_update = 0x08;
+ uint32_t pfr_perm_sign_all = -1;
+@@ -360,7 +363,9 @@ static bool is_block0_valid(const struct blk0* b0, const uint8_t* protected_cont
+ 	// Verify length of Protected Content (PC) is not larger than allowed
+ 	uint32_t pc_type = b0->pc_type;
+ 
+-	if ( (pc_type == pfr_pc_type_bmc_update) || (pc_type == pc_type_rot_update) )
++	if ((pc_type == pfr_pc_type_bmc_update) ||
++			(pc_type == pc_type_rot_update) ||
++			(pc_type == pc_type_bmc_pfm))
+ 	{
+ 		// For PFM, there's no max size, but it should be smaller than a capsule
+ 		// size for sure.
+@@ -528,7 +533,11 @@ static bool is_root_entry_valid(const struct key_entry* root_entry,
+ 
+ static inline uint32_t get_required_perm(uint32_t pc_type)
+ {
+-	if (pc_type == pfr_pc_type_bmc_update)
++	if (pc_type == pc_type_bmc_pfm)
++	{
++		return perm_sign_bmc_pfm;
++	}
++	else if (pc_type == pfr_pc_type_bmc_update)
+ 	{
+ 		return pfr_perm_sign_bmc_update;
+ 	}
+@@ -793,7 +802,49 @@ static bool is_signature_valid(struct b0b1_signature* sig, bool check_root_key)
+ 	return SUCCESS;
+ }
+ 
+-static int verify_image(void)
++int verify_spi_pfm(void)
++{
++	int rc = ERROR;
++	bool size_check = false;
++	ulong *buf = IMAGE_LOAD_RAM_ADDR;
++	ulong pfm_offset;
++
++	// Get active partition PFM start address
++	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
++	{
++		pfm_offset = SECONDARY_PFM_START_ADDR;
++	}
++	else
++	{
++		pfm_offset = PRIMARY_PFM_START_ADDR;
++	}
++
++	// Initialize SPI flash device
++	rc = init_spi_dev();
++	if (rc == ERROR) {
++		printf("SPI flash init error\n");
++		return ERROR;
++	}
++
++	// Copy PFM content from SPI flash region and place it to RAM
++	rc = spi_flash_read(flash_dev, pfm_offset, MAX_PFM_SIZE, buf);
++	if (rc)
++	{
++		printf("spi_flash_read error\n");
++		return ERROR;
++	}
++
++	// Skip size check only for PFM verify
++	rc = verify_image(size_check);
++	if (rc == ERROR) {
++		printf("PFM image verification failed\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
++static int verify_image(bool size_check)
+ {
+ 	uint32_t img_size = g_write_addr;
+ 	bool check_root_key = true;
+@@ -803,11 +854,14 @@ static int verify_image(void)
+ 
+ 	struct b0b1_signature *sig = (struct b0b1_signature *)(base_addr);
+ 
+-	// check for basic shape
+-	if (img_size < blk0blk1_size || (sig->b0.pc_length + blk0blk1_size) != img_size)
++	if (size_check == true)
+ 	{
+-		printf("Bad file size\n");
+-		return ERROR;
++		// check for basic shape
++		if (img_size < blk0blk1_size || (sig->b0.pc_length + blk0blk1_size) != img_size)
++		{
++			printf("Bad file size\n");
++			return ERROR;
++		}
+ 	}
+ 
+ 	// check signature
+@@ -860,7 +914,7 @@ static ulong get_boot_address(void)
+ 
+ 	u8 active_image = readb(base + ACTIVE_IMAGE_OFFSET);
+ 
+-	if (active_image == IMAGE_A)
++	if (active_image == IMAGE_B)
+ 	{
+ 		boot_addr = SECONDARY_FIT_IMAGE_START_ADDR;
+ 	}
+@@ -1084,6 +1138,15 @@ static int flash_image(void) {
+ 	u32 dev_offset = PRIMARY_IMAGE_OFFSET;
+ 	u32 blocks_to_skip = 0;
+ 
++	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
++	{
++		dev_offset = PRIMARY_IMAGE_OFFSET;
++	}
++	else
++	{
++		dev_offset = SECONDARY_IMAGE_OFFSET;
++	}
++
+ 	// walk the bitmap, erase and copy
+ 	offset += (blk0blk1_size * 2); // one blk0blk1 for package, one for pfm signature
+ 
+@@ -1249,6 +1312,7 @@ static int flash_image(void) {
+ void start_fw_update_loop(void)
+ {
+ 	int rc = ERROR;
++	bool size_check = true;
+ 	char boot_cmd[20];
+ 
+ 	// Get fit image boot address
+@@ -1291,7 +1355,7 @@ void start_fw_update_loop(void)
+ 
+ 			update_processing_status(IMG_VALIDATING, 0);
+ 
+-			rc = verify_image();
++			rc = verify_image(size_check);
+ 			if (rc == ERROR) {
+ 				update_processing_status(UPDATE_ERROR, 100);
+ 				/* Adding delay to make consumer gets status */
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+index d43351d7a8..591c79b0ae 100644
+--- a/board/aspeed/ast2600_intel/fw-update.h
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -22,6 +22,7 @@
+ 
+ #define MAX_FILENAME_LENGTH             256
+ #define RAND_NUMBER_SIZE                8
++#define MAX_PFM_SIZE                    0x20000
+ 
+ #define SUCCESS                         0
+ #define ERROR                           1
+@@ -76,3 +77,4 @@ struct fwupd_global_setting {
+ bool fwupd_settings_trylock(void);
+ void fwupd_settings_unlock(void);
+ int generate_random_number(void);
++
+diff --git a/common/autoboot.c b/common/autoboot.c
+index beff3bd307..2b440c620a 100644
+--- a/common/autoboot.c
++++ b/common/autoboot.c
+@@ -292,6 +292,12 @@ static int abortboot(int bootdelay)
+ 		goto exit;
+ 	}
+ 
++	if (verify_spi_pfm())
++	{
++		abort=1;
++		goto exit;
++	}
++
+ #ifdef CONFIG_SILENT_CONSOLE
+ 	if (abort)
+ 		gd->flags &= ~GD_FLG_SILENT;
+-- 
+2.25.1
+

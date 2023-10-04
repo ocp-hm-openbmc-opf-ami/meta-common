@@ -1,0 +1,75 @@
+From d6b795e6b07ea7b00d0457d5fe408c0e4eba89d4 Mon Sep 17 00:00:00 2001
+From: Anoop S <anoopx.s@intel.com>
+Date: Fri, 30 Sep 2022 08:37:55 +0000
+Subject: [PATCH] Changes for Kernel FIT image address
+
+This changes allow to load the kernel from ImageB address depending
+on the Battery Backed register value , also the FIT image will be
+copied to RAM to perform Hardware hash calculation as supported by
+Aspeed Crypto drivers.
+
+Tested:
+1.Set the Battery Backed register value to 0x01 and the Kernel FIT
+image load and booted from the Image A location successfully.
+2.Set the Battery Backed register value to 0x02 and the Kernel FIT
+image load and booted from the Image B location successfully.
+
+Signed-off-by: Anoop S <anoopx.s@intel.com>
+Upstream-Status: Pending
+---
+ env/env.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/env/env.c b/env/env.c
+index 4b417b90a2..42b17adadb 100644
+--- a/env/env.c
++++ b/env/env.c
+@@ -6,6 +6,7 @@
+ 
+ #include <common.h>
+ #include <environment.h>
++#include <asm/io.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+@@ -174,6 +175,28 @@ int env_get_char(int index)
+ 		return env_get_char_spec(index);
+ }
+ 
++void env_set_bootcmd(void)
++{
++        /* Read the BBSRAM Register and if the value in the register is 0x02 switch
++        * to FIT ImageB
++        */
++        #define BBSRAM_BASE 0x1E6EF000
++        #define BBSRAM_OFFSET 0x100
++        #define IMAGE_B 0x02
++        /* The function hw_sha256 from  the file aspeed_hace.c, uses sha_digest
++        * internally which checks if the data is present in the RAM otherwise
++        * throw error. As per the Aspeed secure boot design document we are
++        * loading the image to SRAM then using the crypto engine to verify .
++        * To align with ImageA same done below in the case of ImageB.
++        */
++        #define BOOT_COMMAND_IMAGE_B "fdt addr 240A0000 && fdt header get fitsize totalsize && cp.b 240A0000 83000000 ${fitsize} && bootm; echo Error loading kernel FIT image"
++        u32 img_sel = readl(BBSRAM_BASE + BBSRAM_OFFSET);
++        if(img_sel == IMAGE_B)
++        {
++            env_set("bootcmd", BOOT_COMMAND_IMAGE_B);
++        }
++}
++
+ int env_load(void)
+ {
+ 	struct env_driver *drv;
+@@ -198,6 +221,8 @@ int env_load(void)
+ 		ret = drv->load();
+ 		if (!ret) {
+ 			printf("OK\n");
++                        /* Handle kernel FIT image switch */
++                        env_set_bootcmd();
+ 			return 0;
+ 		} else if (ret == -ENOMSG) {
+ 			/* Handle "bad CRC" case */
+-- 
+2.17.1
+

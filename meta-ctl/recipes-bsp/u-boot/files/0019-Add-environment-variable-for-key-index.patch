@@ -1,0 +1,103 @@
+From a1d5ab834d3bd3287bf7b36705ba3b2f9104a716 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Fri, 21 Oct 2022 12:31:20 +0000
+Subject: [PATCH] Add environment variable for key index
+
+Get Secure Boot Key Number Register and
+add to environment variable key-index
+
+Tested:
+Key index updated to environment variable
+
+Signed-off-by: Gade-Rajasekhar Reddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ .../include/asm/arch-aspeed/ast-2600-intel.h  |  1 +
+ board/aspeed/ast2600_intel/fw-update.c        | 26 +++++++++++++++++++
+ board/aspeed/ast2600_intel/fw-update.h        |  2 +-
+ common/autoboot.c                             |  6 +++++
+ 4 files changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h b/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
+index 2de960773e..3170417d72 100644
+--- a/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
++++ b/arch/arm/include/asm/arch-aspeed/ast-2600-intel.h
+@@ -16,6 +16,7 @@
+ int intel_ffuj_enabled(void);
+ void start_fw_update_loop(void);
+ int verify_spi_pfm(void);
++int set_key_index(void);
+ #endif
+ 
+ #endif /* __AST_INTEL_2600_H__ */
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index 9be176bf67..72e64c1b33 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -1074,6 +1074,32 @@ static int set_boot_address(ulong boot_addr)
+ 	return SUCCESS;
+ }
+ 
++int set_key_index(void)
++{
++	void __iomem *base;
++	u8 otp_key_index = 0;
++
++	base = ioremap(OTP_KEY_INDEX_ADDR, SZ_64);
++	if (!base)
++	{
++		printf("%s:: Cannot allocate memory\n", __func__);
++		return -ENOMEM;
++	}
++
++	// Extract three bits from Secure Boot Key Number Register
++	otp_key_index = (readb(OTP_KEY_INDEX_ADDR) & 0x03);
++
++	iounmap(base);
++
++	if (env_set_ulong("key-index", otp_key_index) || env_save())
++	{
++		printf("Failed to set key index environment variable\n");
++		return ERROR;
++	}
++
++	return SUCCESS;
++}
++
+ int init_spi_dev(void)
+ {
+ 	struct udevice *new_dev, *bus_dev;
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+index fa674a28d0..416eb0c0ed 100644
+--- a/board/aspeed/ast2600_intel/fw-update.h
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -40,7 +40,7 @@
+ #define UNLOCK_BB_REG_VALUE             0xDBA078E2
+ #define IMAGE_A                         0x01
+ #define IMAGE_B                         0x02
+-
++#define OTP_KEY_INDEX_ADDR              0x1E6F2078
+ 
+ enum boot_image {
+ 	PRIMARY_IMAGE = 0x01
+diff --git a/common/autoboot.c b/common/autoboot.c
+index 0aad385eb8..fcc81d588c 100644
+--- a/common/autoboot.c
++++ b/common/autoboot.c
+@@ -309,6 +309,12 @@ static int abortboot(int bootdelay)
+ 		goto exit;
+ 	}
+ 
++	if (set_key_index())
++	{
++		abort=1;
++		goto exit;
++	}
++
+ #ifdef CONFIG_SILENT_CONSOLE
+ 	if (abort)
+ 		gd->flags &= ~GD_FLG_SILENT;
+-- 
+2.25.1
+

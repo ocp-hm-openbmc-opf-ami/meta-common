@@ -1,0 +1,131 @@
+From bc8af48a3ceda7f53f42518413869801d94cad45 Mon Sep 17 00:00:00 2001
+From: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Date: Wed, 19 Apr 2023 08:20:15 +0000
+Subject: [PATCH] CTL: Add SendRawPECI crashlog API in Redfish
+
+In catlow, crashdump service is removed by commenting call to
+requestRoutesCrashdumpService API. So the link /redfish/v1/Systems/
+system/LogServices/Crashdump/Actions/Oem/Crashdump.SendRawPeci
+is broken.
+To fix this issue, added similar API, requestRoutesCrashlogSendRawPECI
+with different URL /redfish/v1/Systems/system/LogServices/Crashlog/
+Actions/Oem/Crashlog.SendRawPeci
+
+Tested:
+Post operation on below url
+/redfish/v1/Systems/system/LogServices/Crashlog/Actions/Oem/Crashlog.SendRawPeci
+Body: {"PECICommands": [[48, 5, 5, 161, 0, 0, 4, 0]]}
+
+Before changes:
+404 response
+
+After changes:
+Output:
+{
+    "ElapsedTimeMs": 2,
+    "Name": "PECI Command Response",
+    "PECIResponse": [
+        [
+            64,
+            20,
+            1,
+            0,
+            0
+        ]
+    ]
+}
+
+Verified the output with PECI command:
+peci_cmds raw 48 5 5 161 0 0 4 0
+Output:
+0x40 0x14 0x01 0x00 0x00
+
+Signed-off-by: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Upstream-Status: Pending
+---
+ redfish-core/include/redfish.hpp  |  2 +-
+ redfish-core/lib/log_services.hpp | 57 +++++++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
+index 83793df6..a0040138 100644
+--- a/redfish-core/include/redfish.hpp
++++ b/redfish-core/include/redfish.hpp
+@@ -191,7 +191,7 @@ class RedfishService
+         requestRoutesCrashlogFile(app);
+         requestRoutesCrashlogClear(app);
+         requestRoutesCrashlogCollect(app);
+-        requestRoutesSendRawPECI(app);
++        requestRoutesCrashlogSendRawPECI(app);
+ #endif // BMCWEB_ENABLE_REDFISH_CPU_LOG
+ 
+         requestRoutesAcpiService(app);
+diff --git a/redfish-core/lib/log_services.hpp b/redfish-core/lib/log_services.hpp
+index 23c40b67..5c6f093e 100644
+--- a/redfish-core/lib/log_services.hpp
++++ b/redfish-core/lib/log_services.hpp
+@@ -5038,4 +5038,61 @@ inline void requestRoutesCrashlogCollect(App& app)
+         });
+ }
+ 
++inline void requestRoutesCrashlogSendRawPECI(App& app)
++{
++    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/LogServices/Crashlog/"
++                      "Actions/Oem/Crashlog.SendRawPeci/")
++        .privileges({{"ConfigureComponents"}})
++        .methods(boost::beast::http::verb::post)(
++            [](const crow::Request& req,
++               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
++        std::vector<std::vector<uint8_t>> peciCommands;
++        std::optional<std::string> peciDev;
++        std::optional<std::vector<int32_t>> peciTiming;
++
++        if (!json_util::readJsonAction(req, asyncResp->res, "PECICommands",
++                                       peciCommands, "PECIDevice", peciDev,
++                                       "RetryTimingUs", peciTiming))
++        {
++            return;
++        }
++        if (!peciDev)
++        {
++            peciDev = "/dev/peci-default";
++        }
++        else if (!peciDev->starts_with("/dev/peci-"))
++        {
++            messages::actionParameterValueNotInList(
++                asyncResp->res, *peciDev, "PECI Device", "SendRawPeci");
++            return;
++        }
++        if (!peciTiming)
++        {
++            peciTiming = {-1, -1, -1};
++        }
++        sdbusplus::asio::getProperty<std::string>(
++            *crow::connections::systemBus, "xyz.openbmc_project.SpecialMode",
++            "/xyz/openbmc_project/security/special_mode",
++            "xyz.openbmc_project.Security.SpecialMode", "SpecialMode",
++            [asyncResp, peciCommands, peciDev,
++             peciTiming](const boost::system::error_code error,
++                         const std::string& specialModeStr) {
++            if (error)
++            {
++                BMCWEB_LOG_ERROR("DBUS response error {}", error);
++                messages::internalError(asyncResp->res);
++                return;
++            }
++            if (!specialModeStr.ends_with("ValidationUnsecure"))
++            {
++                BMCWEB_LOG_WARNING(
++                    "Manufacturing mode is not Enabled...can't send raw PECI command");
++                messages::insufficientPrivilege(asyncResp->res);
++                return;
++            }
++            executeSendRawPECI(asyncResp, peciCommands, peciDev, peciTiming);
++            });
++        });
++}
++
+ } // namespace redfish
+-- 
+2.25.1
+

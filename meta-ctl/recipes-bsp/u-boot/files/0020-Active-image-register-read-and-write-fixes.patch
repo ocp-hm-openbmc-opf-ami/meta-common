@@ -1,0 +1,295 @@
+From 651646a458a4744a44536d959a57ee592d93f8a3 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Thu, 17 Nov 2022 09:53:10 +0000
+Subject: [PATCH] Active image register read and write fixes
+
+Bug fixes and improvements :
+    1. Active image BB register read & write bug fix and improvements.
+    2. Remove environment variable set for boot address as it is not required.
+    3. Update environment variable name for otp-svn.
+    4. Check invalid boot address and set image-a as default if error.
+    5. Set next boot address after FW update for ROT image type 0xf1.
+    6. Rename primary as image-a and secondary as image-b.
+
+Tested:
+Checked active image BB register read & write values.
+Check image-a is set as default for invalid boot address.
+FW update on image-a, image-b and boot success.
+
+Signed-off-by: Gade-Rajasekhar Reddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/fw-update.c | 98 +++++++++-----------------
+ board/aspeed/ast2600_intel/fw-update.h | 12 ++--
+ 2 files changed, 40 insertions(+), 70 deletions(-)
+
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index 72e64c1b33..64a7ac1ff3 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -431,16 +431,16 @@ static bool is_block0_valid(const struct blk0* b0, const uint8_t* protected_cont
+ static bool root_key_from_pfm(struct key_entry root_key)
+ {
+ 	int err = 1;
+-	ulong root_key_offset = PRIMARY_PFM_START_ADDR;
++	ulong root_key_offset = IMAGE_A_PFM_START_ADDR;
+ 
+ 	// Get active partition PFM address
+-	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
++	if (get_boot_address() == IMAGE_B_FIT_START_ADDR)
+ 	{
+-		root_key_offset = SECONDARY_PFM_START_ADDR;
++		root_key_offset = IMAGE_B_PFM_START_ADDR;
+ 	}
+ 	else
+ 	{
+-		root_key_offset = PRIMARY_PFM_START_ADDR;
++		root_key_offset = IMAGE_A_PFM_START_ADDR;
+ 	}
+ 
+ 	// Seek to blk1 in pfm and read PFM root
+@@ -831,7 +831,7 @@ static int verify_SVN(void)
+ 	// SVN will be in power of 2 [(2 ^ n) -1]
+ 	image_svn = (1 << image_svn) -1;
+ 
+-	env_svn = env_get_ulong("svn", 10, 0);
++	env_svn = env_get_ulong("otp-svn", 10, 0);
+ 
+ 	if (image_svn < env_svn)
+ 	{
+@@ -850,13 +850,13 @@ int verify_spi_pfm(void)
+ 	ulong pfm_offset;
+ 
+ 	// Set PFM start address offset from active partition
+-	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
++	if (get_boot_address() == IMAGE_B_FIT_START_ADDR)
+ 	{
+-		pfm_offset = SECONDARY_PFM_START_ADDR;
++		pfm_offset = IMAGE_B_PFM_START_ADDR;
+ 	}
+ 	else
+ 	{
+-		pfm_offset = PRIMARY_PFM_START_ADDR;
++		pfm_offset = IMAGE_A_PFM_START_ADDR;
+ 	}
+ 
+ 	// Initialize SPI flash device
+@@ -942,7 +942,7 @@ static u8 get_pc_type(void)
+  */
+ static ulong get_boot_address(void)
+ {
+-	ulong boot_addr = PRIMARY_FIT_IMAGE_START_ADDR;
++	ulong boot_addr;
+ 	void __iomem *base;
+ 
+ 	base = ioremap(BASE_ADDRESS, SZ_64);
+@@ -952,15 +952,15 @@ static ulong get_boot_address(void)
+ 		return -ENOMEM;
+ 	}
+ 
+-	u8 active_image = readb(base + ACTIVE_IMAGE_OFFSET);
++	u32 active_image = readl(base + ACTIVE_IMAGE_OFFSET);
+ 
+ 	if (active_image == IMAGE_B)
+ 	{
+-		boot_addr = SECONDARY_FIT_IMAGE_START_ADDR;
++		boot_addr = IMAGE_B_FIT_START_ADDR;
+ 	}
+ 	else
+ 	{
+-		boot_addr = PRIMARY_FIT_IMAGE_START_ADDR;
++		boot_addr = IMAGE_A_FIT_START_ADDR;
+ 	}
+ 
+ 	iounmap(base);
+@@ -979,10 +979,10 @@ static ulong get_boot_address(void)
+  */
+ static int set_bb_active_image_value(ulong boot_addr)
+ {
+-	u8 active_image = 0;
++	u32 active_image;
+ 	void __iomem *base;
+ 
+-	if (boot_addr == SECONDARY_FIT_IMAGE_START_ADDR)
++	if (boot_addr == IMAGE_B_FIT_START_ADDR)
+ 	{
+ 		active_image = IMAGE_B;
+ 	}
+@@ -999,40 +999,13 @@ static int set_bb_active_image_value(ulong boot_addr)
+ 	}
+ 
+ 	writel(UNLOCK_BB_REG_VALUE, base);
+-	writeb(active_image, base + ACTIVE_IMAGE_OFFSET);
++	writel(active_image, base + ACTIVE_IMAGE_OFFSET);
+ 
+ 	iounmap(base);
+ 
+ 	return SUCCESS;
+ }
+ 
+-/**
+- * @brief
+- * This function sets fit image boot address to environment variable
+- *
+- * @param ulong fit image boot address
+- *
+- * @return SUCCESS; ERROR, otherwise
+- */
+-static int set_env_boot_address(ulong boot_addr)
+-{
+-	char buf[ENV_STRING_MAX] = {0};
+-
+-	if (snprintf(buf, ENV_STRING_MAX , "%s%x", BOOTCMD_BOOTM_STR, boot_addr) < 0)
+-	{
+-		printf("Failed to add boot command string\n");
+-		return ERROR;
+-	}
+-
+-	if (env_set("bootcmd", buf) || env_save())
+-	{
+-		printf("Failed to set environment variable\n");
+-		return ERROR;
+-	}
+-
+-	return SUCCESS;
+-}
+-
+ /**
+  * @brief
+  * This function sets active image value to BB register
+@@ -1046,13 +1019,14 @@ static int set_boot_address(ulong boot_addr)
+ 	int rc = ERROR;
+ 	u8 pc_type = get_pc_type();
+ 
+-	if (boot_addr == PRIMARY_FIT_IMAGE_START_ADDR)
++	// Sets active image for next boot
++	if (boot_addr == IMAGE_A_FIT_START_ADDR)
+ 	{
+-		boot_addr = SECONDARY_FIT_IMAGE_START_ADDR;
++		boot_addr = IMAGE_B_FIT_START_ADDR;
+ 	}
+ 	else
+ 	{
+-		boot_addr = PRIMARY_FIT_IMAGE_START_ADDR;
++		boot_addr = IMAGE_A_FIT_START_ADDR;
+ 	}
+ 
+ 	// Set active image value to BB register
+@@ -1063,14 +1037,6 @@ static int set_boot_address(ulong boot_addr)
+ 		return ERROR;
+ 	}
+ 
+-	// Set fit image boot address to environment variable
+-	rc = set_env_boot_address(boot_addr);
+-	if (rc != SUCCESS)
+-	{
+-		printf("Failed to set fit image boot address to environment variable\n");
+-		return ERROR;
+-	}
+-
+ 	return SUCCESS;
+ }
+ 
+@@ -1144,7 +1110,7 @@ static int flash_image(void) {
+ 
+ 	uint32_t offset = IMAGE_LOAD_RAM_ADDR;    //0x83000000;
+ 
+-	u32 dev_offset = PRIMARY_IMAGE_OFFSET;
++	u32 dev_offset = IMAGE_A_OFFSET;
+ 	u32 blocks_to_skip = 0;
+ 	u8 pc_type;
+ 	u32 uboot_offset;
+@@ -1156,18 +1122,22 @@ static int flash_image(void) {
+ 		return ERROR;
+ 	}
+ 
++	pc_type = get_pc_type();
++	printf("Image type: 0x%02x\n", pc_type);
++
+ 	// When booted with active partition, FW update done on passive partition.
+-	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
++	if (get_boot_address() == IMAGE_B_FIT_START_ADDR)
+ 	{
+-		dev_offset = PRIMARY_IMAGE_OFFSET;
++		dev_offset = IMAGE_A_OFFSET;
++		printf("Image-B is active. Updating Image-A\n");
+ 	}
+ 	else
+ 	{
+-		dev_offset = SECONDARY_IMAGE_OFFSET;
++		dev_offset = IMAGE_B_OFFSET;
++		printf("Image-A is active. Updating Image-B\n");
+ 	}
+ 
+ 	uboot_offset = dev_offset;
+-	pc_type = get_pc_type();
+ 
+ 	// walk the bitmap, erase and copy
+ 	offset += (blk0blk1_size * 2); // one blk0blk1 for package, one for pfm signature
+@@ -1199,7 +1169,7 @@ static int flash_image(void) {
+ 	// Un-compress payload and erase, write to SPI flash
+ 	for (uint32_t blk = 0; blk < pbc_hdr->bitmap_size; blk += wr_count)
+ 	{
+-		if ((dev_offset == SECONDARY_IMAGE_OFFSET) && (blk == FIT_IMAGE_BLOCK))
++		if ((dev_offset == IMAGE_B_OFFSET) && (blk == FIT_IMAGE_BLOCK))
+ 		{
+ 			blocks_to_skip = BLOCKS_SKIP;
+ 		}
+@@ -1210,11 +1180,11 @@ static int flash_image(void) {
+ 		if (!rot_a_update_done)
+ 		{
+ 			if ((pc_type == pc_type_rot_update) &&
+-				(uboot_offset == SECONDARY_IMAGE_OFFSET))
++				(uboot_offset == IMAGE_B_OFFSET))
+ 			{
+ 				if ((blk == 0))
+ 				{
+-					dev_offset = PRIMARY_IMAGE_OFFSET;
++					dev_offset = IMAGE_A_OFFSET;
+ 				}
+ 				else if (blk == UBOOT_START_BLOCK)
+ 				{
+@@ -1359,11 +1329,11 @@ void start_fw_update_loop(void)
+ 
+ 	// Get fit image boot address
+ 	ulong boot_address = get_boot_address();
+-	if ((boot_address != PRIMARY_FIT_IMAGE_START_ADDR) &&
+-	    (boot_address != SECONDARY_FIT_IMAGE_START_ADDR))
++	if ((boot_address != IMAGE_A_FIT_START_ADDR) &&
++	    (boot_address != IMAGE_B_FIT_START_ADDR))
+ 	{
+ 		printf("Invalid boot address: %lx\n", boot_address);
+-		boot_address = PRIMARY_FIT_IMAGE_START_ADDR;
++		boot_address = IMAGE_A_FIT_START_ADDR;
+ 		printf("Setting default partition: %lx\n", boot_address);
+ 	}
+ 
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+index 416eb0c0ed..5861521623 100644
+--- a/board/aspeed/ast2600_intel/fw-update.h
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -9,14 +9,14 @@
+ #define IMAGE_LOAD_RAM_ADDR             0x83000000
+ 
+ /* SPI flash map */
+-#define PRIMARY_FIT_IMAGE_START_ADDR    0x20B00000
+-#define SECONDARY_FIT_IMAGE_START_ADDR  0x240A0000
++#define IMAGE_A_FIT_START_ADDR          0x20B00000
++#define IMAGE_B_FIT_START_ADDR          0x240A0000
+ #define MAX_FIT_IMAGE_SIZE              0x1F00000
+ #define PFM_ADDRESS                     0x80000
+-#define PRIMARY_PFM_START_ADDR          0x20080000
+-#define SECONDARY_PFM_START_ADDR        0x24080000
+-#define PRIMARY_IMAGE_OFFSET            0x00
+-#define SECONDARY_IMAGE_OFFSET          0x04000000
++#define IMAGE_A_PFM_START_ADDR          0x20080000
++#define IMAGE_B_PFM_START_ADDR          0x24080000
++#define IMAGE_A_OFFSET                  0x00
++#define IMAGE_B_OFFSET                  0x04000000
+ #define BLOCKS_SKIP                     0xA60
+ #define FIT_IMAGE_BLOCK                 0xb00
+ #define UBOOT_START_BLOCK               0x10
+-- 
+2.25.1
+

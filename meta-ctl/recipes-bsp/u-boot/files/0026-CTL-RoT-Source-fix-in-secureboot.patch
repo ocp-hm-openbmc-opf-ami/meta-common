@@ -1,0 +1,62 @@
+From 5b9a6c941e119dc76ff66a2f76e918e1c96cd4b5 Mon Sep 17 00:00:00 2001
+From: Anoop S <anoopx.s@intel.com>
+Date: Fri, 24 Feb 2023 05:57:44 +0000
+Subject: [PATCH] CTL:RoT Source fix in secureboot
+
+This changes for fix RoT source issue.It will display
+image source depending on the image selected.
+
+Test Result:
+1.Flashed the image and system booting fine.
+2.Flashing the image using dediprog and system booting
+  "Source ROT : Primary" in uboot serial log.
+3.Primary-ROT- Corrupted and system booting as
+  "Source ROT : Secondary" in uboot serial log.
+4.Secondary-ROT-Corrupted and system booting as
+  "Source ROT : Primary" in uboot serial log.
+5.U-boot-A Corrupted and system booting as
+  "Source ROT : Primary" in uboot serial log.
+6.U-boot-B-corrupted and system booting as
+  "Source ROT : Primary" in uboot serial log.
+
+Signed-off-by: Anoop S <anoopx.s@intel.com>
+Upstream-Status: Pending
+---
+ arch/arm/mach-aspeed/ast2600/scu_info.c | 3 ---
+ common/spl/spl_ram.c                    | 2 ++
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/mach-aspeed/ast2600/scu_info.c b/arch/arm/mach-aspeed/ast2600/scu_info.c
+index e4674693fd..c204d5fc7b 100644
+--- a/arch/arm/mach-aspeed/ast2600/scu_info.c
++++ b/arch/arm/mach-aspeed/ast2600/scu_info.c
+@@ -297,9 +297,6 @@ void aspeed_print_2nd_wdt_mode(void)
+ 			else
+ 				printf(", Dual flashes");
+ 
+-			printf(", Source: %s", \
+-					readl(ASPEED_FMC_WDT2) & BIT(4) ? "Alternate" : "Primary");
+-
+ 			if (readl(ASPEED_HW_STRAP2) & GENMASK(15, 13))
+ 				printf(", bspi_size: %ld MB", \
+ 					BIT((readl(ASPEED_HW_STRAP2) >> 13) & 0x7));
+diff --git a/common/spl/spl_ram.c b/common/spl/spl_ram.c
+index 240b5dc626..dfa2271796 100644
+--- a/common/spl/spl_ram.c
++++ b/common/spl/spl_ram.c
+@@ -88,10 +88,12 @@ static int spl_ram_load_image(struct spl_image_info *spl_image,
+         if(abr_status & (1 << BOOT_FLASH_SOURCE_INDICATOR_BIT)){
+             writel(IMAGE_B, BBSRAM_BASE + BBSRAM_ROT_BOOT);
+             ABR_INDICATOR =1;
++            printf("\n Source ROT : Secondary");
+         }
+         else{
+             writel(IMAGE_A, BBSRAM_BASE + BBSRAM_ROT_BOOT);
+             ABR_INDICATOR =0;
++            printf("\n Source ROT : Primary");
+         }
+         u32 img_sel = readl(BBSRAM_BASE + BBSRAM_BOOT_SUCCESS);
+         u32 img_fail = readl(BBSRAM_BASE + BBSRAM_BOOT_FAIL);
+-- 
+2.17.1
+

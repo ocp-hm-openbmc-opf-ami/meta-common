@@ -1,0 +1,185 @@
+From 0dbb2070b4ac4b1334f01f40599b87b089a69294 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Thu, 25 Aug 2022 18:05:15 +0000
+Subject: [PATCH] Read PFM root_key from SPI flash
+
+Reads PFM root key match from SPI flash
+
+Tested:
+Read PFM root key from primary SPI flash
+Read PFM root key from secondary SPI flash
+
+Signed-off-by: Gade-RajasekharReddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/fw-update.c | 92 ++++++++++++++++----------
+ board/aspeed/ast2600_intel/fw-update.h |  2 +
+ 2 files changed, 60 insertions(+), 34 deletions(-)
+
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index 4f74c6289d..971fa6fbbd 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -20,12 +20,17 @@
+ #define PROTECT_ON		1
+ #define CONFIG_SYS_MAX_FLASH_BANKS 1
+ 
++static ulong get_boot_address(void);
++int init_spi_dev(void);
++
+ extern struct fwupd_global_setting g_fwupd_settings;
+ extern u32 g_write_addr;
+ 
+ bool g_fwupd_settings_lock = false;
+ unsigned long long g_etime = 0;
+ 
++struct spi_flash *flash_dev;
++
+ #ifndef block_round
+ #define block_round(ODD, BLK)                                                  \
+     ((ODD) + (((BLK) - ((ODD) & ((BLK)-1))) & ((BLK)-1)))
+@@ -419,13 +424,26 @@ static bool is_block0_valid(const struct blk0* b0, const uint8_t* protected_cont
+  */
+ static bool root_key_from_pfm(struct key_entry root_key)
+ {
+-	struct blk1 pfm_root;
++	int err = 1;
++	ulong root_key_offset = PRIMARY_PFM_START_ADDR;
+ 
+-	// Seek to blk1 in pfm and read PFM root
+-        uint32_t base_addr = IMAGE_LOAD_RAM_ADDR;
+-	struct b0b1_signature *pfm_sig = (struct b0b1_signature *)(base_addr);
++	// Get active partition PFM address
++	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
++	{
++		root_key_offset = SECONDARY_PFM_START_ADDR;
++	}
++	else
++	{
++		root_key_offset = PRIMARY_PFM_START_ADDR;
++	}
+ 
+-	root_key = pfm_sig->b1.root_key;
++	// Seek to blk1 in pfm and read PFM root
++	err = spi_flash_read(flash_dev, root_key_offset, sizeof(root_key), &root_key);
++	if (err)
++	{
++		printf("spi_flash_read error\n");
++		return ERROR;
++	}
+ 
+ 	if (sizeof(root_key))
+ 	{
+@@ -1019,8 +1037,8 @@ static int set_boot_address(ulong boot_addr)
+ 	return SUCCESS;
+ }
+ 
+-static int flash_image(void) {
+-	struct spi_flash *flash_dev;
++int init_spi_dev(void)
++{
+ 	struct udevice *new_dev, *bus_dev;
+ 	int ret = 0;
+ 
+@@ -1029,24 +1047,6 @@ static int flash_image(void) {
+ 	unsigned int speed = CONFIG_SF_DEFAULT_SPEED;
+ 	unsigned int mode  = CONFIG_SF_DEFAULT_MODE;
+ 
+-	uint16_t blk0blk1_size = 1024;    // 1 Kb page size
+-	uint32_t pfm_addr = 0;
+-	uint8_t pfm_block_size = 128;
+-
+-	bool recovery_reset = 0;
+-
+-	uint32_t wr_count = 1;
+-	uint32_t er_count = 1;
+-	uint32_t erase_end_addr = 0;
+-	uint32_t write_end_addr = 0;
+-	u8 *data = NULL;
+-
+-	uint32_t offset = IMAGE_LOAD_RAM_ADDR;    //0x83000000;
+-
+-	u32 dev_offset = PRIMARY_IMAGE_OFFSET;
+-	u32 blocks_to_skip = 0;
+-
+-	// SPI Flash
+ 	// Remove the old device, otherwise probe will just be a nop //
+ 	speed = 0, mode = 0;
+ 
+@@ -1059,19 +1059,30 @@ static int flash_image(void) {
+ 	ret = spi_flash_probe_bus_cs(bus, cs, speed, mode, &new_dev);
+ 	if (ret) {
+ 		printf("Failed to initialize SPI flash at %u:%u (error %d)\n", bus, cs, ret);
+-		return 1;
++		return ERROR;
+ 	}
+ 
+ 	flash_dev = dev_get_uclass_priv(new_dev);
++	return SUCCESS;
++}
+ 
+-	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
+-	{
+-		dev_offset = SECONDARY_IMAGE_OFFSET;
+-	}
+-	else
+-	{
+-		dev_offset = PRIMARY_IMAGE_OFFSET;
+-	}
++static int flash_image(void) {
++	uint16_t blk0blk1_size = 1024;    // 1 Kb page size
++	uint32_t pfm_addr = 0;
++	uint8_t pfm_block_size = 128;
++
++	bool recovery_reset = 0;
++
++	uint32_t wr_count = 1;
++	uint32_t er_count = 1;
++	uint32_t erase_end_addr = 0;
++	uint32_t write_end_addr = 0;
++	u8 *data = NULL;
++
++	uint32_t offset = IMAGE_LOAD_RAM_ADDR;    //0x83000000;
++
++	u32 dev_offset = PRIMARY_IMAGE_OFFSET;
++	u32 blocks_to_skip = 0;
+ 
+ 	// walk the bitmap, erase and copy
+ 	offset += (blk0blk1_size * 2); // one blk0blk1 for package, one for pfm signature
+@@ -1265,6 +1276,19 @@ void start_fw_update_loop(void)
+ 		}
+ 
+ 		if (g_fwupd_settings.start_update) {
++			// Initialize SPI flash device
++			rc = init_spi_dev();
++			if (rc == ERROR) {
++				printf("SPI flash init error\n");
++				update_processing_status(UPDATE_ERROR, 100);
++
++				/* Adding delay to make consumer gets status */
++				mdelay(WAIT_STATE_TIMEOUT);
++
++				reset_all_settings();
++				continue;
++			}
++
+ 			update_processing_status(IMG_VALIDATING, 0);
+ 
+ 			rc = verify_image();
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+index 32fc9d900e..d43351d7a8 100644
+--- a/board/aspeed/ast2600_intel/fw-update.h
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -13,6 +13,8 @@
+ #define SECONDARY_FIT_IMAGE_START_ADDR  0x240A0000
+ #define MAX_FIT_IMAGE_SIZE              0x1F00000
+ #define PFM_ADDRESS                     0x80000
++#define PRIMARY_PFM_START_ADDR          0x20080000
++#define SECONDARY_PFM_START_ADDR        0x24080000
+ #define PRIMARY_IMAGE_OFFSET            0x00
+ #define SECONDARY_IMAGE_OFFSET          0x04000000
+ #define BLOCKS_SKIP                     0xA80
+-- 
+2.25.1
+

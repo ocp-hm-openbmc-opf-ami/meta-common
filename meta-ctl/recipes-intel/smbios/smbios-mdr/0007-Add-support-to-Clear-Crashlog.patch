@@ -1,0 +1,86 @@
+From 362aa3a0c02d6fc6c3b849340c61b77bb0168960 Mon Sep 17 00:00:00 2001
+From: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Date: Fri, 12 May 2023 12:37:23 +0000
+Subject: [PATCH] Add support to Clear Crashlog
+
+Add Clear Crashlog interface
+Register Clear Crashlog interface
+Initialize Clear Crashlog interface
+
+Tested :
+Used postman tool to check following,
+ - Cleared crashlog when crashlog exists and get response 200 OK.
+ - Cleared crashlog when not present and get response 200 OK.
+ - Trigger crashlog with post request from redfish two times and POST
+   request returns 200 OK response
+	URI:
+	/redfish/v1/Systems/system/LogServices/Crashlog/Actions/LogService.
+							CollectDiagnosticData
+	Body
+	{
+		"DiagnosticDataType": "OEM",
+		"OEMDiagnosticDataType": "SystemDiagnostics"
+	}
+
+Signed-off-by: Gade-Rajasekhar Reddy raja.sekhar.reddy.gade@intel.com
+Signed-off-by: balajhidn balajhix.neelakantan.durvas@intel.com
+Signed-off-by: vijayabharathi shetty <vijayabharathix.shetty@intel.com>
+Upstream-Status: Pending
+---
+ src/crashlog.cpp | 26 ++++++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/src/crashlog.cpp b/src/crashlog.cpp
+index 74a7f6a..ddf0cf7 100644
+--- a/src/crashlog.cpp
++++ b/src/crashlog.cpp
+@@ -42,6 +42,7 @@ static constexpr bool debug2 = false;
+ static bool inProgress;
+ static std::shared_ptr<sdbusplus::asio::object_server> server;
+ static std::shared_ptr<sdbusplus::asio::dbus_interface> dumpIface;
++static std::shared_ptr<sdbusplus::asio::dbus_interface> clearCrashlogIface;
+ static std::shared_ptr<sdbusplus::asio::dbus_interface> crashlogEntryIface;
+ static std::shared_ptr<sdbusplus::asio::dbus_interface> crashlogEpochIface;
+ static const std::filesystem::path crashlogDir = "/tmp/crashlog";
+@@ -622,6 +623,17 @@ static Status removeCrashlogFiles()
+                 status = Status::error;
+             }
+         }
++
++        if (clearCrashlogIface)
++        {
++            // remove directory
++            if (!(std::filesystem::remove_all(crashlogDir, ec)))
++            {
++                std::cerr << "Failed to remove " << crashlogDir << ": "
++                          << ec.message() << "\n";
++                status = Status::error;
++            }
++        }
+     }
+     return status;
+ }
+@@ -1225,6 +1237,20 @@ void init(boost::asio::io_context& ioc,
+             inProgress = false;
+         });
+ #endif
++        if (!clearCrashlogIface)
++        {
++            // Add Clear Crashlog Interface
++            clearCrashlogIface = server->add_interface(
++                "/xyz/openbmc_project/dump/crashlog",
++                "xyz.openbmc_project.Collection.DeleteAll");
++
++            // Register ClearCrashlog
++            clearCrashlogIface->register_method("DeleteAll", [&ioc, conn]() {
++                boost::asio::post(ioc, [conn]() { dbusRemoveCrashlog(); });
++            });
++
++            clearCrashlogIface->initialize();
++        }
+         return std::string("Crashlog collection started");
+     });
+     dumpIface->initialize();
+-- 
+2.17.1
+

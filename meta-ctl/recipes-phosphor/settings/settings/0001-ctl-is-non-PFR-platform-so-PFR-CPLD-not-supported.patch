@@ -1,0 +1,72 @@
+From 69e9b8bbe3119457371851089f721e72bd7e3182 Mon Sep 17 00:00:00 2001
+From: arunkumarrajappa <arunkumarx.rajappa@intel.com>
+Date: Tue, 23 Aug 2022 07:12:32 +0000
+Subject: [PATCH] ctl-is-non-PFR platform so PFR CPLD not supported
+
+Issue: On RedFish, Get request for url /redfish/v1/UpdateService
+/FirmwareInventory/cpld_active
+shows NA as version for ctl.
+
+Fix: Since ctl is non-PFR platform, PFR CPLD is not supported,
+so disabled the same at settings level for ctl platform using
+ctl specific flag.
+
+Tested:
+Tested by flashing BMC, and verified for GET requests
+(/redfish/v1/UpdateService/FirmwareInventory/cpld_active)
+from RedFish.
+
+Signed-off-by: arunkumarrajappa <arunkumarx.rajappa@intel.com>
+Upstream-Status: Pending
+---
+ include/defaults.hpp | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/include/defaults.hpp b/include/defaults.hpp
+index d8bda87..6200d62 100644
+--- a/include/defaults.hpp
++++ b/include/defaults.hpp
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ #include "interface.hpp"
++#define CTL_SETTINGS_DISABLE
+ 
+ using Association = std::tuple<std::string, std::string, std::string>;
+ 
+@@ -181,13 +182,13 @@ inline void loadSettings(sdbusplus::asio::object_server &objectServer,
+         "Activation",
+         "xyz.openbmc_project.Software.Activation.Activations.Active");
+ 
++#ifndef CTL_SETTINGS_DISABLE
+     setting = &settings.emplace_back(
+         objectServer, "/xyz/openbmc_project/software/cpld_active",
+         "xyz.openbmc_project.Software.Version");
+     setting->addProperty("Version", "NA");
+     setting->addProperty(
+         "Purpose", "xyz.openbmc_project.Software.Version.VersionPurpose.Other");
+-
+     setting = &settings.emplace_back(
+         objectServer, "/xyz/openbmc_project/software/cpld_active",
+         "xyz.openbmc_project.Software.Activation");
+@@ -197,14 +198,16 @@ inline void loadSettings(sdbusplus::asio::object_server &objectServer,
+     setting->addProperty(
+         "RequestedActivation",
+         "xyz.openbmc_project.Software.Activation.RequestedActivations.None");
+-
++#endif //CTL_SETTINGS_DISABLE
+     std::vector<Association> associations;
+     associations.push_back(
+         Association("functional", "software_version",
+                     "/xyz/openbmc_project/software/bios_active"));
++#ifndef CTL_SETTINGS_DISABLE
+     associations.push_back(
+         Association("functional", "software_version",
+                     "/xyz/openbmc_project/software/cpld_active"));
++#endif //CTL_SETTINGS_DISABLE
+ 
+     setting =
+         &settings.emplace_back(objectServer, "/xyz/openbmc_project/software",
+-- 
+2.17.1
+

@@ -1,0 +1,65 @@
+MACHINE ??= "intel-ast2600"
+DISTRO ?= "openbmc-phosphor"
+PACKAGE_CLASSES ?= "package_rpm"
+SANITY_TESTED_DISTROS:append ?= " RedHatEnterpriseWorkstation-6.*"
+EXTRA_IMAGE_FEATURES = "validation-unsecure"
+# Uncomment the following line to enable debug features / default user account.
+#EXTRA_IMAGE_FEATURES += "debug-tweaks"
+USER_CLASSES ?= "buildstats"
+PATCHRESOLVE = "noop"
+
+# Secure boot image Build
+IMAGE_FSTYPES += "intel-secboot"
+
+# Uncomment the following to use Secure keys. Secure keys will be used in OpenBMC releases
+# Note: 'secure-keys' doesn't support 'RSA2048-keys'
+#EXTRA_IMAGE_FEATURES += "secure-keys"
+
+# Used to select secure boot config RSA2048 keys
+#EXTRA_IMAGE_FEATURES += "RSA2048-keys"
+
+#This override allows to include Catlow features
+OVERRIDES .= ":ctl-features"
+
+# Add license files to rootfs (/usr/share/common-licenses):
+COPY_LIC_MANIFEST = "1"
+COPY_LIC_DIRS = "1"
+
+BB_DISKMON_DIRS ??= "\
+    STOPTASKS,${TMPDIR},1G,100K \
+    STOPTASKS,${DL_DIR},1G,100K \
+    STOPTASKS,${SSTATE_DIR},1G,100K \
+    STOPTASKS,/tmp,100M,100K \
+    HALT,${TMPDIR},100M,1K \
+    HALT,${DL_DIR},100M,1K \
+    HALT,${SSTATE_DIR},100M,1K \
+    HALT,/tmp,10M,1K"
+CONF_VERSION = "4"
+#BB_NUMBER_THREADS = "70"
+
+FULL_OPTIMIZATION = "-Os -pipe ${DEBUG_FLAGS}"
+#SSTATE_DIR="~/.yocto/sstate"
+#DL_DIR="~/.yocto/download"
+
+# The following class prints the SRC_URI of each recipe in the build
+# Once enabled, run 'bitbake intel-platforms --runonly print_src'
+# on a clean workspace to get the output
+#INHERIT += "print-src"
+
+#Uncomment below 2-lines to generate GPL sources tarball for release builds.
+#INHERIT += "archiver"
+#ARCHIVER_MODE[src] = "patched"
+
+# Following features are excluded in E-SEGMENT:
+# 1. biosconfig-manager 2. CUPS, 3. crashdump,
+# 4. MCTP_PCIe(removed in file:CB-Baseboard.json),
+# 5. node-manager, 6. pmt, 7. pfr-manager, 8. telemetry,
+SEG_E_EXCLUDED_FEATURES = "cups-service cups-ut-native \
+                           crashdump \
+                           node-manager \
+                           pmt \
+                           pfr-manager \
+                           telemetry"
+PACKAGE_EXCLUDE += "${SEG_E_EXCLUDED_FEATURES}"
+
+BB_DANGLINGAPPENDS_WARNONLY = "true"

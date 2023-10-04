@@ -1,0 +1,145 @@
+From d035130b7c9881f95b092fd49b1b0648fd0f3b69 Mon Sep 17 00:00:00 2001
+From: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Date: Wed, 24 Aug 2022 10:25:26 +0000
+Subject: [PATCH] Secondary Partition SPI flash
+
+Added support for secondary firmware update with dev offset 0x4000000.
+
+As per secure boot image layout, the difference in start address of
+kernel fit image between Image-A and Image-B is 0xA60000
+(0xA60 / 4K blocks)
+
+Tested:
+Verified secondary image is updated with expected offsets as follows,
+    SPL offset 0x04000000
+    U-boot offset 0x04010000
+    PFM offset 0x04080000
+    Fit image offset 0x040A0000
+Verified primary image is updated with expected offsets
+
+Signed-off-by: Gade-RajasekharReddy <raja.sekhar.reddy.gade@intel.com>
+Signed-off-by: balajhidn <balajhix.neelakantan.durvas@intel.com>
+Upstream-Status: Pending
+---
+ board/aspeed/ast2600_intel/fw-update.c | 38 ++++++++++++++++++++------
+ board/aspeed/ast2600_intel/fw-update.h |  6 ++--
+ 2 files changed, 33 insertions(+), 11 deletions(-)
+
+diff --git a/board/aspeed/ast2600_intel/fw-update.c b/board/aspeed/ast2600_intel/fw-update.c
+index ac6f222149..4f74c6289d 100644
+--- a/board/aspeed/ast2600_intel/fw-update.c
++++ b/board/aspeed/ast2600_intel/fw-update.c
+@@ -1043,6 +1043,9 @@ static int flash_image(void) {
+ 
+ 	uint32_t offset = IMAGE_LOAD_RAM_ADDR;    //0x83000000;
+ 
++	u32 dev_offset = PRIMARY_IMAGE_OFFSET;
++	u32 blocks_to_skip = 0;
++
+ 	// SPI Flash
+ 	// Remove the old device, otherwise probe will just be a nop //
+ 	speed = 0, mode = 0;
+@@ -1061,6 +1064,15 @@ static int flash_image(void) {
+ 
+ 	flash_dev = dev_get_uclass_priv(new_dev);
+ 
++	if (get_boot_address() == SECONDARY_FIT_IMAGE_START_ADDR)
++	{
++		dev_offset = SECONDARY_IMAGE_OFFSET;
++	}
++	else
++	{
++		dev_offset = PRIMARY_IMAGE_OFFSET;
++	}
++
+ 	// walk the bitmap, erase and copy
+ 	offset += (blk0blk1_size * 2); // one blk0blk1 for package, one for pfm signature
+ 
+@@ -1082,8 +1094,8 @@ static int flash_image(void) {
+ 
+ 	// copy the pfm manually (not part of the compression bitmap)
+ 	size_t pfm_region_size = 0x20000;
+-	spi_flash_erase(flash_dev, PFM_ADDRESS, pfm_region_size);
+-	spi_flash_write(flash_dev, PFM_ADDRESS, pfm_region_size, pfm_addr);
++	spi_flash_erase(flash_dev, PFM_ADDRESS + dev_offset, pfm_region_size);
++	spi_flash_write(flash_dev, PFM_ADDRESS + dev_offset, pfm_region_size, pfm_addr);
+ 
+ 	// set offset to the beginning of the compressed data
+ 	offset += pbc_hdr->bitmap_size / 8;    	// 0x2c80
+@@ -1091,6 +1103,11 @@ static int flash_image(void) {
+ 	// Un-compress payload and erase, write to SPI flash
+ 	for (uint32_t blk = 0; blk < pbc_hdr->bitmap_size; blk += wr_count)
+ 	{
++		if ((dev_offset == SECONDARY_IMAGE_OFFSET) && (blk == FIT_IMAGE_BLOCK))
++		{
++			blocks_to_skip = BLOCKS_SKIP;
++		}
++
+ 		if ((blk % 8) == 0)
+ 		{
+ 			wr_count = 1;
+@@ -1178,33 +1195,36 @@ static int flash_image(void) {
+ 				er_count = 16;
+ 			}
+ 
+-			spi_flash_erase(flash_dev, pfr_blk_size * blk, pfr_blk_size * er_count);
+-
++			spi_flash_erase(flash_dev,
++					(pfr_blk_size * (blk - blocks_to_skip)) + dev_offset,
++					pfr_blk_size * er_count);
+ 			// erase_end_addr value is calculated to allign boundry of the sector
+-			erase_end_addr = (pfr_blk_size * (blk + er_count)) - 1;
++			erase_end_addr = (pfr_blk_size * ((blk - blocks_to_skip) + er_count)) - 1;
+ 		}
+ 
+ 		if (copy)
+ 		{
+-			write_end_addr = (pfr_blk_size * (blk + wr_count)) - 1;
++			write_end_addr = (pfr_blk_size * ((blk - blocks_to_skip) + wr_count)) - 1;
+ 
+ 			// Check if current write address wasn't part of previous 64K sector
+ 			// erase. and erase it here.
+ 			if ((write_end_addr > erase_end_addr) ||
+-				((pfr_blk_size * blk) > erase_end_addr))
++				((pfr_blk_size * (blk - blocks_to_skip)) > erase_end_addr))
+ 			{
+ 				// Currently 4K erases are not working hence making it always
+ 				// 64K erase.
+ 				// TODO: Fix 4K erase issue and fix the below logic to do
+ 				// incremental 4K erases.
+ 
+-				spi_flash_erase(flash_dev, erase_end_addr + 1, pfr_blk_size * 16);
++				spi_flash_erase(flash_dev,
++						(erase_end_addr + 1) + dev_offset,
++						pfr_blk_size * 16);
+ 
+ 				erase_end_addr += pfr_blk_size * 16;
+ 			}
+ 
+ 			spi_flash_write(flash_dev,
+-					pfr_blk_size * blk,
++					pfr_blk_size * (blk - blocks_to_skip) + dev_offset,
+ 					pfr_blk_size * wr_count,
+ 					offset);
+ 
+diff --git a/board/aspeed/ast2600_intel/fw-update.h b/board/aspeed/ast2600_intel/fw-update.h
+index ad26114c9d..d11b4417c5 100644
+--- a/board/aspeed/ast2600_intel/fw-update.h
++++ b/board/aspeed/ast2600_intel/fw-update.h
+@@ -12,9 +12,11 @@
+ #define PRIMARY_FIT_IMAGE_START_ADDR    0x20B00000
+ #define SECONDARY_FIT_IMAGE_START_ADDR  0x240A0000
+ #define MAX_FIT_IMAGE_SIZE              0x1F00000
+-#define UBOOT_IMAGE_START_ADDR          0x00
+-#define MAX_UBOOT_IMAGE_SIZE            0x80000
+ #define PFM_ADDRESS                     0x80000
++#define PRIMARY_IMAGE_OFFSET            0x00
++#define SECONDARY_IMAGE_OFFSET          0x04000000
++#define BLOCKS_SKIP                     0xA60
++#define FIT_IMAGE_BLOCK                 0xb00
+ 
+ #define MAX_FILENAME_LENGTH             256
+ #define RAND_NUMBER_SIZE                8
+-- 
+2.25.1
+
