@@ -9,8 +9,6 @@ SRCREV = "7bb84dbaad9e788b0bd30e2131cf14de7b034a19"
 SRC_URI += "file://phosphor-ipmi-host.service \
             file://transporthandler_oem.cpp \
             file://0053-Fix-keep-looping-issue-when-entering-OS.patch \
-            file://0059-Move-Set-SOL-config-parameter-to-host-ipmid.patch \
-            file://0060-Move-Get-SOL-config-parameter-to-host-ipmid.patch \
             file://0063-Save-the-pre-timeout-interrupt-in-dbus-property.patch \
             "
 
