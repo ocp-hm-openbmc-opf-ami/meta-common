@@ -5,7 +5,6 @@ inherit image_types_phosphor_auto
 DEPENDS += "obmc-intel-pfr-image-native \
             python3-native \
             intel-pfr-signing-utility-native \
-            external-signing-utility-native\
             "
 
 require recipes-core/os-release/version-vars.inc
@@ -108,6 +107,10 @@ do_image_pfr_internal () {
     ln -sf image-mtd-pfr${bld_suffix}-${DATETIME}.bin  ${PFR_IMAGES_DIR}/OBMC${bld_suffix}-${@ do_get_version(d)}-pfr-full.ROM
     ln -sf bmc_signed_cap${bld_suffix}-${DATETIME}.bin ${PFR_IMAGES_DIR}/bmc_signed_cap${bld_suffix}.bin
     ln -sf bmc_signed_cap${bld_suffix}-${DATETIME}.bin ${PFR_IMAGES_DIR}/OBMC${bld_suffix}-${@ do_get_version(d)}-pfr-oob.bin
+
+    # Copy the PFR manifest to pfr_images directory
+    cp ${PFR_CFG_DIR}/pfr_manifest${bld_suffix}.json ${PFR_IMAGES_DIR}/pfr_manifest${bld_suffix}-${DATETIME}.json
+    ln -sf pfr_manifest${bld_suffix}-${DATETIME}.json  ${PFR_IMAGES_DIR}/pfr_manifest${bld_suffix}.json
 }
 
 # Network access from task are disabled by default on Yocto 3.5
@@ -145,7 +148,6 @@ do_image_pfr[vardepsexclude] += "IPMI_MAJOR IPMI_MINOR IPMI_AUX13 IPMI_AUX14 IPM
 do_image_pfr[depends] += " \
                          obmc-intel-pfr-image-native:do_populate_sysroot \
                          intel-pfr-signing-utility-native:do_populate_sysroot \
-                         external-signing-utility-native:do_populate_sysroot \
                          "
 
 python() {
