@@ -35,7 +35,6 @@ IMAGE_INSTALL:append = " \
         dbus-broker \
         entity-manager \
         fru-device \
-        ext-board-type \
         ipmitool \
         intel-ipmi-oem \
         phosphor-ipmi-ipmb \
@@ -54,22 +53,17 @@ IMAGE_INSTALL:append = " \
         mtd-utils-ubifs \
         special-mode-mgr \
         rsyslog \
-        static-mac-addr \
         phosphor-u-boot-mgr \
         prov-mode-mgr \
         ac-boot-check \
         host-error-monitor \
-        beepcode-mgr \
         psu-manager \
         kernel-panic-check \
-        id-led-off \
         hsbp-manager \
         security-registers-check \
         nv-sync \
         security-manager \
-        multi-node-nl \
         virtual-media \
-        enable-nics \
         host-misc-comm-manager \
         biosconfig-manager \
         telemetry \
@@ -77,7 +71,6 @@ IMAGE_INSTALL:append = " \
         zip \
         peci-pcie \
         libespi \
-        domain-mapperd \
         mctpd \
         pldmd \
         pmci-launcher \
