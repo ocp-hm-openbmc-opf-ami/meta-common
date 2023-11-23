@@ -6,4 +6,5 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI += " \ 
     file://001_ami-asd-dbus.patch \
+    file://002_default-asdCertificate-change.patch \
 "

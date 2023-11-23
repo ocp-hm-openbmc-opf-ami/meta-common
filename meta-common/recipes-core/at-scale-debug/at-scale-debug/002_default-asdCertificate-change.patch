@@ -1,0 +1,13 @@
+diff --git a/server/asd_main.h b/server/asd_main.h
+index f25a72e..eecb608 100644
+--- a/server/asd_main.h
++++ b/server/asd_main.h
+@@ -48,7 +48,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #define DEFAULT_SPP_ENABLE false
+ #define DEFAULT_I2C_BUS 0x04
+ #define DEFAULT_PORT 5125
+-#define DEFAULT_CERT_FILE "/etc/ssl/certs/https/server.pem"
++#define DEFAULT_CERT_FILE "/etc/ssl/certs/asd/server.pem"
+ #define DEFAULT_LOG_TO_SYSLOG false
+ #define DEFAULT_LOG_LEVEL ASD_LogLevel_Warning
+ #define DEFAULT_LOG_STREAMS ASD_LogStream_All
