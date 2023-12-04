@@ -12,7 +12,7 @@ DEPENDS += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr-manager', ''
 DEPENDS += "dtc-native"
 
 FEATURE_PACKAGES_obmc-sensors = ""
-FEATURE_PACKAGES_obmc-debug-collector = ""
+#FEATURE_PACKAGES_obmc-debug-collector = ""
 
 fix_shadow_perms() {
     chgrp shadow ${IMAGE_ROOTFS}${sysconfdir}/shadow
