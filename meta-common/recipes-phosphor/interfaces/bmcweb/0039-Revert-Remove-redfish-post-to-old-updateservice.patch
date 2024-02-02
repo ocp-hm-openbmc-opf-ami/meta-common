@@ -1,4 +1,4 @@
-From 1e9207dff361499331be91c9ceef6c6938dd7b9d Mon Sep 17 00:00:00 2001
+From 007f7e15995e16ebb7710993982f4e5e878a293b Mon Sep 17 00:00:00 2001
 From: "Jason M. Bills" <jason.m.bills@intel.com>
 Date: Fri, 19 May 2023 11:26:35 -0700
 Subject: [PATCH] Revert "Remove redfish-post-to-old-updateservice"
@@ -14,10 +14,10 @@ Upstream-Status: Pending
  3 files changed, 41 insertions(+)
 
 diff --git a/meson.build b/meson.build
-index aa764d87..9f24014e 100644
+index a4315f0e..31616c4b 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -83,6 +83,7 @@ feature_map = {
+@@ -87,6 +87,7 @@ feature_map = {
    'redfish-new-powersubsystem-thermalsubsystem' : '-DBMCWEB_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM',
    'redfish-oem-manager-fan-data'                : '-DBMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA',
    'redfish-provisioning-feature'                : '-DBMCWEB_ENABLE_REDFISH_PROVISIONING_FEATURE',
@@ -26,10 +26,10 @@ index aa764d87..9f24014e 100644
    'rest'                                        : '-DBMCWEB_ENABLE_DBUS_REST',
    'session-auth'                                : '-DBMCWEB_ENABLE_SESSION_AUTHENTICATION',
 diff --git a/meson_options.txt b/meson_options.txt
-index 354f96b1..5fa1028c 100644
+index b67c28fd..c2aa7d75 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
-@@ -225,6 +225,16 @@ option(
+@@ -235,6 +235,16 @@ option(
                      condition is allowing the old Power / Thermal.'''
  )
  
@@ -47,10 +47,10 @@ index 354f96b1..5fa1028c 100644
      'redfish-oem-manager-fan-data',
      type: 'feature',
 diff --git a/redfish-core/lib/update_service.hpp b/redfish-core/lib/update_service.hpp
-index 22de7c74..3911a2f8 100644
+index bbf7d38e..722b253d 100644
 --- a/redfish-core/lib/update_service.hpp
 +++ b/redfish-core/lib/update_service.hpp
-@@ -829,6 +829,15 @@ inline void requestRoutesUpdateService(App& app)
+@@ -868,6 +868,15 @@ inline void requestRoutesUpdateService(App& app)
          asyncResp->res.jsonValue["Description"] = "Service for Software Update";
          asyncResp->res.jsonValue["Name"] = "Update Service";
  
@@ -66,9 +66,9 @@ index 22de7c74..3911a2f8 100644
          asyncResp->res.jsonValue["HttpPushUri"] =
              "/redfish/v1/UpdateService/update";
          asyncResp->res.jsonValue["MultipartHttpPushUri"] =
-@@ -1094,6 +1103,27 @@ inline void requestRoutesUpdateService(App& app)
+@@ -1130,6 +1139,27 @@ inline void requestRoutesUpdateService(App& app)
          }
-         });
+     });
  
 +// The "old" behavior of the update service URI causes redfish-service validator
 +// failures when the Allow header is supported, given that in the spec,
@@ -89,7 +89,7 @@ index 22de7c74..3911a2f8 100644
 +            "299 - \"POST to /redfish/v1/UpdateService is deprecated. Use "
 +            "the value contained within HttpPushUri.\"");
 +        handleUpdateServicePost(app, req, asyncResp);
-+        });
++    });
 +#endif
      BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update/")
          .privileges(redfish::privileges::postUpdateService)

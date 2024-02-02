@@ -1,7 +1,7 @@
-From 327025e46163f453236e6a07f51aa30c4f28ea4c Mon Sep 17 00:00:00 2001
-From: Iwona Winiarska <iwona.winiarska@intel.com>
-Date: Fri, 10 Feb 2023 21:41:35 +0100
-Subject: [PATCH] Add single /dev/peci-i3c node abstraction
+From 85daca0c9ad2f2dd2edb95877b182202488139d1 Mon Sep 17 00:00:00 2001
+From: Yaswanth <yaswanthsai@ami.com>
+Date: Tue, 23 Jan 2024 14:59:57 +0530
+Subject: [PATCH 1/1] Add single /dev/peci-i3c node abstraction
 
 With peci-i3c each CPU is exposed as individual PECI controller and
 userspace does not have control over CPU address.
@@ -10,15 +10,19 @@ To make peci-i3c compatible with existing interfaces, add a simple wrapper
 that translates strings "/dev/peci-i3c" to actual paths based on
 information that can be queried over sysfs.
 
+Also includes peci_cmds usage helper update for -d option.
+
 Signed-off-by: Iwona Winiarska <iwona.winiarska@intel.com>
+Signed-off-by: Smriti-Ayushi <smriti.ayushi@intel.com>
 Upstream-Status: Pending
 ---
- peci.c | 259 +++++++++++++++++++++++++++++++++++++++++++++++++++++++--
- peci.h |   1 +
- 2 files changed, 253 insertions(+), 7 deletions(-)
+ peci.c      | 258 ++++++++++++++++++++++++++++++++++++++++++++++++++--
+ peci.h      |   1 +
+ peci_cmds.c |   5 +-
+ 3 files changed, 256 insertions(+), 8 deletions(-)
 
 diff --git a/peci.c b/peci.c
-index 80b3054..a6bebc9 100644
+index bd34b07fc..9c984a8c0 100644
 --- a/peci.c
 +++ b/peci.c
 @@ -13,12 +13,17 @@
@@ -39,10 +43,10 @@ index 80b3054..a6bebc9 100644
  #include <syslog.h>
  #include <time.h>
  #include <unistd.h>
-@@ -28,6 +33,18 @@
+@@ -27,6 +32,17 @@
+ #pragma GCC diagnostic ignored "-Wvariadic-macros"
  #include <linux/peci-ioctl.h>
  #pragma GCC diagnostic pop
- 
 +// To support distinct handles for multiple peci_Open() calls - limited to 64
 +#define PECI_I3C_HANDLE_CNT 64
 +#define PECI_I3C_HANDLE_MAX INT_MAX
@@ -54,11 +58,10 @@ index 80b3054..a6bebc9 100644
 +#define PID_INSTANCE_ID_MASK 0xf
 +#define I3C_PID_TO_CPU(x)                                                      \
 +    (((x) >> PID_INSTANCE_ID_SHIFT) & PID_INSTANCE_ID_MASK)
-+
+ 
  EPECIStatus peci_GetDIB_seq(uint8_t target, uint64_t* dib, int peci_fd);
  
- char* peci_device_list[2];
-@@ -76,10 +93,224 @@ static void init()
+@@ -76,10 +92,224 @@ static void init()
   *------------------------------------------------------------------------*/
  void peci_Unlock(int peci_fd)
  {
@@ -119,9 +122,10 @@ index 80b3054..a6bebc9 100644
 +
 +    dirfd = open("/dev", O_DIRECTORY);
 +    if (dirfd < 0)
-+    {
+     {
+-        syslog(LOG_ERR, "PECI device failed to unlock.\n");
 +        return -errno;
-+    }
+     }
 +
 +    ret = fstatat(dirfd, name, &st, 0);
 +    if (ret)
@@ -277,15 +281,14 @@ index 80b3054..a6bebc9 100644
 +static int peci_device_open(char* peci_device)
 +{
 +    if (strncmp(peci_device, "/dev/peci-i3c", DEV_NAME_SIZE) == 0)
-     {
--        syslog(LOG_ERR, "PECI device failed to unlock.\n");
++    {
 +        return peci_device_i3c_open();
-     }
++    }
 +    return open(peci_device, O_RDWR | O_CLOEXEC);
  }
  
  /*-------------------------------------------------------------------------
-@@ -100,11 +331,11 @@ EPECIStatus peci_Lock(int* peci_fd, int timeout_ms)
+@@ -100,11 +330,11 @@ EPECIStatus peci_Lock(int* peci_fd, int timeout_ms)
      }
  
      // Open the PECI driver with the specified timeout
@@ -299,7 +302,7 @@ index 80b3054..a6bebc9 100644
      }
      switch (timeout_ms)
      {
-@@ -114,7 +345,7 @@ EPECIStatus peci_Lock(int* peci_fd, int timeout_ms)
+@@ -114,7 +344,7 @@ EPECIStatus peci_Lock(int* peci_fd, int timeout_ms)
              while (-1 == *peci_fd)
              {
                  nanosleep(&sRequest, NULL);
@@ -308,7 +311,7 @@ index 80b3054..a6bebc9 100644
              }
              break;
          default:
-@@ -122,14 +353,16 @@ EPECIStatus peci_Lock(int* peci_fd, int timeout_ms)
+@@ -122,14 +352,16 @@ EPECIStatus peci_Lock(int* peci_fd, int timeout_ms)
              {
                  nanosleep(&sRequest, NULL);
                  timeout_count += PECI_TIMEOUT_RESOLUTION_MS;
@@ -326,7 +329,7 @@ index 80b3054..a6bebc9 100644
      return PECI_CC_SUCCESS;
  }
  
-@@ -166,7 +399,19 @@ static EPECIStatus HW_peci_issue_cmd(unsigned int cmd, char* cmdPtr,
+@@ -166,7 +398,19 @@ static EPECIStatus HW_peci_issue_cmd(unsigned int cmd, char* cmdPtr,
          return PECI_CC_INVALID_REQ;
      }
  
@@ -348,17 +351,33 @@ index 80b3054..a6bebc9 100644
          if (errno == ETIMEDOUT)
          {
 diff --git a/peci.h b/peci.h
-index 84b5355..0e5884c 100644
+index 3a13d981f..a012771aa 100644
 --- a/peci.h
 +++ b/peci.h
-@@ -497,6 +497,7 @@ extern "C"
-     EPECIStatus peci_GetCPUID(const uint8_t clientAddr, CPUModel* cpuModel,
-                               uint8_t* stepping, uint8_t* cc);
-     void peci_SetDevName(char* peci_dev);
-+    int peci_i3c_chardev_to_cpu(const char* name);
+@@ -500,6 +500,7 @@ EPECIStatus peci_Ping_seq(uint8_t target, int peci_fd);
+ EPECIStatus peci_GetCPUID(const uint8_t clientAddr, CPUModel* cpuModel,
+                           uint8_t* stepping, uint8_t* cc);
+ void peci_SetDevName(char* peci_dev);
++int peci_i3c_chardev_to_cpu(const char* name);
  
  #ifdef __cplusplus
  }
+diff --git a/peci_cmds.c b/peci_cmds.c
+index 408630fb7..871bafab6 100644
+--- a/peci_cmds.c
++++ b/peci_cmds.c
+@@ -71,7 +71,10 @@ void Usage(char* progname)
+            "Size of data to read or write in bytes. Accepted values are 1, 2, "
+            "4, 8, and 16. Default is 4");
+     printf("\t%-12s%s\n", "-d",
+-           "Set PECI device name, for example \"-d /dev/peci-0\"");
++           "Set PECI interface. Supported interfaces:\n"
++           "\t\t\t-d /dev/peci-wire for PECI wire.\n"
++           "\t\t\t-d /dev/peci-mctp for PECI over MCTP over PCIe.\n"
++           "\t\t\t-d /dev/peci-i3c for PECI over MCTP over I3C.");
+     printf("Commands:\n");
+     printf("\t%-28s%s\n", "Ping", "Ping the target");
+     printf("\t%-28s%s\n", "GetTemp", "Get the temperature");
 -- 
-2.25.1
+2.34.1
 

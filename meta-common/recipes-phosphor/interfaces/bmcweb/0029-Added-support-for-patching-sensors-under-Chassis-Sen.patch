@@ -1,4 +1,4 @@
-From 70e59dc05e7f8997b8bece4340afa86da9dbfc96 Mon Sep 17 00:00:00 2001
+From be352bf5baa643dd50d1558c15f21732b1640ff2 Mon Sep 17 00:00:00 2001
 From: Gokul Sanker V G <gokul.sanker.v.g@intel.com>
 Date: Tue, 6 Sep 2022 14:47:05 +0530
 Subject: [PATCH] Added support for patching sensors under /Chassis/<>/Sensors
@@ -28,7 +28,7 @@ Upstream-Status: Pending
  create mode 100644 redfish-core/lib/sensor_patching.hpp
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index 3d8dae97..c1df1193 100644
+index 540bb070..4aaff9fd 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
 @@ -45,6 +45,7 @@
@@ -39,7 +39,7 @@ index 3d8dae97..c1df1193 100644
  #include "sensors.hpp"
  #include "service_root.hpp"
  #include "storage.hpp"
-@@ -220,6 +221,7 @@ class RedfishService
+@@ -221,6 +222,7 @@ class RedfishService
  
          requestRoutesSensorCollection(app);
          requestRoutesSensor(app);
@@ -49,7 +49,7 @@ index 3d8dae97..c1df1193 100644
          requestRoutesTaskService(app);
 diff --git a/redfish-core/lib/sensor_patching.hpp b/redfish-core/lib/sensor_patching.hpp
 new file mode 100644
-index 00000000..444c6adb
+index 00000000..680bd3a4
 --- /dev/null
 +++ b/redfish-core/lib/sensor_patching.hpp
 @@ -0,0 +1,145 @@
@@ -194,7 +194,7 @@ index 00000000..444c6adb
 +        overrideMap.emplace(nameType.second, std::make_pair(value, "Reading"));
 +
 +        setSensor(sensorsAsyncResp, overrideMap);
-+        });
++    });
 +}
 +
 +} // namespace redfish

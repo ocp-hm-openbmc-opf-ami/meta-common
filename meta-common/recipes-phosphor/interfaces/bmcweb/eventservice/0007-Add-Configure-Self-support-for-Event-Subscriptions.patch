@@ -1,4 +1,4 @@
-From 6497bb43ac8696168695f3ae1cee21a68ca192dd Mon Sep 17 00:00:00 2001
+From 38fa342c07de732235ccb57096c22303dc241995 Mon Sep 17 00:00:00 2001
 From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Date: Fri, 11 Feb 2022 05:26:19 +0530
 Subject: [PATCH] Add Configure Self support for Event Subscriptions
@@ -34,14 +34,14 @@ Upstream-Status: Pending
  include/event_service_store.hpp               | 11 +++
  include/persistent_data.hpp                   |  1 +
  .../include/event_service_manager.hpp         |  2 +
- redfish-core/lib/event_service.hpp            | 76 ++++++++++++++++---
- 4 files changed, 78 insertions(+), 12 deletions(-)
+ redfish-core/lib/event_service.hpp            | 74 ++++++++++++++++---
+ 4 files changed, 77 insertions(+), 11 deletions(-)
 
 diff --git a/include/event_service_store.hpp b/include/event_service_store.hpp
-index 839b7694..3d68280f 100644
+index 8a39fe58..d5ccdb53 100644
 --- a/include/event_service_store.hpp
 +++ b/include/event_service_store.hpp
-@@ -23,6 +23,7 @@ struct UserSubscription
+@@ -24,6 +24,7 @@ struct UserSubscription
      boost::beast::http::fields httpHeaders;
      std::vector<std::string> metricReportDefinitions;
      std::string state;
@@ -49,7 +49,7 @@ index 839b7694..3d68280f 100644
  
      static std::shared_ptr<UserSubscription>
          fromJson(const nlohmann::json& j, const bool loadFromOldConfig = false)
-@@ -183,6 +184,16 @@ struct UserSubscription
+@@ -190,6 +191,16 @@ struct UserSubscription
                  }
                  subvalue->state = *value;
              }
@@ -67,10 +67,10 @@ index 839b7694..3d68280f 100644
              {
                  BMCWEB_LOG_ERROR(
 diff --git a/include/persistent_data.hpp b/include/persistent_data.hpp
-index 901787cb..9e74439b 100644
+index bd8b8a0b..09273db9 100644
 --- a/include/persistent_data.hpp
 +++ b/include/persistent_data.hpp
-@@ -309,6 +309,7 @@ class ConfigFile
+@@ -310,6 +310,7 @@ class ConfigFile
              subscription["MetricReportDefinitions"] =
                  subValue->metricReportDefinitions;
              subscription["State"] = subValue->state;
@@ -79,10 +79,10 @@ index 901787cb..9e74439b 100644
              subscriptions.emplace_back(std::move(subscription));
          }
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index 275326b1..988e7545 100644
+index 3ddd3103..fa53d0bd 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -740,6 +740,7 @@ class EventServiceManager
+@@ -727,6 +727,7 @@ class EventServiceManager
              subValue->httpHeaders = newSub->httpHeaders;
              subValue->metricReportDefinitions = newSub->metricReportDefinitions;
              subValue->state = newSub->state;
@@ -90,7 +90,7 @@ index 275326b1..988e7545 100644
  
              if (subValue->id.empty())
              {
-@@ -992,6 +993,7 @@ class EventServiceManager
+@@ -979,6 +980,7 @@ class EventServiceManager
          newSub->httpHeaders = subValue->httpHeaders;
          newSub->metricReportDefinitions = subValue->metricReportDefinitions;
          newSub->state = subValue->state;
@@ -99,11 +99,11 @@ index 275326b1..988e7545 100644
          persistent_data::EventServiceStore::getInstance()
              .subscriptionsConfigMap.emplace(newSub->id, newSub);
 diff --git a/redfish-core/lib/event_service.hpp b/redfish-core/lib/event_service.hpp
-index 38529482..c3967374 100644
+index 8abcdd83..07d56f18 100644
 --- a/redfish-core/lib/event_service.hpp
 +++ b/redfish-core/lib/event_service.hpp
-@@ -390,10 +390,18 @@ inline void requestRoutesEventDestinationCollection(App& app)
-             path = "/";
+@@ -405,10 +405,18 @@ inline void requestRoutesEventDestinationCollection(App& app)
+             return;
          }
  
 +        if (req.session == nullptr || req.session->username.empty())
@@ -113,25 +113,16 @@ index 38529482..c3967374 100644
 +            return;
 +        }
 +
-         std::shared_ptr<Subscription> subValue = std::make_shared<Subscription>(
-             host, port, path, urlProto, app.ioContext());
+         std::shared_ptr<Subscription> subValue =
+             std::make_shared<Subscription>(*url, app.ioContext());
  
-         subValue->destinationUrl = destUrl;
+         subValue->destinationUrl = std::move(*url);
 +        subValue->owner = req.session->username;
  
          if (subscriptionType)
          {
-@@ -603,7 +611,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
-         // be set to "Disabled" state.
-         subValue->state = "Enabled";
- 
--	std::string id =
-+        std::string id =
-             EventServiceManager::getInstance().addSubscription(subValue);
-         if (id.empty())
-         {
-@@ -617,6 +625,43 @@ inline void requestRoutesEventDestinationCollection(App& app)
-         });
+@@ -628,6 +636,43 @@ inline void requestRoutesEventDestinationCollection(App& app)
+     });
  }
  
 +bool isConfigureManagerOrSelf(const crow::Request& req,
@@ -174,9 +165,9 @@ index 38529482..c3967374 100644
  inline void requestRoutesEventDestination(App& app)
  {
      BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
-@@ -677,11 +722,7 @@ inline void requestRoutesEventDestination(App& app)
+@@ -688,11 +733,7 @@ inline void requestRoutesEventDestination(App& app)
          asyncResp->res.jsonValue["MetricReportDefinitions"] = mrdJsonArray;
-         });
+     });
      BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
 -        // The below privilege is wrong, it should be ConfigureManager OR
 -        // ConfigureSelf
@@ -187,7 +178,7 @@ index 38529482..c3967374 100644
          .methods(boost::beast::http::verb::patch)(
              [&app](const crow::Request& req,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-@@ -698,6 +739,12 @@ inline void requestRoutesEventDestination(App& app)
+@@ -709,6 +750,12 @@ inline void requestRoutesEventDestination(App& app)
              return;
          }
  
@@ -200,9 +191,9 @@ index 38529482..c3967374 100644
          std::optional<std::string> context;
          std::optional<std::string> retryPolicy;
          std::optional<std::vector<nlohmann::json>> headers;
-@@ -752,11 +799,7 @@ inline void requestRoutesEventDestination(App& app)
+@@ -762,11 +809,7 @@ inline void requestRoutesEventDestination(App& app)
          EventServiceManager::getInstance().updateSubscription(param);
-         });
+     });
      BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
 -        // The below privilege is wrong, it should be ConfigureManager OR
 -        // ConfigureSelf
@@ -213,7 +204,7 @@ index 38529482..c3967374 100644
          .methods(boost::beast::http::verb::delete_)(
              [&app](const crow::Request& req,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-@@ -773,11 +816,20 @@ inline void requestRoutesEventDestination(App& app)
+@@ -783,11 +826,20 @@ inline void requestRoutesEventDestination(App& app)
              return;
          }
  
@@ -233,7 +224,7 @@ index 38529482..c3967374 100644
 +        }
 +
          EventServiceManager::getInstance().deleteSubscription(param);
-         });
+     });
  }
 -- 
 2.25.1

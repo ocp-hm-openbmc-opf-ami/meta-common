@@ -181,7 +181,7 @@ inline void requestRoutesNodeManagerService(App& app)
             }
             nlohmann::json diagsJson = nlohmann::json::parse(diagnostics);
             asyncResp->res.result(boost::beast::http::status::ok);
-            asyncResp->res.body() = diagsJson.dump(4);
+            asyncResp->res.write(diagsJson.dump(4));
             BMCWEB_LOG_DEBUG("NodeManager.GetDiagnosticInfo done.");
             },
             kNodeManagerService, "/xyz/openbmc_project/NodeManager/Diagnostics",

@@ -4,9 +4,13 @@ PROJECT_SRC_DIR := "${THISDIR}/${PN}"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/dbus-sensors.git;branch=master;protocol=https"
-SRCREV = "63c9122ea5ceaa89016663d259c1eda1705474f3"
+SRCREV = "ae4639667132e9bca62277815f0dca5c77c0b887"
 
-SRC_URI += "\
+# The below patch changes are moved into internal dbus-sensors repo
+# so, not required to apply the below patches
+# intrusionsensor-depend-on-networkd.conf file moved to meta-ami ,not required to apply with meta-ami
+
+INTEL_SRC_URI += "\
     file://intrusionsensor-depend-on-networkd.conf \
     file://0001-PSUSensor-support-PWM-mode-control-of-PSU-fan.patch \
     file://0001-Add-check-for-min-max-received-from-hwmon-files.patch \
@@ -25,9 +29,17 @@ SRC_URI += "\
     file://0014-intelcpusensor-use-yield-context-in-sensor-polling.patch \
     file://0015-IntelCPUSensor-use-bus-name-to-communicate-with-PECI.patch \
     file://0016-intelcpusensor-Update-CPUConfig-set-based-on-udev-ev.patch \
+    file://0017-DBus-ADC-sensors-exposure.patch \
+    file://0018-Add-I2C-ADC-Sensor-Support.patch \
+    file://0019-psusensor-add-filter-for-VR-temperature-sensor.patch \
     "
-
+SRC_URI:append = "${@bb.utils.contains('BBFILE_COLLECTIONS', 'meta-ami', '',INTEL_SRC_URI, d)}"
 DEPENDS:append = " libgpiod libmctp systemd"
+
+PACKAGECONFIG[dbusadcsensor] = "-Ddbus-adc=enabled, -Ddbus-adc=disabled"
+SYSTEMD_SERVICE:${PN}:append = "${@bb.utils.contains('PACKAGECONFIG', 'dbusadcsensor', \
+                                               ' xyz.openbmc_project.dbusadcsensor.service', \
+                                               '', d)}"
 
 PACKAGECONFIG += " \
     adcsensor \

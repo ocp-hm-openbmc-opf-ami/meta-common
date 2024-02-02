@@ -1,4 +1,4 @@
-From 0381692717ae36a903d15186c123cf31bbedef63 Mon Sep 17 00:00:00 2001
+From 7b2425cabaec44aba3b431601a0345d1f22d9f19 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Wed, 15 Mar 2023 13:27:37 +0000
 Subject: [PATCH] Firmware update configuration changes
@@ -54,7 +54,7 @@ Upstream-Status: Pending
  create mode 100644 static/redfish/v1/schema/OemUpdateService_v1.xml
 
 diff --git a/redfish-core/lib/update_service.hpp b/redfish-core/lib/update_service.hpp
-index 3e75425e..257a1ca6 100644
+index 2f0cc470..2007241f 100644
 --- a/redfish-core/lib/update_service.hpp
 +++ b/redfish-core/lib/update_service.hpp
 @@ -41,7 +41,9 @@
@@ -112,7 +112,7 @@ index 3e75425e..257a1ca6 100644
 +                                 errorCode);
 +                BMCWEB_LOG_DEBUG("error msg = {}", errorCode.message());
 +            }
-+            },
++        },
 +            service, objPath, "org.freedesktop.DBus.Properties", "Set",
 +            activationIntf, reqActivationPropName,
 +            std::variant<std::string>(reqActivationsActive));
@@ -133,7 +133,7 @@ index 3e75425e..257a1ca6 100644
 -            BMCWEB_LOG_DEBUG("error msg = {}", ec.message());
 +            return;
          }
--        });
+-    });
 +
 +        for (const auto& [invObjPath, invDict] : subtree)
 +        {
@@ -184,16 +184,16 @@ index 3e75425e..257a1ca6 100644
 +                                         ec3);
 +                    }
 +                    return;
-+                    },
++                },
 +                    service, objPath, "org.freedesktop.DBus.Properties", "Set",
 +                    activationIntf, reqActivationPropName,
 +                    std::variant<std::string>(reqActivation));
-+                },
++            },
 +                invDict[0].first, "/xyz/openbmc_project/software/" + imgTarget,
 +                "org.freedesktop.DBus.Properties", "Get", activationIntf,
 +                "Activation");
 +        }
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
@@ -207,7 +207,7 @@ index 3e75425e..257a1ca6 100644
 +                           const std::vector<std::string> imgUriTargets,
                             sdbusplus::message_t& m, task::Payload&& payload)
  {
-     dbus::utility::DBusInteracesMap interfacesProperties;
+     dbus::utility::DBusInterfacesMap interfacesProperties;
 @@ -89,19 +187,20 @@ static void
  
      m.read(objPath, interfacesProperties);
@@ -241,7 +241,7 @@ index 3e75425e..257a1ca6 100644
                  if (asyncResp)
                  {
                      std::shared_ptr<task::TaskData> task =
-@@ -269,7 +368,7 @@ static void
+@@ -391,7 +490,7 @@ inline void
  static void monitorForSoftwareAvailable(
      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
      const crow::Request& req, const std::string& url,
@@ -250,9 +250,9 @@ index 3e75425e..257a1ca6 100644
  {
      // Only allow one FW update at a time
      if (fwUpdateInProgress)
-@@ -307,9 +406,10 @@ static void monitorForSoftwareAvailable(
-         }
-     });
+@@ -412,9 +511,10 @@ static void monitorForSoftwareAvailable(
+         std::bind_front(afterAvailbleTimerAsyncWait, asyncResp));
+ 
      task::Payload payload(req);
 -    auto callback = [asyncResp, payload](sdbusplus::message_t& m) mutable {
 +    auto callback = [asyncResp, imgTargets{imgUriTargets},
@@ -263,7 +263,7 @@ index 3e75425e..257a1ca6 100644
      };
  
      fwUpdateInProgress = true;
-@@ -490,12 +590,15 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
+@@ -522,12 +622,15 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
          std::string fwFile = imageURI.substr(separator + 1);
          BMCWEB_LOG_DEBUG("Server: {}{}", tftpServer + " File: ", fwFile);
  
@@ -280,7 +280,7 @@ index 3e75425e..257a1ca6 100644
  
          // TFTP can take up to 10 minutes depending on image size and
          // connection speed. Return to caller as soon as the TFTP operation
-@@ -684,8 +787,8 @@ inline void
+@@ -716,8 +819,8 @@ inline void
      if (boost::iequals(contentType, "application/octet-stream"))
      {
          // Setup callback for when new software detected
@@ -291,7 +291,7 @@ index 3e75425e..257a1ca6 100644
  
          uploadImageFile(asyncResp->res, req.body());
      }
-@@ -694,8 +797,8 @@ inline void
+@@ -726,8 +829,8 @@ inline void
          MultipartParser parser;
  
          // Setup callback for when new software detected
@@ -302,7 +302,7 @@ index 3e75425e..257a1ca6 100644
  
          ParserError ec = parser.parse(req);
          if (ec != ParserError::PARSER_SUCCESS)
-@@ -737,6 +840,9 @@ inline void requestRoutesUpdateService(App& app)
+@@ -769,6 +872,9 @@ inline void requestRoutesUpdateService(App& app)
              "/redfish/v1/UpdateService/update";
          asyncResp->res.jsonValue["MultipartHttpPushUri"] =
              "/redfish/v1/UpdateService/update";
@@ -312,10 +312,10 @@ index 3e75425e..257a1ca6 100644
  
          // UpdateService cannot be disabled
          asyncResp->res.jsonValue["ServiceEnabled"] = true;
-@@ -785,6 +891,31 @@ inline void requestRoutesUpdateService(App& app)
+@@ -817,6 +923,31 @@ inline void requestRoutesUpdateService(App& app)
                      "OnReset";
              }
-             });
+         });
 +
 +        // Get the ApplyOptions value
 +        crow::connections::systemBus->async_method_call(
@@ -337,14 +337,14 @@ index 3e75425e..257a1ca6 100644
 +                asyncResp->res.jsonValue["Oem"]["ApplyOptions"]["ClearConfig"] =
 +                    *b;
 +            }
-+            },
++        },
 +            "xyz.openbmc_project.Software.BMC.Updater",
 +            "/xyz/openbmc_project/software", "org.freedesktop.DBus.Properties",
 +            "Get", "xyz.openbmc_project.Software.ApplyOptions", "ClearConfig");
-         });
+     });
      BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/")
          .privileges(redfish::privileges::patchUpdateService)
-@@ -798,12 +929,58 @@ inline void requestRoutesUpdateService(App& app)
+@@ -830,12 +961,58 @@ inline void requestRoutesUpdateService(App& app)
          BMCWEB_LOG_DEBUG("doPatch...");
  
          std::optional<nlohmann::json> pushUriOptions;
@@ -392,7 +392,7 @@ index 3e75425e..257a1ca6 100644
 +                            return;
 +                        }
 +                        messages::success(asyncResp->res);
-+                        },
++                    },
 +                        "xyz.openbmc_project.Software.BMC.Updater",
 +                        "/xyz/openbmc_project/software",
 +                        "org.freedesktop.DBus.Properties", "Set",
@@ -404,7 +404,7 @@ index 3e75425e..257a1ca6 100644
          if (pushUriOptions)
          {
              std::optional<nlohmann::json> pushUriApplyTime;
-@@ -828,6 +1005,97 @@ inline void requestRoutesUpdateService(App& app)
+@@ -860,6 +1037,97 @@ inline void requestRoutesUpdateService(App& app)
                  }
              }
          }
@@ -481,7 +481,7 @@ index 3e75425e..257a1ca6 100644
 +                        }
 +                        httpPushUriTargetBusy = targetBusy;
 +                        httpPushUriTargets = uriTargets;
-+                        },
++                    },
 +                        "xyz.openbmc_project.ObjectMapper",
 +                        "/xyz/openbmc_project/object_mapper",
 +                        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -499,14 +499,14 @@ index 3e75425e..257a1ca6 100644
 +                httpPushUriTargetBusy = *imgTargetBusy;
 +            }
 +        }
-         });
+     });
  
      BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update/")
 diff --git a/static/redfish/v1/$metadata/index.xml b/static/redfish/v1/$metadata/index.xml
-index b514422d..dad35c6d 100644
+index 7cfc3ae0..27d6bcac 100644
 --- a/static/redfish/v1/$metadata/index.xml
 +++ b/static/redfish/v1/$metadata/index.xml
-@@ -3311,6 +3311,9 @@
+@@ -3472,6 +3472,9 @@
      <edmx:Reference Uri="/redfish/v1/schema/OemComputerSystem_v1.xml">
          <edmx:Include Namespace="OemComputerSystem"/>
      </edmx:Reference>

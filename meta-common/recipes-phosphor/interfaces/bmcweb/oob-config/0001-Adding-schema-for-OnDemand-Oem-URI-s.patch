@@ -1,4 +1,4 @@
-From 0107a1121a435aaf831eb19f58fced0c02b75323 Mon Sep 17 00:00:00 2001
+From 3366a9842480ca704e8f6d8e7501338b0878ad42 Mon Sep 17 00:00:00 2001
 From: yes <smriti.ayushi@intel.com>
 Date: Wed, 21 Dec 2022 12:22:47 +0530
 Subject: [PATCH] Adding schema for OnDemand Oem URI's.
@@ -53,7 +53,7 @@ Upstream-Status: Pending
  create mode 100644 static/redfish/v1/schema/ProvisionDynamicFeature_v1.xml
 
 diff --git a/scripts/update_schemas.py b/scripts/update_schemas.py
-index 794ec0cd..6340aa4d 100755
+index c77144d1..47405b92 100755
 --- a/scripts/update_schemas.py
 +++ b/scripts/update_schemas.py
 @@ -26,6 +26,7 @@ WARNING = """/****************************************************************
@@ -81,9 +81,9 @@ index 794ec0cd..6340aa4d 100755
      "RedfishError",
      "RedfishExtensions",
      "Redundancy",
-@@ -309,6 +313,31 @@ with open(metadata_index_path, "w") as metadata_index:
-                                 )
-             metadata_index.write("    </edmx:Reference>\n")
+@@ -328,6 +332,31 @@ with open(metadata_index_path, "w") as metadata_index:
+                             )
+         metadata_index.write("    </edmx:Reference>\n")
  
 +    metadata_index.write(
 +        "    <edmx:Reference Uri=\"/redfish/v1/schema/OemProcessor_v1.xml\">\n")
@@ -114,7 +114,7 @@ index 794ec0cd..6340aa4d 100755
          "    <edmx:DataServices>\n"
          "        <Schema "
 diff --git a/static/redfish/v1/$metadata/index.xml b/static/redfish/v1/$metadata/index.xml
-index 04f78e26..be34ff94 100644
+index 12a3ce4a..94045a2e 100644
 --- a/static/redfish/v1/$metadata/index.xml
 +++ b/static/redfish/v1/$metadata/index.xml
 @@ -38,6 +38,9 @@
@@ -127,7 +127,7 @@ index 04f78e26..be34ff94 100644
      <edmx:Reference Uri="/redfish/v1/schema/AccountService_v1.xml">
          <edmx:Include Namespace="AccountService"/>
          <edmx:Include Namespace="AccountService.v1_0_0"/>
-@@ -1200,6 +1203,13 @@
+@@ -1396,6 +1399,13 @@
      <edmx:Reference Uri="/redfish/v1/schema/JsonSchemaFileCollection_v1.xml">
          <edmx:Include Namespace="JsonSchemaFileCollection"/>
      </edmx:Reference>
@@ -141,7 +141,7 @@ index 04f78e26..be34ff94 100644
      <edmx:Reference Uri="/redfish/v1/schema/LogEntry_v1.xml">
          <edmx:Include Namespace="LogEntry"/>
          <edmx:Include Namespace="LogEntry.v1_0_0"/>
-@@ -2263,6 +2273,32 @@
+@@ -2563,6 +2573,32 @@
      <edmx:Reference Uri="/redfish/v1/schema/ProcessorCollection_v1.xml">
          <edmx:Include Namespace="ProcessorCollection"/>
      </edmx:Reference>
@@ -174,7 +174,7 @@ index 04f78e26..be34ff94 100644
      <edmx:Reference Uri="/redfish/v1/schema/RedfishError_v1.xml">
          <edmx:Include Namespace="RedfishError.v1_0_0"/>
          <edmx:Include Namespace="RedfishError.v1_0_1"/>
-@@ -3175,4 +3211,20 @@
+@@ -3524,6 +3560,22 @@
          <edmx:Include Namespace="OpenBMCAccountService"/>
          <edmx:Include Namespace="OpenBMCAccountService.v1_0_0"/>
      </edmx:Reference>
@@ -194,7 +194,9 @@ index 04f78e26..be34ff94 100644
 +        <edmx:Include Namespace="OemLicense"/>
 +        <edmx:Include Namespace="OemLicense.v1_0_0"/>
 +    </edmx:Reference>
- </edmx:Edmx>
+     <edmx:DataServices>
+         <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Service">
+             <EntityContainer Name="Service" Extends="ServiceRoot.v1_0_0.ServiceContainer"/>
 diff --git a/static/redfish/v1/JsonSchemas/AccelerationFunctionCollection/AccelerationFunctionCollection.json b/static/redfish/v1/JsonSchemas/AccelerationFunctionCollection/AccelerationFunctionCollection.json
 new file mode 100644
 index 00000000..9f04c54d

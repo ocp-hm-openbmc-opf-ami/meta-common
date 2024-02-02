@@ -941,7 +941,7 @@ class SSTTPMI : public SSTInterface
 static std::unique_ptr<SSTInterface> createTPMI(int address, CPUModel model)
 {
     DEBUG_PRINT << "createTPMI\n";
-    if (model == gnr || model == srf)
+    if (model == gnr || model == gnrd || model == srf)
     {
         return std::make_unique<SSTTPMI>(address, model);
     }

@@ -1,4 +1,4 @@
-From a59c2b33ea2e1c28300e15872d4f472684c350f2 Mon Sep 17 00:00:00 2001
+From 734e7c13beab0bed4096983aae257a4f2f160b57 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@linux.intel.com>
 Date: Thu, 2 Apr 2020 17:06:07 +0530
 Subject: [PATCH] Adding channel specific privilege to network
@@ -28,13 +28,13 @@ Upstream-Status: Pending
  4 files changed, 276 insertions(+), 1 deletion(-)
 
 diff --git a/src/ethernet_interface.cpp b/src/ethernet_interface.cpp
-index ef0355a..9547f45 100644
+index 2851a1b..e8b9f98 100644
 --- a/src/ethernet_interface.cpp
 +++ b/src/ethernet_interface.cpp
 @@ -20,6 +20,7 @@
- 
  #include <algorithm>
  #include <filesystem>
+ #include <format>
 +#include <fstream>
  #include <string>
  #include <unordered_map>
@@ -50,7 +50,7 @@ index ef0355a..9547f45 100644
  template <typename Func>
  inline decltype(std::declval<Func>()())
      ignoreError(std::string_view msg, stdplus::zstring_view intf,
-@@ -149,6 +154,8 @@ void EthernetInterface::updateInfo(const InterfaceInfo& info, bool skipSignal)
+@@ -155,6 +160,8 @@ void EthernetInterface::updateInfo(const InterfaceInfo& info, bool skipSignal)
          EthernetInterfaceIntf::autoNeg(ethInfo.autoneg, skipSignal);
          EthernetInterfaceIntf::speed(ethInfo.speed, skipSignal);
      }
@@ -59,7 +59,7 @@ index ef0355a..9547f45 100644
  }
  
  bool EthernetInterface::originIsManuallyAssigned(IP::AddressOrigin origin)
-@@ -929,5 +936,124 @@ void EthernetInterface::VlanProperties::delete_()
+@@ -940,5 +947,124 @@ void EthernetInterface::VlanProperties::delete_()
      eth.get().manager.get().reloadConfigs();
  }
  
@@ -185,7 +185,7 @@ index ef0355a..9547f45 100644
  } // namespace network
  } // namespace phosphor
 diff --git a/src/ethernet_interface.hpp b/src/ethernet_interface.hpp
-index 87cfd68..d60a461 100644
+index 0e9c536..bef3bcc 100644
 --- a/src/ethernet_interface.hpp
 +++ b/src/ethernet_interface.hpp
 @@ -2,10 +2,13 @@
@@ -227,7 +227,7 @@ index 87cfd68..d60a461 100644
  class Manager;
  
  class TestEthernetInterface;
-@@ -198,6 +206,14 @@ class EthernetInterface : public Ifaces
+@@ -199,6 +207,14 @@ class EthernetInterface : public Ifaces
       */
      std::string defaultGateway6(std::string gateway) override;
  
@@ -242,7 +242,7 @@ index 87cfd68..d60a461 100644
      using EthernetInterfaceIntf::interfaceName;
      using EthernetInterfaceIntf::linkUp;
      using EthernetInterfaceIntf::mtu;
-@@ -252,6 +268,26 @@ class EthernetInterface : public Ifaces
+@@ -253,6 +269,26 @@ class EthernetInterface : public Ifaces
       *  @returns true/false value if the address is static
       */
      bool originIsManuallyAssigned(IP::AddressOrigin origin);
@@ -270,12 +270,12 @@ index 87cfd68..d60a461 100644
  
  } // namespace network
 diff --git a/src/network_manager.cpp b/src/network_manager.cpp
-index 72e0d03..dadb22b 100644
+index 47a528f..f130d9e 100644
 --- a/src/network_manager.cpp
 +++ b/src/network_manager.cpp
-@@ -35,6 +35,13 @@ using namespace phosphor::logging;
- using namespace sdbusplus::xyz::openbmc_project::Common::Error;
+@@ -33,6 +33,13 @@ using namespace sdbusplus::xyz::openbmc_project::Common::Error;
  using Argument = xyz::openbmc_project::Common::InvalidArgument;
+ using std::literals::string_view_literals::operator""sv;
  
 +static constexpr const char* userMgrObjBasePath = "/xyz/openbmc_project/user";
 +static constexpr const char* userMgrInterface =
@@ -287,7 +287,7 @@ index 72e0d03..dadb22b 100644
  static constexpr const char enabledMatch[] =
      "type='signal',sender='org.freedesktop.network1',path_namespace='/org/"
      "freedesktop/network1/"
-@@ -153,6 +160,101 @@ Manager::Manager(stdplus::PinnedRef<sdbusplus::bus_t> bus,
+@@ -155,6 +162,101 @@ Manager::Manager(stdplus::PinnedRef<sdbusplus::bus_t> bus,
          bus, (this->objPath / "config").str);
      dhcpConf = std::make_unique<phosphor::network::dhcp::Configuration>(
          bus, (this->objPath / "dhcp").str, *this);
@@ -390,10 +390,10 @@ index 72e0d03..dadb22b 100644
  
  void Manager::createInterface(const AllIntfInfo& info, bool enabled)
 diff --git a/src/network_manager.hpp b/src/network_manager.hpp
-index 2643d52..45bea07 100644
+index 57db371..9ef39a4 100644
 --- a/src/network_manager.hpp
 +++ b/src/network_manager.hpp
-@@ -123,11 +123,18 @@ class Manager : public ManagerIface
+@@ -116,11 +116,18 @@ class Manager : public ManagerIface
      {
          reloadPreHooks.push_back(std::move(hook));
      }
@@ -411,8 +411,8 @@ index 2643d52..45bea07 100644
 +
    protected:
      /** @brief Handle to the object used to trigger reloads of networkd. */
-     DelayedExecutor& reload;
-@@ -159,6 +166,7 @@ class Manager : public ManagerIface
+     stdplus::PinnedRef<DelayedExecutor> reload;
+@@ -152,6 +159,7 @@ class Manager : public ManagerIface
  
      /** @brief List of hooks to execute during the next reload */
      std::vector<fu2::unique_function<void()>> reloadPreHooks;
@@ -420,7 +420,7 @@ index 2643d52..45bea07 100644
      std::vector<fu2::unique_function<void()>> reloadPostHooks;
  
      /** @brief Handles the recipt of an adminstrative state string */
-@@ -166,6 +174,9 @@ class Manager : public ManagerIface
+@@ -159,6 +167,9 @@ class Manager : public ManagerIface
  
      /** @brief Creates the interface in the maps */
      void createInterface(const AllIntfInfo& info, bool enabled);

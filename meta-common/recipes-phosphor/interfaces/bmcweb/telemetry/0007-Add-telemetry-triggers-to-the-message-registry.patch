@@ -47,9 +47,9 @@ index 5fae6619..64533135 100644
      "OpenBMC.0.4.0",
      "OpenBMC Message Registry",
 @@ -2387,6 +2387,64 @@ constexpr std::array registry = {
-                      {},
-                      "None.",
-                  }},
+             {},
+             "None.",
+         }},
 +    MessageEntry{
 +        "TriggerNumericWarning",
 +        {

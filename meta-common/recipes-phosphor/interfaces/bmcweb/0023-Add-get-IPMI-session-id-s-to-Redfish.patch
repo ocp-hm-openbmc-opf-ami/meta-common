@@ -1,4 +1,4 @@
-From 14fe8023130929b2e60bd865509a331198f3127d Mon Sep 17 00:00:00 2001
+From 8fff99a3de40a0e0707c5c941309cbe13ac78b34 Mon Sep 17 00:00:00 2001
 From: Jayaprakash Mutyala <mutyalax.jayaprakash@intel.com>
 Date: Fri, 30 Jul 2021 17:33:16 +0000
 Subject: [PATCH] Add/get IPMI session id's to Redfish
@@ -105,7 +105,7 @@ Upstream-Status: Pending
  1 file changed, 198 insertions(+), 19 deletions(-)
 
 diff --git a/redfish-core/lib/redfish_sessions.hpp b/redfish-core/lib/redfish_sessions.hpp
-index 341e6d00..3ed690c9 100644
+index 341e6d00..7f87c881 100644
 --- a/redfish-core/lib/redfish_sessions.hpp
 +++ b/redfish-core/lib/redfish_sessions.hpp
 @@ -21,6 +21,7 @@
@@ -221,11 +221,11 @@ index 341e6d00..3ed690c9 100644
 +                return;
 +            }
 +            return;
-+            },
++        },
 +            ipmiSessionService, ipmiSessionInfPath,
 +            "org.freedesktop.DBus.Properties", "GetAll",
 +            "xyz.openbmc_project.Ipmi.SessionInfo");
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", 0, interfaces);
@@ -314,7 +314,7 @@ index 341e6d00..3ed690c9 100644
 +        }
 +        messages::resourceNotFound(asyncResp->res, "Session", sessionId);
 +        return;
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
@@ -359,7 +359,7 @@ index 341e6d00..3ed690c9 100644
 +        }
 +        asyncResp->res.jsonValue["Members@odata.count"] =
 +            asyncResp->res.jsonValue["Members"].size();
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,

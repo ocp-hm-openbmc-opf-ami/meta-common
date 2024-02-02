@@ -1,4 +1,4 @@
-From a53c306222bd3549b7fbf47c44215cf6ce825c3f Mon Sep 17 00:00:00 2001
+From c2fca30bc7bc6fdd9b873f3a0f21652520fe80a0 Mon Sep 17 00:00:00 2001
 From: Jennifer Lee <jennifer1.lee@intel.com>
 Date: Mon, 16 Jul 2018 19:15:04 -0700
 Subject: [PATCH] Redfish firmware activation -- Modified flash.cpp to call to
@@ -13,7 +13,7 @@ Upstream-Status: Pending
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/ubi/flash.cpp b/ubi/flash.cpp
-index b445a56..9b42e54 100644
+index 15c5492..cb09c9b 100644
 --- a/ubi/flash.cpp
 +++ b/ubi/flash.cpp
 @@ -16,10 +16,13 @@ void Activation::flashWrite()
@@ -40,4 +40,7 @@ index b445a56..9b42e54 100644
 +    auto rwServiceFile = "obmc-flash-bmc-ubirw@" + versionId + ".service";
      auto roServiceFile = "obmc-flash-bmc-ubiro@" + versionId + ".service";
      auto flashId = parent.versions.find(versionId)->second->path();
-     auto ubootVarsServiceFile =
+     auto ubootVarsServiceFile = "obmc-flash-bmc-updateubootvars@" + flashId +
+-- 
+2.25.1
+

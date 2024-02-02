@@ -4,7 +4,7 @@ PROJECT_SRC_DIR := "${THISDIR}/${PN}"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-host-ipmid;branch=master;protocol=https"
-SRCREV = "7bb84dbaad9e788b0bd30e2131cf14de7b034a19"
+SRCREV = "ea46f3ca61dd12b210a74cf78e464c78e0987a47"
 
 SRC_URI += "file://phosphor-ipmi-host.service \
             file://transporthandler_oem.cpp \

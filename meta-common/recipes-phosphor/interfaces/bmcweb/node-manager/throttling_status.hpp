@@ -30,7 +30,7 @@ namespace redfish
 inline void requestRoutesNodeManagerThrottlingStatus(App& app)
 {
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/ThrottlingStatus")
+        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/ThrottlingStatus/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request& req,

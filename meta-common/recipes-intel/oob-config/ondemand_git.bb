@@ -5,7 +5,7 @@ LICENSE = "Proprietary"
 LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-licenses/Intel-BMC-OOB;md5=aadc6e5ae7830a3df62f34ad47fef210"
 
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.ondemand.git;protocol=ssh;branch=main"
-SRCREV = "0323e33e366ede30ec9fa634981006a897e4d982"
+SRCREV = "5db57b18ae4a5de9fdc96cd91107a67193cf8b02"
 
 S = "${WORKDIR}/git"
 

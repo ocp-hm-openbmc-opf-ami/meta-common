@@ -1,4 +1,4 @@
-From de3f34f53d9efc0d3b4c15cee4c1ee8d2f672cf9 Mon Sep 17 00:00:00 2001
+From 7cbf38c62fafc18a9bea3543f91cb68eb09f2ace Mon Sep 17 00:00:00 2001
 From: V-Sanjana <sanjana.v@intel.com>
 Date: Tue, 21 Mar 2023 20:46:37 +0530
 Subject: [PATCH] Image dir made as configurable parameter
@@ -31,18 +31,18 @@ Upstream-Status: Pending
  5 files changed, 15 insertions(+), 2 deletions(-)
 
 diff --git a/config/bmcweb_config.h.in b/config/bmcweb_config.h.in
-index 3fd3ea84..1b9d0398 100644
+index a1bd1ba0..fed06d01 100644
 --- a/config/bmcweb_config.h.in
 +++ b/config/bmcweb_config.h.in
-@@ -24,4 +24,6 @@ constexpr const bool bmcwebEnableProcMemStatus = @BMCWEB_ENABLE_PROC_MEM_STATUS@
- constexpr const bool bmcwebEnableMultiHost = @BMCWEB_ENABLE_MULTI_HOST@ == 1;
- 
+@@ -26,4 +26,6 @@ constexpr const bool bmcwebEnableMultiHost = @BMCWEB_ENABLE_MULTI_HOST@ == 1;
  constexpr const bool bmcwebEnableHTTP2 = @BMCWEB_ENABLE_HTTP2@ == 1;
+ 
+ constexpr const bool bmcwebMTLSCommonNameParsingMeta = @BMCWEB_ENABLE_MTLS_COMMON_NAME_PARSING_META@ == 1;
 +
 +constexpr const char* imageUploadDir = "@IMAGE_UPLOAD_DIR@";
  // clang-format on
 diff --git a/config/meson.build b/config/meson.build
-index 8a72a63e..9d545481 100644
+index 1ba34afa..5dc3d474 100644
 --- a/config/meson.build
 +++ b/config/meson.build
 @@ -2,6 +2,7 @@
@@ -51,10 +51,10 @@ index 8a72a63e..9d545481 100644
  conf_data.set('BMCWEB_HTTP_REQ_BODY_LIMIT_MB', get_option('http-body-limit'))
 +conf_data.set('IMAGE_UPLOAD_DIR', get_option('image-upload-dir'))
  xss_enabled = get_option('insecure-disable-xss')
- conf_data.set10('BMCWEB_INSECURE_DISABLE_XSS_PREVENTION', xss_enabled.enabled())
+ conf_data.set10('BMCWEB_INSECURE_DISABLE_XSS_PREVENTION', xss_enabled.allowed())
  enable_redfish_query = get_option('insecure-enable-redfish-query')
 diff --git a/include/image_upload.hpp b/include/image_upload.hpp
-index 521ff659..171622d4 100644
+index ef615cb3..39850c30 100644
 --- a/include/image_upload.hpp
 +++ b/include/image_upload.hpp
 @@ -1,5 +1,7 @@
@@ -75,10 +75,10 @@ index 521ff659..171622d4 100644
      std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
                                      std::ofstream::trunc);
 diff --git a/meson_options.txt b/meson_options.txt
-index 017c16bd..b67c28fd 100644
+index 584ca702..cf1b59c2 100644
 --- a/meson_options.txt
 +++ b/meson_options.txt
-@@ -209,6 +209,14 @@ option(
+@@ -223,6 +223,14 @@ option(
      description: 'Specifies the http request body length limit'
  )
  
@@ -94,10 +94,10 @@ index 017c16bd..b67c28fd 100644
      'redfish-new-powersubsystem-thermalsubsystem',
      type: 'feature',
 diff --git a/redfish-core/lib/update_service.hpp b/redfish-core/lib/update_service.hpp
-index 00a7b8a9..c71d1f6a 100644
+index 2d722354..404a4603 100644
 --- a/redfish-core/lib/update_service.hpp
 +++ b/redfish-core/lib/update_service.hpp
-@@ -528,7 +528,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
+@@ -663,7 +663,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
  
  inline void uploadImageFile(crow::Response& res, std::string_view body)
  {
@@ -107,5 +107,5 @@ index 00a7b8a9..c71d1f6a 100644
      BMCWEB_LOG_DEBUG("Writing file to {}", filepath.string());
      std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
 -- 
-2.25.1
+2.34.1
 

@@ -25,7 +25,7 @@ index 62e912b0..bd5fdd9d 100644
  {
      if (ec)
      {
--        if (ec.value() == EBADR)
+-        if (ec.value() == EBADR || ec.value() == EHOSTUNREACH)
 -        {
 -            // This is an optional process so just return if it isn't there
 -            return;

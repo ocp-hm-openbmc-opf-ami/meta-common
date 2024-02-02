@@ -1,4 +1,4 @@
-From 95e8bafb7f9864c7c38958b8e1068bab818c084f Mon Sep 17 00:00:00 2001
+From d35a0e45cb2e6493ed9835dbae7f7fad9a4a5b5d Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Tue, 16 May 2023 16:55:40 +0000
 Subject: [PATCH] Add certificate key length check
@@ -37,17 +37,19 @@ Signed-off-by: arunkumarrajappa <arunkumarx.rajappa@intel.com>
 Signed-off-by: Anoop S <anoopx.s@intel.com>
 
 Upstream-Status: Pending
+
+%% original patch: 0001-Add-certificate-key-length-check.patch
 ---
  certificate.cpp |  2 ++
- x509_utils.cpp  | 56 +++++++++++++++++++++++++++++++++++++++++++++++++
- x509_utils.hpp  |  8 +++++++
- 3 files changed, 66 insertions(+)
+ x509_utils.cpp  | 50 +++++++++++++++++++++++++++++++++++++++++++++++++
+ x509_utils.hpp  |  8 ++++++++
+ 3 files changed, 60 insertions(+)
 
 diff --git a/certificate.cpp b/certificate.cpp
-index 52c3c2a..ef3b7cd 100644
+index e3fe609..5fbb04e 100644
 --- a/certificate.cpp
 +++ b/certificate.cpp
-@@ -355,6 +355,7 @@ void Certificate::install(const std::string& certSrcFilePath, bool restore)
+@@ -349,6 +349,7 @@ void Certificate::install(const std::string& certSrcFilePath, bool restore)
      // Perform validation
      validateCertificateAgainstStore(*x509Store, *cert);
      validateCertificateStartDate(*cert);
@@ -55,7 +57,7 @@ index 52c3c2a..ef3b7cd 100644
      validateCertificateInSSLContext(*cert);
  
      // Invoke type specific append private key function.
-@@ -430,6 +431,7 @@ void Certificate::install(X509_STORE& x509Store, const std::string& pem,
+@@ -422,6 +423,7 @@ void Certificate::install(X509_STORE& x509Store, const std::string& pem,
      // Perform validation; no type specific compare keys function
      validateCertificateAgainstStore(x509Store, *cert);
      validateCertificateStartDate(*cert);
@@ -64,10 +66,10 @@ index 52c3c2a..ef3b7cd 100644
  
      // Copy the PEM to the installation path
 diff --git a/x509_utils.cpp b/x509_utils.cpp
-index 7978771..01d120d 100644
+index bc3ccbb..74fa52c 100644
 --- a/x509_utils.cpp
 +++ b/x509_utils.cpp
-@@ -44,6 +44,8 @@ using X509Ptr = std::unique_ptr<X509, decltype(&::X509_free)>;
+@@ -41,6 +41,8 @@ using X509Ptr = std::unique_ptr<X509, decltype(&::X509_free)>;
  using BIOMemPtr = std::unique_ptr<BIO, decltype(&::BIO_free)>;
  using ASN1TimePtr = std::unique_ptr<ASN1_TIME, decltype(&ASN1_STRING_free)>;
  using SSLCtxPtr = std::unique_ptr<SSL_CTX, decltype(&::SSL_CTX_free)>;
@@ -76,7 +78,7 @@ index 7978771..01d120d 100644
  
  // Trust chain related errors.`
  constexpr bool isTrustChainError(int error)
-@@ -142,6 +144,60 @@ void validateCertificateStartDate(X509& cert)
+@@ -140,6 +142,54 @@ void validateCertificateStartDate(X509& cert)
      }
  }
  
@@ -85,14 +87,12 @@ index 7978771..01d120d 100644
 +    EVPPkeyTypePtr pubKey(X509_get_pubkey(&cert), ::EVP_PKEY_free);
 +    if (!pubKey)
 +    {
-+        log<level::ERR>("X509_get_pubkey() failed",
-+                        entry("ERRCODE=%lu", ERR_get_error()));
++        lg2::error("X509_get_pubkey() failed, ERRCODE:{ERRCODE}", "ERRCODE",  ERR_get_error());
 +        elog<InvalidCertificate>(Reason("Failed to get public key info"));
 +    }
 +    int keyType = EVP_PKEY_id(pubKey.get());
 +    int pkeyType = EVP_PKEY_type(keyType);
-+    log<level::INFO>("Certificate cryptographic keyType",
-+                     entry("KEYTYPE=%d", pkeyType));
++    lg2::info("Certificate cryptographic keyType, KEYTYPE:{KEYTYPE}", "KEYTYPE",  pkeyType);
 +    return pkeyType;
 +}
 +void validateCertificateKeyLength(X509& cert)
@@ -100,8 +100,7 @@ index 7978771..01d120d 100644
 +    EVPPkeyPtr pubKey(X509_get_pubkey(&cert), ::EVP_PKEY_free);
 +    if (!pubKey)
 +    {
-+        log<level::ERR>("X509_get_pubkey() failed",
-+                        entry("ERRCODE=%lu", ERR_get_error()));
++        lg2::error("X509_get_pubkey() failed, ERRCODE:{ERRCODE}", "ERRCODE",  ERR_get_error());
 +        elog<InvalidCertificate>(Reason("Failed to get public key info"));
 +    }
 +    int minKeyBitLength = 0;
@@ -120,16 +119,13 @@ index 7978771..01d120d 100644
 +    }
 +    else
 +    {
-+    log<level::ERR>("Invalid cryptographic KeyType certificate uploaded",
-+                        entry("KEYTYPE=%d", pkeyType));
++        lg2::error("Invalid cryptographic KeyType certificate uploaded, KEYTYPE:{KEYTYPE}", "KEYTYPE",  pkeyType);
 +        elog<InvalidCertificate>(Reason("Invalid key type certificate"));
 +    }
-+    log<level::INFO>("Certificate cryptographic length",
-+                     entry("KEYLENGTH=%d", keyLen));
++    lg2::info("Certificate cryptographic length, KEYLENGTH:{KEYLENGTH}", "KEYLENGTH",  keyLen);
 +    if (keyLen < minKeyBitLength || keyLen > maxKeyBitLength )
 +    {
-+        log<level::ERR>("Invalid cryptographic length certificate uploaded",
-+                        entry("KEYLENGTH=%d", keyLen));
++        lg2::error("Invalid cryptographic length certificate uploaded, KEYLENGTH:{KEYLENGTH}", "KEYLENGTH",  keyLen);
 +        elog<InvalidCertificate>(Reason("Invalid key length certificate"));
 +    }
 +}
@@ -157,4 +153,5 @@ index 6e193fc..4947b45 100644
   * @brief Validates the certificate against the trusted certificates store and
   * throws error if certificate is not valid
 -- 
-2.17.1
+2.34.1
+

@@ -1,4 +1,4 @@
-From 59ecfedf96d896b3ec5e2a75c7d13ec2b0aeabde Mon Sep 17 00:00:00 2001
+From 9e34e5c1d8d7fa0c689724c1f19e0e25c918a4e4 Mon Sep 17 00:00:00 2001
 From: Zbigniew Kurzynski <zbigniew.kurzynski@intel.com>
 Date: Thu, 20 Oct 2022 12:23:23 +0200
 Subject: [PATCH] Set of new MessageEntries added for the NM
@@ -10,18 +10,18 @@ Tested, messages sent by the NodeManager are properly
 displayed in the RF EventLog.
 Upstream-Status: Pending
 ---
- .../registries/nm_message_registry.hpp        | 123 ++++++++++++++++++
+ .../registries/nm_message_registry.hpp        | 122 ++++++++++++++++++
  redfish-core/lib/message_registries.hpp       |  18 ++-
  redfish-core/src/registries.cpp               |   6 +
- 3 files changed, 145 insertions(+), 2 deletions(-)
+ 3 files changed, 144 insertions(+), 2 deletions(-)
  create mode 100644 redfish-core/include/registries/nm_message_registry.hpp
 
 diff --git a/redfish-core/include/registries/nm_message_registry.hpp b/redfish-core/include/registries/nm_message_registry.hpp
 new file mode 100644
-index 00000000..c326109f
+index 00000000..7e60b05d
 --- /dev/null
 +++ b/redfish-core/include/registries/nm_message_registry.hpp
-@@ -0,0 +1,123 @@
+@@ -0,0 +1,122 @@
 +/*
 +// Copyright 2020 Intel Corporation.
 +
@@ -133,20 +133,19 @@ index 00000000..c326109f
 +            "None.",
 +        }},
 +    MessageEntry{"NmPolicyAttributeIncorrect",
-+        {
-+            "Indicates that some policy attributes of the NodeManager "
-+            "are incorrect.",
-+            "NodeManager reports some attributes for policy %1 were "
-+            "incorrect. Error description: %2",
-+            "Warning",
-+            2,
-+            {"string", "string"},
-+            "None.",
-+        }}
-+};
++                 {
++                     "Indicates that some policy attributes of the NodeManager "
++                     "are incorrect.",
++                     "NodeManager reports some attributes for policy %1 were "
++                     "incorrect. Error description: %2",
++                     "Warning",
++                     2,
++                     {"string", "string"},
++                     "None.",
++                 }}};
 +} // namespace redfish::registries::nm
 diff --git a/redfish-core/lib/message_registries.hpp b/redfish-core/lib/message_registries.hpp
-index a67a3d5d..96082337 100644
+index 4cc2d2a3..914bb6be 100644
 --- a/redfish-core/lib/message_registries.hpp
 +++ b/redfish-core/lib/message_registries.hpp
 @@ -20,6 +20,7 @@
@@ -166,12 +165,12 @@ index a67a3d5d..96082337 100644
  
      nlohmann::json& members = asyncResp->res.jsonValue["Members"];
      for (const char* memberName :
--         std::to_array({"Base", "TaskEvent", "ResourceEvent", "BiosAttributeRegistry", "OpenBMC"}))
-+         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent", "BiosAttributeRegistry", "OpenBMC"}))
+-         std::to_array({"Base", "TaskEvent", "ResourceEvent",
++         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent",
+                         "BiosAttributeRegistry", "OpenBMC"}))
      {
          nlohmann::json::object_t member;
-         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
-@@ -101,6 +102,11 @@ inline void handleMessageRoutesMessageRegistryFileGet(
+@@ -102,6 +103,11 @@ inline void handleMessageRoutesMessageRegistryFileGet(
          header = &registries::openbmc::header;
          dmtf.clear();
      }
@@ -183,7 +182,7 @@ index a67a3d5d..96082337 100644
      else if (registry == "ResourceEvent")
      {
          header = &registries::resource_event::header;
-@@ -190,6 +196,14 @@ inline void handleMessageRegistryGet(
+@@ -191,6 +197,14 @@ inline void handleMessageRegistryGet(
              registryEntries.emplace_back(&entry);
          }
      }
@@ -199,7 +198,7 @@ index a67a3d5d..96082337 100644
      {
          header = &registries::resource_event::header;
 diff --git a/redfish-core/src/registries.cpp b/redfish-core/src/registries.cpp
-index 3bfe0591..8cbc3685 100644
+index c727d1c7..a5bf0141 100644
 --- a/redfish-core/src/registries.cpp
 +++ b/redfish-core/src/registries.cpp
 @@ -1,6 +1,7 @@

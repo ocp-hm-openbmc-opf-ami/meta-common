@@ -1,4 +1,4 @@
-From 3f56475425210493850bf64fdb50e9ce00186e4b Mon Sep 17 00:00:00 2001
+From ed09014171f579284259760af6b0d41f2cb28d69 Mon Sep 17 00:00:00 2001
 From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Date: Tue, 18 Jul 2023 03:23:08 +0530
 Subject: [PATCH] Fix SSE Subscription with upstream sync
@@ -14,17 +14,17 @@ Signed-off-by: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 ---
  http/http_connection.hpp                      |  14 +-
  http/http_response.hpp                        |   8 ++
- http/routing/sserule.hpp                      |  22 ++-
- http/server_sent_event.hpp                    | 128 ++++++++++++++----
+ http/routing/sserule.hpp                      |  22 ++--
+ http/server_sent_event.hpp                    | 123 +++++++++++++-----
  .../include/event_service_manager.hpp         |  41 ++++--
  redfish-core/lib/eventservice_sse.hpp         |  24 +++-
- 6 files changed, 175 insertions(+), 62 deletions(-)
+ 6 files changed, 170 insertions(+), 62 deletions(-)
 
 diff --git a/http/http_connection.hpp b/http/http_connection.hpp
-index b5d0d2e5..2d92f0bd 100644
+index 1ec80ae7..49ded2b8 100644
 --- a/http/http_connection.hpp
 +++ b/http/http_connection.hpp
-@@ -262,9 +262,19 @@ class Connection :
+@@ -272,9 +272,19 @@ class Connection :
              [self(shared_from_this())](crow::Response& thisRes) {
              self->completeRequest(thisRes);
          });
@@ -47,12 +47,12 @@ index b5d0d2e5..2d92f0bd 100644
               boost::iequals(
                   thisReq.getHeaderValue(boost::beast::http::field::upgrade),
 diff --git a/http/http_response.hpp b/http/http_response.hpp
-index c4f9366e..31164d6e 100644
+index a5f95a90..132a4aa5 100644
 --- a/http/http_response.hpp
 +++ b/http/http_response.hpp
-@@ -16,10 +16,18 @@ namespace crow
- template <typename Adaptor, typename Handler>
- class Connection;
+@@ -21,10 +21,18 @@ class Connection;
+ 
+ namespace http = boost::beast::http;
  
 +namespace sse_socket
 +{
@@ -66,9 +66,9 @@ index c4f9366e..31164d6e 100644
      friend class crow::Connection;
 +    template <typename Adaptor>
 +    friend class crow::sse_socket::ConnectionImpl;
-     using response_type =
-         boost::beast::http::response<boost::beast::http::string_body>;
  
+     using string_response = http::response<http::string_body>;
+     using file_response = http::response<http::file_body>;
 diff --git a/http/routing/sserule.hpp b/http/routing/sserule.hpp
 index c0a4e504..4bc7b1fc 100644
 --- a/http/routing/sserule.hpp
@@ -137,7 +137,7 @@ index c0a4e504..4bc7b1fc 100644
  
  } // namespace crow
 diff --git a/http/server_sent_event.hpp b/http/server_sent_event.hpp
-index 77339483..7fff5862 100644
+index 77339483..b210fd09 100644
 --- a/http/server_sent_event.hpp
 +++ b/http/server_sent_event.hpp
 @@ -25,6 +25,7 @@ namespace sse_socket
@@ -148,7 +148,7 @@ index 77339483..7fff5862 100644
      Connection() = default;
  
      Connection(const Connection&) = delete;
-@@ -34,19 +35,27 @@ struct Connection : std::enable_shared_from_this<Connection>
+@@ -34,19 +35,26 @@ struct Connection : std::enable_shared_from_this<Connection>
      virtual ~Connection() = default;
  
      virtual boost::asio::io_context& getIoContext() = 0;
@@ -175,13 +175,12 @@ index 77339483..7fff5862 100644
 +                           const std::shared_ptr<bmcweb::AsyncResp>&)>
 +            openHandlerIn,
 +        std::function<void(std::shared_ptr<Connection>&)> closeHandlerIn) :
-+        Connection(reqIn),
-+        adaptor(std::move(adaptorIn)), timer(ioc),
++        Connection(reqIn), adaptor(std::move(adaptorIn)), timer(ioc),
 +        openHandler(std::move(openHandlerIn)),
          closeHandler(std::move(closeHandlerIn))
      {
          BMCWEB_LOG_DEBUG("SseConnectionImpl: SSE constructor {}", logPtr(this));
-@@ -70,45 +79,60 @@ class ConnectionImpl : public Connection
+@@ -70,45 +78,60 @@ class ConnectionImpl : public Connection
  
      void start()
      {
@@ -259,7 +258,7 @@ index 77339483..7fff5862 100644
      {
          serializer.reset();
          if (ec)
-@@ -119,14 +143,13 @@ class ConnectionImpl : public Connection
+@@ -119,14 +142,13 @@ class ConnectionImpl : public Connection
          }
          BMCWEB_LOG_DEBUG("SSE header sent - Connection established");
  
@@ -278,7 +277,7 @@ index 77339483..7fff5862 100644
      }
  
      void afterReadError(const std::shared_ptr<Connection>& /*self*/,
-@@ -196,6 +219,51 @@ class ConnectionImpl : public Connection
+@@ -196,6 +218,47 @@ class ConnectionImpl : public Connection
          doWrite();
      }
  
@@ -287,22 +286,18 @@ index 77339483..7fff5862 100644
 +        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
 +        asyncResp->res = std::move(thisRes);
 +
-+        if (asyncResp->res.body().empty() && !asyncResp->res.jsonValue.empty())
++        if (!asyncResp->res.jsonValue.empty())
 +        {
 +            asyncResp->res.addHeader(boost::beast::http::field::content_type,
 +                                     "application/json");
-+            asyncResp->res.body() = asyncResp->res.jsonValue.dump(
-+                2, ' ', true, nlohmann::json::error_handler_t::replace);
++            asyncResp->res.write(asyncResp->res.jsonValue.dump(
++                2, ' ', true, nlohmann::json::error_handler_t::replace));
 +        }
 +
 +        asyncResp->res.preparePayload();
 +
-+        auto ser = std::make_shared<boost::beast::http::response_serializer<
-+            boost::beast::http::string_body>>(
-+            std::move(*asyncResp->res.stringResponse));
-+
-+        boost::beast::http::async_write_some(
-+            adaptor, *ser,
++        boost::beast::async_write(
++            adaptor, asyncResp->res.generator(),
 +            std::bind_front(&ConnectionImpl::completeRequestCallback, this,
 +                            shared_from_this(), asyncResp));
 +    }
@@ -330,7 +325,7 @@ index 77339483..7fff5862 100644
      void sendEvent(std::string_view id, std::string_view msg) override
      {
          if (msg.empty())
-@@ -284,8 +352,10 @@ class ConnectionImpl : public Connection
+@@ -284,8 +347,10 @@ class ConnectionImpl : public Connection
      boost::asio::steady_timer timer;
      bool doingWrite = false;
  
@@ -344,10 +339,10 @@ index 77339483..7fff5862 100644
  } // namespace sse_socket
  } // namespace crow
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index e702b52d..90ce2e87 100644
+index 04681b5e..074af7ba 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -392,9 +392,14 @@ class Subscription : public persistent_data::UserSubscription
+@@ -387,9 +387,14 @@ class Subscription : public persistent_data::UserSubscription
          policy->invalidResp = retryRespHandler;
      }
  
@@ -365,7 +360,7 @@ index e702b52d..90ce2e87 100644
  
      ~Subscription() = default;
  
-@@ -609,9 +614,16 @@ class Subscription : public persistent_data::UserSubscription
+@@ -600,9 +605,16 @@ class Subscription : public persistent_data::UserSubscription
          return subId;
      }
  
@@ -384,16 +379,16 @@ index e702b52d..90ce2e87 100644
      }
  
    private:
-@@ -620,7 +632,7 @@ class Subscription : public persistent_data::UserSubscription
-     std::string host;
-     uint16_t port = 0;
+@@ -610,7 +622,7 @@ class Subscription : public persistent_data::UserSubscription
+     uint64_t eventSeqNum = 1;
+     boost::urls::url host;
      std::shared_ptr<crow::ConnectionPolicy> policy;
 -    crow::sse_socket::Connection* sseConn = nullptr;
 +    std::shared_ptr<crow::sse_socket::Connection> sseConn = nullptr;
      std::optional<crow::HttpClient> client;
      std::string path;
      std::string uriProto;
-@@ -1073,18 +1085,21 @@ class EventServiceManager
+@@ -1059,18 +1071,21 @@ class EventServiceManager
          }
      }
  

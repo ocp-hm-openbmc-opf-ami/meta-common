@@ -16,22 +16,21 @@ diff --git a/dbus/dbusconfiguration.cpp b/dbus/dbusconfiguration.cpp
 index 55151d3..fd7a138 100644
 --- a/dbus/dbusconfiguration.cpp
 +++ b/dbus/dbusconfiguration.cpp
-@@ -286,13 +286,15 @@ void populatePidInfo(
-         {
-             interface = thresholds::criticalInterface;
-         }
--        const std::string& path = sensorConfig.at(info.inputs.front()).readPath;
- 
+@@ -343,14 +343,12 @@ void populatePidInfo(
+         // named threshold, it is OK, because the SetPointOffset parser
+         // splits up the input into individual vectors, each with only a
+         // single element, if it detects that SetPointOffset is in use.
+-        const std::string& path =
+-            sensorConfig.at(info.inputs.front().name).readPath;
+-
 -        DbusHelper helper(sdbusplus::bus::new_system());
 -        std::string service = helper.getService(interface, path);
          double reading = 0;
          try
          {
-+            const std::string& path = sensorConfig.at(info.inputs.front()).readPath;
-+
-+            DbusHelper helper(sdbusplus::bus::new_system());
-+            std::string service = helper.getService(interface, path);
-+
++             const std::string& path = sensorConfig.at(info.inputs.front().name).readPath;
++             DbusHelper helper(sdbusplus::bus::new_system());
++             std::string service = helper.getService(interface, path);
              helper.getProperty(service, path, interface, *thresholdProperty,
                                 reading);
          }

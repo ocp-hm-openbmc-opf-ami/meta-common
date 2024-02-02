@@ -18,7 +18,7 @@ index b7e57dae..c80d2dbd 100644
                              // if we're getting status updates it's
                              // still alive, update timer
 -                            taskData->extendTimer(std::chrono::minutes(5));
-+                            taskData->extendTimer(std::chrono::minutes(6));
++                            taskData->extendTimer(std::chrono::minutes(10));
                          }
  
                          // as firmware update often results in a

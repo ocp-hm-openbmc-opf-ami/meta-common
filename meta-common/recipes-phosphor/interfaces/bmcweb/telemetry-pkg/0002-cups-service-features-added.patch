@@ -1,4 +1,4 @@
-From ab55db0c284c2985199e5d96cffde1ab9e9ab29e Mon Sep 17 00:00:00 2001
+From b49035d8498fe9c37f65498d859c450543e73719 Mon Sep 17 00:00:00 2001
 From: Lukasz Kazmierczak <lukasz.kazmierczak@intel.com>
 Date: Thu, 23 Mar 2023 16:55:45 +0100
 Subject: [PATCH] cups-service features added
@@ -35,13 +35,13 @@ Signed-off-by: Lukasz Kazmierczak <lukasz.kazmierczak@intel.com>
 Upstream-Status: Pending
 ---
  redfish-core/include/redfish.hpp  |   4 +
- redfish-core/lib/cups_service.hpp | 572 ++++++++++++++++++++++++++++++
- redfish-core/lib/service_root.hpp |  10 +
- 3 files changed, 586 insertions(+)
+ redfish-core/lib/cups_service.hpp | 570 ++++++++++++++++++++++++++++++
+ redfish-core/lib/service_root.hpp |   7 +
+ 3 files changed, 581 insertions(+)
  create mode 100644 redfish-core/lib/cups_service.hpp
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index b9ba183c..c66f753d 100644
+index 6cce758f..3b1cde4b 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
 @@ -21,6 +21,7 @@
@@ -52,7 +52,7 @@ index b9ba183c..c66f753d 100644
  #include "environment_metrics.hpp"
  #include "ethernet.hpp"
  #include "event_service.hpp"
-@@ -244,6 +245,9 @@ class RedfishService
+@@ -245,6 +246,9 @@ class RedfishService
          requestRoutesSensor(app);
          requestRoutesSensorPatching(app);
  
@@ -64,10 +64,10 @@ index b9ba183c..c66f753d 100644
          requestRoutesTaskCollection(app);
 diff --git a/redfish-core/lib/cups_service.hpp b/redfish-core/lib/cups_service.hpp
 new file mode 100644
-index 00000000..fbadcf33
+index 00000000..d3191317
 --- /dev/null
 +++ b/redfish-core/lib/cups_service.hpp
-@@ -0,0 +1,572 @@
+@@ -0,0 +1,570 @@
 +// Copyright (c) 2020-22 Intel Corporation
 +//
 +// Licensed under the Apache License, Version 2.0 (the "License");
@@ -213,12 +213,10 @@ index 00000000..fbadcf33
 +template <typename... T>
 +inline std::string toString(const std::tuple<T...>& tuple)
 +{
-+    return std::apply(
-+        [](auto&&... args) {
++    return std::apply([](auto&&... args) {
 +        std::string value;
 +        return ((value += toString(args) + " "), ...);
-+        },
-+        tuple);
++    }, tuple);
 +}
 +
 +inline void getCupsServiceConfiguration(
@@ -267,7 +265,7 @@ index 00000000..fbadcf33
 +                }
 +            }
 +        }
-+        },
++    },
 +        "xyz.openbmc_project.CupsService", "/xyz/openbmc_project/CupsService",
 +        "org.freedesktop.DBus.Properties", "GetAll",
 +        "xyz.openbmc_project.CupsService.Configuration");
@@ -300,7 +298,7 @@ index 00000000..fbadcf33
 +        loadFactors["CoreLoadFactor"] = core;
 +        loadFactors["IioLoadFactor"] = iio;
 +        loadFactors["MemoryLoadFactor"] = memory;
-+        });
++    });
 +}
 +
 +inline void
@@ -415,7 +413,7 @@ index 00000000..fbadcf33
 +            [](const crow::Request&,
 +               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
 +        CupsService::getCupsServiceJson(asyncResp);
-+        });
++    });
 +
 +    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Intel/CupsService/")
 +        .privileges({{"ConfigureComponents"}})
@@ -510,13 +508,13 @@ index 00000000..fbadcf33
 +                CupsService::dbus::subIface("StaticLoadFactors"),
 +                "StaticLoadFactors", loadFactors);
 +        }
-+        });
++    });
 +}
 +
 +namespace CupsSensors
 +{
 +
-+inline bool isSensor(const dbus::utility::DBusInteracesMap& interfaces)
++inline bool isSensor(const dbus::utility::DBusInterfacesMap& interfaces)
 +{
 +    for (const auto& [interface, properties] : interfaces)
 +    {
@@ -529,7 +527,7 @@ index 00000000..fbadcf33
 +}
 +
 +inline const std::vector<std::tuple<std::string, std::string, std::string>>*
-+    getAssociations(const dbus::utility::DBusInteracesMap& interfaces)
++    getAssociations(const dbus::utility::DBusInterfacesMap& interfaces)
 +{
 +    for (const auto& [interface, properties] : interfaces)
 +    {
@@ -615,7 +613,7 @@ index 00000000..fbadcf33
 +        }
 +
 +        asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-+        },
++    },
 +        "xyz.openbmc_project.CupsService", "/xyz/openbmc_project/sensors",
 +        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 +}
@@ -636,15 +634,15 @@ index 00000000..fbadcf33
 +        };
 +
 +        CupsSensors::getCupsSensors(asyncResp);
-+        });
++    });
 +}
 +
 +} // namespace redfish
 diff --git a/redfish-core/lib/service_root.hpp b/redfish-core/lib/service_root.hpp
-index d9cdd476..e69d3cd6 100644
+index d9cdd476..6038c979 100644
 --- a/redfish-core/lib/service_root.hpp
 +++ b/redfish-core/lib/service_root.hpp
-@@ -89,9 +89,19 @@ inline void handleServiceRootGetImpl(
+@@ -89,6 +89,13 @@ inline void handleServiceRootGetImpl(
      asyncResp->res.jsonValue["LicenseService"]["@odata.id"] =
          "/redfish/v1/LicenseService";
  
@@ -658,12 +656,6 @@ index d9cdd476..e69d3cd6 100644
      asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
          "/redfish/v1/Managers/bmc";
  
-+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] =
-+        "#OemServiceRoot.v1_0_0.ServiceRoot";
-+
-     nlohmann::json& protocolFeatures =
-         asyncResp->res.jsonValue["ProtocolFeaturesSupported"];
-     protocolFeatures["ExcerptQuery"] = false;
 -- 
 2.25.1
 

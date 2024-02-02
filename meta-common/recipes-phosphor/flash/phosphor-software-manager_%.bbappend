@@ -1,16 +1,16 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
-EXTRA_OEMESON += "-Dfwupd-script=enabled"
+#EXTRA_OEMESON += "-Dfwupd-script=enabled"
 
 # Enable downstream autobump to fix sync build, can be removed later
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-bmc-code-mgmt;branch=master;protocol=https"
-SRCREV = "b9ecb2bcda1292649968c15d227c32dc4209b844"
+SRCREV = "83d7d406f7cf6a0b74040cf3dec3d4cf7026ef09"
 
 SYSTEMD_SERVICE:${PN}-updater += "fwupd@.service"
 
 EXTRA_OEMESON += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', '-Dpfr-update=enabled', '', d)}"
-EXTRA_OEMESON += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-secboot', '-Dpfr-update=enabled', '', d)}"
+#EXTRA_OEMESON += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-secboot', '-Dpfr-update=enabled', '', d)}"
 
 SRC_URI += " \
     file://0002-Redfish-firmware-activation.patch \
@@ -38,7 +38,7 @@ SRC_URI_PFR = " \
     "
 
 SRC_URI += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', SRC_URI_PFR, '', d)}"
-SRC_URI += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-secboot', SRC_URI_PFR, '', d)}"
+#SRC_URI += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-secboot', SRC_URI_PFR, '', d)}"
 
 #pull down upstream recipe change, remove after upstream sync passes 
 PACKAGECONFIG[side_switch_on_boot] = "-Dside-switch-on-boot=enabled, -Dside-switch-on-boot=disabled, cli11"

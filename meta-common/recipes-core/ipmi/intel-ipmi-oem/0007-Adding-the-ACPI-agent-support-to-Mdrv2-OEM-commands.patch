@@ -1,4 +1,4 @@
-From ab641704ae79c6ab7af75bb275e4fbdb23ea0760 Mon Sep 17 00:00:00 2001
+From 3f168fc8e9e868232a7cd00ad8096f8dde8d0b0d Mon Sep 17 00:00:00 2001
 From: hmudun1x <hemanthx.kumar.mudunuri@intel.com>
 Date: Thu, 23 Jun 2022 01:33:25 -0700
 Subject: [PATCH] Adding the ACPI agent support to Mdrv2 OEM commands
@@ -104,12 +104,14 @@ index 7fd6f55..37b9f82 100644
  };
  
  // Three members include dataSetSize, dataVersion and timestamp
-@@ -260,60 +281,106 @@ class MDRV2
+@@ -259,61 +259,106 @@ class MDRV2
+             std::make_unique<sdbusplus::Timer>([&](void) { timeoutHandler(); });
      }
- 
-     int agentLookup(const uint16_t& agentId);
+
+-    int agentLookup(const uint16_t& agentId);
 -    int findLockHandle(const uint16_t& lockHandle);
 -    int syncDirCommonData(uint8_t idIndex, uint32_t size,
++    int agentLookup(const uint16_t& agentId);
 +    int findLockHandle(int agentIndex, const uint16_t& lockHandle);
 +    int syncDirCommonData(int agentIndex, uint8_t idIndex, uint32_t size,
                            const std::string& service);
@@ -122,17 +124,17 @@ index 7fd6f55..37b9f82 100644
 -    bool storeDatatoFlash(MDRSMBIOSHeader* mdrHdr, uint8_t* data);
 -    bool smbiosUnlock(uint8_t index);
 +    bool storeDatatoFlash(int agentIndex, MDRSMBIOSHeader* mdrHdr,
-+                          uint8_t* data);
++                   uint8_t* data);
 +    bool smbiosUnlock(int agentIndex, uint8_t index);
      void timeoutHandler();
 -    bool smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
 -                       uint16_t timeout);
 +    bool smbiosTryLock(int agentIndex, uint8_t flag, uint8_t index,
-+                       uint16_t* session, uint16_t timeout);
++                   uint16_t* session, uint16_t timeout);
      int sdplusMdrv2GetProperty(const std::string& name,
                                 ipmi::DbusVariant& value,
                                 const std::string& service);
- 
+-
 -    Mdr2DirStruct smbiosDir{smbiosAgentVersion,
 -                            1,
 -                            1,
@@ -236,15 +238,15 @@ index 7fd6f55..37b9f82 100644
 +                                         smbiosSMMemoryOffset,
 +                                         smbiosSMMemorySize,
 +                                         smbiosTableStorageSize,
-+                                         smbiosTableStorage},
++                                        smbiosTableStorage},
 +                                        0,
 +                                        const_cast<char*>(smbiosPath),
 +                                        const_cast<char*>(mdrType2File),
 +                                        const_cast<char*>(smbiosMdrv2Interface),
 +                                        const_cast<char*>(smbiosMdrv2Path)}};
      std::unique_ptr<SharedMemoryArea> area;
-     std::unique_ptr<phosphor::Timer> timer;
- 
+     std::unique_ptr<sdbusplus::Timer> timer;
+
    private:
      uint8_t lockIndex = 0;
      uint8_t smbiosTableStorage[smbiosTableStorageSize];
@@ -252,7 +254,7 @@ index 7fd6f55..37b9f82 100644
 +    int currentAgentIndex = 0;
  };
 diff --git a/src/smbiosmdrv2handler.cpp b/src/smbiosmdrv2handler.cpp
-index fac3d94..2691faf 100644
+index d3c862e..e2b08ad 100644
 --- a/src/smbiosmdrv2handler.cpp
 +++ b/src/smbiosmdrv2handler.cpp
 @@ -31,6 +31,7 @@
@@ -848,8 +850,8 @@ index fac3d94..2691faf 100644
 +                          uint16_t* session, uint16_t timeout)
  {
      bool ret = false;
-     uint32_t u32Status = 0;
-@@ -919,54 +1001,61 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
+ 
+@@ -918,54 +1000,61 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
      }
      std::chrono::microseconds usec(timeout * sysClock);
  
@@ -926,7 +928,7 @@ index fac3d94..2691faf 100644
                  ret = true;
              }
              break;
-@@ -979,7 +1068,7 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
+@@ -978,7 +1067,7 @@ bool MDRV2::smbiosTryLock(uint8_t flag, uint8_t index, uint16_t* session,
  
  void MDRV2::timeoutHandler()
  {
@@ -935,7 +937,7 @@ index fac3d94..2691faf 100644
      mdrv2->area.reset(nullptr);
  }
  
-@@ -1016,30 +1105,71 @@ ipmi::RspType<uint8_t,  // mdr2Version
+@@ -1015,30 +1104,71 @@ ipmi::RspType<uint8_t,  // mdr2Version
              "Unknown agent id", phosphor::logging::entry("ID=%x", agentId));
          return ipmi::responseParmOutOfRange();
      }
@@ -951,7 +953,7 @@ index fac3d94..2691faf 100644
 +        int index = 0;
 +        for (; index < mdrv2->mdrv2Dir[agentIndex].dirEntries; index++)
 +        {
-+            int info = 0;
++            size_t info = 0;
 +            for (; info < arrayDataInfo.size(); info++)
 +            {
 +                if (arrayDataInfo[info] != mdrv2->mdrv2Dir[agentIndex]
@@ -1020,7 +1022,7 @@ index fac3d94..2691faf 100644
  
      return ipmi::responseSuccess(mdr2Version, session, dataLength, xferAddress,
                                   xferLength);
-@@ -1068,7 +1198,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
+@@ -1067,7 +1197,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1029,7 +1031,7 @@ index fac3d94..2691faf 100644
  
      if ((idIndex < 0) || (idIndex >= maxDirEntries))
      {
-@@ -1077,7 +1207,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
+@@ -1076,7 +1206,7 @@ ipmi::RspType<> mdr2UnlockData(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1038,7 +1040,7 @@ index fac3d94..2691faf 100644
      {
          phosphor::logging::log<phosphor::logging::level::ERR>(
              "Unlock Data failed - cannot unlock idIndex");
-@@ -1100,6 +1230,7 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1099,6 +1229,7 @@ ipmi::RspType<uint8_t, uint16_t>
                          uint32_t xferLength, uint16_t timeout)
  {
      uint16_t session = 0;
@@ -1046,7 +1048,7 @@ index fac3d94..2691faf 100644
  
      if (dataLength > smbiosTableStorageSize)
      {
-@@ -1115,7 +1246,6 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1114,7 +1245,6 @@ ipmi::RspType<uint8_t, uint16_t>
      }
  
      std::shared_ptr<sdbusplus::asio::connection> bus = getSdBus();
@@ -1054,7 +1056,7 @@ index fac3d94..2691faf 100644
  
      if (mdrv2 == nullptr)
      {
-@@ -1130,16 +1260,67 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1129,16 +1259,67 @@ ipmi::RspType<uint8_t, uint16_t>
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1079,7 +1081,7 @@ index fac3d94..2691faf 100644
 +        int index = 0;
 +        for (; index < mdrv2->mdrv2Dir[agentIndex].dirEntries; index++)
 +        {
-+            int info = 0;
++            size_t info = 0;
 +            for (; info < arrayDataInfo.size(); info++)
 +            {
 +                if (arrayDataInfo[info] != mdrv2->mdrv2Dir[agentIndex]
@@ -1128,7 +1130,7 @@ index fac3d94..2691faf 100644
      {
          try
          {
-@@ -1148,21 +1329,27 @@ ipmi::RspType<uint8_t, uint16_t>
+@@ -1147,21 +1328,27 @@ ipmi::RspType<uint8_t, uint16_t>
          }
          catch (const std::system_error& e)
          {
@@ -1165,7 +1167,7 @@ index fac3d94..2691faf 100644
          }
      }
      else
-@@ -1199,7 +1386,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
+@@ -1198,7 +1385,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1174,7 +1176,7 @@ index fac3d94..2691faf 100644
  
      if ((idIndex < 0) || (idIndex >= maxDirEntries))
      {
-@@ -1208,7 +1395,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
+@@ -1207,7 +1394,7 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
          return ipmi::responseParmOutOfRange();
      }
  
@@ -1183,7 +1185,7 @@ index fac3d94..2691faf 100644
      {
          phosphor::logging::log<phosphor::logging::level::ERR>(
              "Send data done failed - cannot unlock idIndex");
-@@ -1218,54 +1405,71 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
+@@ -1217,54 +1404,71 @@ ipmi::RspType<> cmd_mdr2_data_done(uint16_t agentId, uint16_t lockHandle)
      mdrv2->area.reset(nullptr);
      MDRSMBIOSHeader mdr2Smbios;
      mdr2Smbios.mdrType = mdrTypeII;
@@ -1289,5 +1291,5 @@ index fac3d94..2691faf 100644
  }
  
 -- 
-2.25.1
+2.34.1
 

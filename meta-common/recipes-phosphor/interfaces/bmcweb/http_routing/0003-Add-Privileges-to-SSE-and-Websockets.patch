@@ -1,4 +1,4 @@
-From 76813b558c4c75d1a8cbbd25fda565960c60d4a0 Mon Sep 17 00:00:00 2001
+From 5cc8a43c34206351efa8979953f53488ea6efc43 Mon Sep 17 00:00:00 2001
 From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Date: Mon, 18 Oct 2021 22:58:29 +0530
 Subject: [PATCH] Add Privileges to SSE and Websockets
@@ -63,7 +63,7 @@ index 4bc7b1fc..e1f8b18e 100644
      using self_t = SseSocketRule;
  
 diff --git a/http/routing/websocketrule.hpp b/http/routing/websocketrule.hpp
-index 5e558f2e..ccc33f7c 100644
+index bf6daad6..a320b267 100644
 --- a/http/routing/websocketrule.hpp
 +++ b/http/routing/websocketrule.hpp
 @@ -1,17 +1,16 @@
@@ -89,7 +89,7 @@ index 5e558f2e..ccc33f7c 100644
      using self_t = WebSocketRule;
  
 diff --git a/include/dbus_monitor.hpp b/include/dbus_monitor.hpp
-index 26827172..24575e92 100644
+index 25f0c7f7..4aef44a3 100644
 --- a/include/dbus_monitor.hpp
 +++ b/include/dbus_monitor.hpp
 @@ -7,6 +7,7 @@
@@ -108,10 +108,10 @@ index 26827172..24575e92 100644
          .websocket()
 +        .privileges(redfish::privileges::privilegeSetLogin)
          .onopen([&](crow::websocket::Connection& conn) {
-             BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
-             sessions.try_emplace(&conn);
+         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
+         sessions.try_emplace(&conn);
 diff --git a/include/kvm_websocket.hpp b/include/kvm_websocket.hpp
-index e3131bb3..6459c311 100644
+index 0089ae37..abe67510 100644
 --- a/include/kvm_websocket.hpp
 +++ b/include/kvm_websocket.hpp
 @@ -6,6 +6,7 @@
@@ -122,7 +122,7 @@ index e3131bb3..6459c311 100644
  
  namespace crow
  {
-@@ -160,8 +161,8 @@ inline void requestRoutes(App& app)
+@@ -172,8 +173,8 @@ inline void requestRoutes(App& app)
      sessions.reserve(maxSessions);
  
      BMCWEB_ROUTE(app, "/kvm/0")
@@ -130,10 +130,10 @@ index e3131bb3..6459c311 100644
          .websocket()
 +        .privileges(redfish::privileges::privilegeSetConfigureManager)
          .onopen([](crow::websocket::Connection& conn) {
-             BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
+         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
  
 diff --git a/include/nbd_proxy.hpp b/include/nbd_proxy.hpp
-index ad987bf0..f25cc26d 100644
+index ff948b20..53feafbf 100644
 --- a/include/nbd_proxy.hpp
 +++ b/include/nbd_proxy.hpp
 @@ -385,6 +385,7 @@ inline void requestRoutes(App& app)
@@ -145,7 +145,7 @@ index ad987bf0..f25cc26d 100644
          .onclose(onClose)
          .onmessageex(onMessage);
 diff --git a/include/obmc_console.hpp b/include/obmc_console.hpp
-index 2dd3edbf..6e55637c 100644
+index fb363be2..e8e62c38 100644
 --- a/include/obmc_console.hpp
 +++ b/include/obmc_console.hpp
 @@ -7,6 +7,7 @@
@@ -167,7 +167,7 @@ index 2dd3edbf..6e55637c 100644
          .onclose(onClose)
          .onmessage(onMessage);
 diff --git a/include/vm_websocket.hpp b/include/vm_websocket.hpp
-index 1b06a93d..f99e6af8 100644
+index 13bbdc6b..ca18bc0e 100644
 --- a/include/vm_websocket.hpp
 +++ b/include/vm_websocket.hpp
 @@ -7,6 +7,7 @@
@@ -186,13 +186,13 @@ index 1b06a93d..f99e6af8 100644
          .websocket()
 +        .privileges(redfish::privileges::privilegeSetConfigureManager)
          .onopen([](crow::websocket::Connection& conn) {
-             BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
+         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
  
 diff --git a/redfish-core/lib/eventservice_sse.hpp b/redfish-core/lib/eventservice_sse.hpp
-index 9dddfbb3..c50549bd 100644
+index 071c0660..4886ab01 100644
 --- a/redfish-core/lib/eventservice_sse.hpp
 +++ b/redfish-core/lib/eventservice_sse.hpp
-@@ -194,8 +194,8 @@ inline void requestRoutesEventServiceSse(App& app)
+@@ -193,8 +193,8 @@ inline void requestRoutesEventServiceSse(App& app)
      // Note, this endpoint is given the same privilege level as creating a
      // subscription, because functionally, that's the operation being done
      BMCWEB_ROUTE(app, "/redfish/v1/EventService/SSE")

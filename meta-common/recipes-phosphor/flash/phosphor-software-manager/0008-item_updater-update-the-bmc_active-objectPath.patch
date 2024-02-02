@@ -1,4 +1,4 @@
-From 9d9c519865f1e6f9deec98e849d6f65aff588484 Mon Sep 17 00:00:00 2001
+From a3afc6a849a7e326aea6d05ab0af6122d29028ab Mon Sep 17 00:00:00 2001
 From: Chalapathi <chalapathix.venkataramashetty@intel.com>
 Date: Thu, 23 Apr 2020 19:06:19 +0000
 Subject: [PATCH] item_updater: update the bmc_active objectPath
@@ -13,10 +13,10 @@ Upstream-Status: Pending
  1 file changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/item_updater.cpp b/item_updater.cpp
-index 96782f2..3aa3f4f 100644
+index 5613a49..e69e564 100644
 --- a/item_updater.cpp
 +++ b/item_updater.cpp
-@@ -203,7 +203,8 @@ void ItemUpdater::processBMCImage()
+@@ -204,7 +204,8 @@ void ItemUpdater::processBMCImage()
          if (0 ==
              iter.path().native().compare(0, BMC_RO_PREFIX_LEN, BMC_ROFS_PREFIX))
          {
@@ -25,8 +25,8 @@ index 96782f2..3aa3f4f 100644
 +            // upstream changed this to relative_path ... is that right?
              fs::path releaseFile(OS_RELEASE_FILE);
              auto osRelease = iter.path() / releaseFile.relative_path();
-             if (!fs::is_regular_file(osRelease))
-@@ -220,7 +221,6 @@ void ItemUpdater::processBMCImage()
+             if (!fs::is_regular_file(osRelease, ec))
+@@ -223,7 +224,6 @@ void ItemUpdater::processBMCImage()
                  // volumes created by the UBI layout for example have the id in
                  // the mount directory name. The worst that can happen is that
                  // erase() is called with an non-existent id and returns.
@@ -34,7 +34,7 @@ index 96782f2..3aa3f4f 100644
                  ItemUpdater::erase(id);
  #endif
  
-@@ -234,7 +234,6 @@ void ItemUpdater::processBMCImage()
+@@ -237,7 +237,6 @@ void ItemUpdater::processBMCImage()
  
                  // Try to delete the version, same as above if the
                  // OS_RELEASE_FILE does not exist.
@@ -42,7 +42,7 @@ index 96782f2..3aa3f4f 100644
                  ItemUpdater::erase(id);
  
                  continue;
-@@ -243,8 +242,6 @@ void ItemUpdater::processBMCImage()
+@@ -246,8 +245,6 @@ void ItemUpdater::processBMCImage()
              // The flash location is part of the mount name: rofs-<location>
              auto flashId = iter.path().native().substr(BMC_RO_PREFIX_LEN);
  
@@ -51,3 +51,6 @@ index 96782f2..3aa3f4f 100644
              // Check if the id has already been added. This can happen if the
              // BMC partitions / devices were manually flashed with the same
              // image.
+-- 
+2.25.1
+

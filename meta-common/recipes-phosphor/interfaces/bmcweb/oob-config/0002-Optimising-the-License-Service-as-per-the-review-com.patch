@@ -1,34 +1,37 @@
-From a5608c2f261078d31d9540f08d4193b8a9ab4852 Mon Sep 17 00:00:00 2001
-From: Arun Thomas Baby <arunx.thomas.baby.baby.mathew@intel.com>
-Date: Tue, 25 Apr 2023 03:23:24 -0700
-Subject: [PATCH] Optimising the License Service as per the review comments
+From 1f9c5b1b9704f07ef4e25aeb6ae329b8fc40627b Mon Sep 17 00:00:00 2001
+From: Arun Lal K M <arun.lal@intel.com>
+Date: Tue, 12 Sep 2023 08:54:53 +0000
+Subject: [PATCH] Optimising the License Service as per the review comments 
  from upstream PR.
 
 Raising all the changes done for addressing the review comments in the Upstream PR.
 Link to upstream PR: https://gerrit.openbmc.org/c/openbmc/bmcweb/+/54037
 Combined the Patches for LicenService and Meter State Datat URI's into a single Patch.
 
+Other changes
+1) Give redfish response as "Pending" if task is still in execution.
+
 Tested: Verified the functionalities for all License Service URI's and meter state URI's and are working fine as expected
 
 Signed-off-by: Arun Thomas Baby <arunx.thomas.baby.baby.mathew@intel.com>
-Upstream-Status: Pending
+Signed-off-by: Arun Lal K M <arun.lal@intel.com>
 ---
  redfish-core/include/ondemand_helper.hpp      |  78 ++
  redfish-core/include/redfish.hpp              |   5 +
  .../include/registries/privilege_registry.hpp |  24 +
  redfish-core/lib/license_service.hpp          | 678 ++++++++++++++++++
- redfish-core/lib/meterstatedata.hpp           | 439 ++++++++++++
+ redfish-core/lib/meterstatedata.hpp           | 445 ++++++++++++
  redfish-core/lib/processor.hpp                |   1 +
  redfish-core/lib/service_root.hpp             |   2 +
  redfish-core/lib/task.hpp                     |   4 +
- 8 files changed, 1231 insertions(+)
+ 8 files changed, 1237 insertions(+)
  create mode 100644 redfish-core/include/ondemand_helper.hpp
  create mode 100644 redfish-core/lib/license_service.hpp
  create mode 100644 redfish-core/lib/meterstatedata.hpp
 
 diff --git a/redfish-core/include/ondemand_helper.hpp b/redfish-core/include/ondemand_helper.hpp
 new file mode 100644
-index 00000000..1242bb82
+index 00000000..3679be8d
 --- /dev/null
 +++ b/redfish-core/include/ondemand_helper.hpp
 @@ -0,0 +1,78 @@
@@ -49,8 +52,8 @@ index 00000000..1242bb82
 +*/
 +
 +/**
-+ * This file contains all error codes for OnDemand dbus-responses and OnDemand helper
-+ * functions.
++ * This file contains all error codes for OnDemand dbus-responses and OnDemand
++ * helper functions.
 + */
 +
 +#pragma once
@@ -66,7 +69,7 @@ index 00000000..1242bb82
 +    ondemandUnableToOpenFd
 +};
 +inline void fillOnDemandOemObject(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-+                              const std::string& processorId)
++                                  const std::string& processorId)
 +{
 +    crow::connections::systemBus->async_method_call(
 +        [asyncResp,
@@ -100,7 +103,7 @@ index 00000000..1242bb82
 +                "/Oem/Intel/DynamicFeature";
 +        }
 +        return;
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
@@ -111,7 +114,7 @@ index 00000000..1242bb82
 +
 +} // namespace redfish
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index 120c0f86..b9ba183c 100644
+index 03ccd2ce..6cce758f 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
 @@ -28,11 +28,13 @@
@@ -128,7 +131,7 @@ index 120c0f86..b9ba183c 100644
  #include "metric_report.hpp"
  #include "metric_report_definition.hpp"
  #include "network_protocol.hpp"
-@@ -264,6 +266,9 @@ class RedfishService
+@@ -265,6 +267,9 @@ class RedfishService
          requestRoutesTriggerCollection(app);
          requestRoutesTrigger(app);
  
@@ -174,7 +177,7 @@ index 57c9e024..49afa7a1 100644
  // clang-format on
 diff --git a/redfish-core/lib/license_service.hpp b/redfish-core/lib/license_service.hpp
 new file mode 100644
-index 00000000..128b3d80
+index 00000000..b1b2162c
 --- /dev/null
 +++ b/redfish-core/lib/license_service.hpp
 @@ -0,0 +1,678 @@
@@ -244,7 +247,7 @@ index 00000000..128b3d80
 +            asyncResp->res.jsonValue["Members@odata.count"] =
 +                (asyncResp->res.jsonValue["Members"]).size();
 +        }
-+        },
++    },
 +        service, objectPath, featureEnableInterfaceName, method);
 +}
 +inline void fillCPULicenseInstance(
@@ -298,7 +301,7 @@ index 00000000..128b3d80
 +        }
 +        asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
 +            "#OemLicense.v1_0_0.License";
-+        },
++    },
 +        service, objectPath, featureEnableInterfaceName, method);
 +}
 +
@@ -357,7 +360,7 @@ index 00000000..128b3d80
 +                    taskData->state = "Completed";
 +                }
 +                return task::completed;
-+                },
++            },
 +                signalMatchStr);
 +            task->startTimer(std::chrono::minutes(5));
 +            task->populateResp(asyncResp->res);
@@ -451,14 +454,14 @@ index 00000000..128b3d80
 +                                         "GetFeatureState", cpuinstance,
 +                                         service);
 +            }
-+            },
++        },
 +            "xyz.openbmc_project.ObjectMapper",
 +            "/xyz/openbmc_project/object_mapper",
 +            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
 +            ondemandObjectPath, 0,
 +            std::array<const char*, 1>{
 +                "xyz.openbmc_project.CPU.FeatureEnable"});
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -612,14 +615,14 @@ index 00000000..128b3d80
 +            }
 +            messages::propertyValueNotInList(asyncResp->res, authDevice,
 +                                             "Links/0/AuthorizedDevices");
-+            },
++        },
 +            "xyz.openbmc_project.ObjectMapper",
 +            "/xyz/openbmc_project/object_mapper",
 +            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
 +            ondemandObjectPath, 0,
 +            std::array<const char*, 1>{
 +                "xyz.openbmc_project.CPU.FeatureEnable"});
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -818,14 +821,14 @@ index 00000000..128b3d80
 +                return;
 +            }
 +            messages::resourceNotFound(asyncResp->res, "Licenses", param);
-+            },
++        },
 +            "xyz.openbmc_project.ObjectMapper",
 +            "/xyz/openbmc_project/object_mapper",
 +            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
 +            licenseService::ondemandObjectPath, 0,
 +            std::array<const char*, 1>{
 +                "xyz.openbmc_project.CPU.FeatureEnable"});
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -858,10 +861,10 @@ index 00000000..128b3d80
 +} // namespace redfish
 diff --git a/redfish-core/lib/meterstatedata.hpp b/redfish-core/lib/meterstatedata.hpp
 new file mode 100644
-index 00000000..4b755855
+index 00000000..e2f2e213
 --- /dev/null
 +++ b/redfish-core/lib/meterstatedata.hpp
-@@ -0,0 +1,439 @@
+@@ -0,0 +1,445 @@
 +/*
 +// Copyright (c) 2022 Intel Corporation
 +//
@@ -954,6 +957,7 @@ index 00000000..4b755855
 +    bool fdStatus;
 +    bool methodSuccess;
 +    bool signalResponseSuccess;
++    std::shared_ptr<task::TaskData> task;
 +};
 +boost::container::flat_map<std::string, ondemandData> ondemandList;
 +
@@ -1083,8 +1087,7 @@ index 00000000..4b755855
 +                getCPUMeterState(asyncResp, processorId, reqFeature, "");
 +                return;
 +            }
-+            ondemandData ondemandVal = {fdDup, false, false, false};
-+            ondemandList[ondemandListIdentifier] = ondemandVal;
++
 +            std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
 +                [ondemandListIdentifier](
 +                    boost::system::error_code err, sdbusplus::message_t& msg,
@@ -1120,10 +1123,16 @@ index 00000000..4b755855
 +                    }
 +                }
 +                return task::completed;
-+                },
++            },
 +                signalMatchStr);
 +            task->startTimer(std::chrono::minutes(1));
 +            task->populateResp(asyncResp->res);
++
++            task->state = "Pending";
++
++            ondemandData ondemandVal = {fdDup, false, false, false, task};
++            ondemandList[ondemandListIdentifier] = ondemandVal;
++
 +            return;
 +        }
 +        else if (ondemandResponse ==
@@ -1188,7 +1197,7 @@ index 00000000..4b755855
 +    {
 +        if (!ondemandObject->second.fdStatus)
 +        {
-+            messages::serviceTemporarilyUnavailable(asyncResp->res, "60");
++            ondemandObject->second.task->populateResp(asyncResp->res);
 +            return;
 +        }
 +        Fd fd{ondemandObject->second.fd};
@@ -1229,7 +1238,7 @@ index 00000000..4b755855
 +        }
 +        getCPUProvisionDynamic(asyncResp, processorId, reqFeature,
 +                               featureEnabled);
-+        },
++    },
 +        ondemandService, objectPath, featureEnableInterfaceName, method);
 +}
 +} // namespace ondemand
@@ -1290,19 +1299,19 @@ index 00000000..4b755855
 +            }
 +            messages::resourceNotFound(asyncResp->res, "OnDemandFeature",
 +                                       reqFeature);
-+            },
++        },
 +            "xyz.openbmc_project.ObjectMapper",
 +            "/xyz/openbmc_project/object_mapper",
 +            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
 +            "/xyz/openbmc_project/ondemand", 0,
 +            std::array<const std::string, 1>{
 +                "xyz.openbmc_project.CPU.FeatureEnable"});
-+        });
++    });
 +}
 +
 +} // namespace redfish
 diff --git a/redfish-core/lib/processor.hpp b/redfish-core/lib/processor.hpp
-index 873f8824..80c51dd4 100644
+index 6ddc9017..376062bb 100644
 --- a/redfish-core/lib/processor.hpp
 +++ b/redfish-core/lib/processor.hpp
 @@ -898,6 +898,7 @@ inline void
@@ -1327,10 +1336,10 @@ index 6ae16c37..d9cdd476 100644
      asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
          "/redfish/v1/Managers/bmc";
 diff --git a/redfish-core/lib/task.hpp b/redfish-core/lib/task.hpp
-index 8a5c30b7..21dd7058 100644
+index 136412c3..44a2552a 100644
 --- a/redfish-core/lib/task.hpp
 +++ b/redfish-core/lib/task.hpp
-@@ -431,6 +431,10 @@ inline void requestRoutesTask(App& app)
+@@ -432,6 +432,10 @@ inline void requestRoutesTask(App& app)
              asyncResp->res.jsonValue["Payload"]["JsonBody"] = p.jsonBody.dump(
                  2, ' ', true, nlohmann::json::error_handler_t::replace);
          }
@@ -1339,7 +1348,7 @@ index 8a5c30b7..21dd7058 100644
 +            asyncResp->res.jsonValue["HidePayload"] = true;
 +        }
          asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
-         });
+     });
  }
 -- 
 2.25.1

@@ -1,4 +1,4 @@
-From 7bded0e728144febac139e30a392e2b874c89753 Mon Sep 17 00:00:00 2001
+From 3e69ef24f5e431144367714cb9ecc9f3af1f328c Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Mon, 10 May 2021 12:32:30 +0530
 Subject: [PATCH] Log Redfish Events for all subscription actions
@@ -28,10 +28,10 @@ Upstream-Status: Pending
  3 files changed, 66 insertions(+), 5 deletions(-)
 
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index 2ef48053..e194c9b7 100644
+index 09528664..cc17af82 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -785,7 +785,7 @@ class EventServiceManager
+@@ -770,7 +770,7 @@ class EventServiceManager
          }
      }
  
@@ -40,7 +40,7 @@ index 2ef48053..e194c9b7 100644
      {
          persistent_data::EventServiceStore::getInstance()
              .eventServiceConfig.enabled = serviceEnabled;
-@@ -832,7 +832,7 @@ class EventServiceManager
+@@ -817,7 +817,7 @@ class EventServiceManager
  
          if (updateConfig)
          {
@@ -49,7 +49,7 @@ index 2ef48053..e194c9b7 100644
          }
  
          if (updateRetryCfg)
-@@ -943,7 +943,7 @@ class EventServiceManager
+@@ -928,7 +928,7 @@ class EventServiceManager
  
          if (updateFile)
          {
@@ -58,7 +58,7 @@ index 2ef48053..e194c9b7 100644
          }
  
  #ifndef BMCWEB_ENABLE_REDFISH_DBUS_LOG_ENTRIES
-@@ -957,6 +957,12 @@ class EventServiceManager
+@@ -942,6 +942,12 @@ class EventServiceManager
  
          // Set Subscription ID for back trace
          subValue->setSubscriptionId(id);
@@ -71,7 +71,7 @@ index 2ef48053..e194c9b7 100644
          return id;
      }
  
-@@ -977,7 +983,14 @@ class EventServiceManager
+@@ -962,7 +968,14 @@ class EventServiceManager
              persistent_data::EventServiceStore::getInstance()
                  .subscriptionsConfigMap.erase(obj2);
              updateNoOfSubscribersCount();
@@ -87,7 +87,7 @@ index 2ef48053..e194c9b7 100644
          }
      }
  
-@@ -997,6 +1010,18 @@ class EventServiceManager
+@@ -982,6 +995,18 @@ class EventServiceManager
          }
      }
  
@@ -107,13 +107,13 @@ index 2ef48053..e194c9b7 100644
      {
          return subscriptionsMap.size();
 diff --git a/redfish-core/include/registries/openbmc_message_registry.hpp b/redfish-core/include/registries/openbmc_message_registry.hpp
-index 5339b911..5fae6619 100644
+index 8fee28d2..ca58fbe5 100644
 --- a/redfish-core/include/registries/openbmc_message_registry.hpp
 +++ b/redfish-core/include/registries/openbmc_message_registry.hpp
-@@ -475,6 +475,42 @@ constexpr std::array registry = {
-                      {},
-                      "None.",
-                  }},
+@@ -477,6 +477,42 @@ constexpr std::array registry =
+             {},
+             "None.",
+         }},
 +    MessageEntry{
 +        "EventSubscriptionAdded",
 +        {
@@ -150,22 +150,22 @@ index 5339b911..5fae6619 100644
 +            },
 +            "None.",
 +        }},
-     MessageEntry{"FanInserted",
-                  {
-                      "Indicates that a system fan has been inserted.",
+     MessageEntry{
+         "FanInserted",
+         {
 diff --git a/redfish-core/lib/event_service.hpp b/redfish-core/lib/event_service.hpp
-index 9e2d0fe0..7e0fe093 100644
+index 9cffbf58..e18f6cc1 100644
 --- a/redfish-core/lib/event_service.hpp
 +++ b/redfish-core/lib/event_service.hpp
-@@ -749,7 +749,7 @@ inline void requestRoutesEventDestination(App& app)
+@@ -753,7 +753,7 @@ inline void requestRoutesEventDestination(App& app)
              subValue->retryPolicy = *retryPolicy;
          }
  
 -        EventServiceManager::getInstance().updateSubscriptionData();
 +        EventServiceManager::getInstance().updateSubscription(param);
-         });
+     });
      BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
          // The below privilege is wrong, it should be ConfigureManager OR
 -- 
-2.17.1
+2.25.1
 

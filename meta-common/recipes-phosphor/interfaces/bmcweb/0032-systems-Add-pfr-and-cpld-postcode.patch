@@ -1,4 +1,4 @@
-From 41b8931a55271ead2b593edf852e769c27984c23 Mon Sep 17 00:00:00 2001
+From 33d2070b62c2b2b482bf8a84bdd4dd7f295f768d Mon Sep 17 00:00:00 2001
 From: Zhikui Ren <zhikui.ren@intel.com>
 Date: Mon, 14 Mar 2022 17:27:01 -0700
 Subject: [PATCH] systems: Add pfr and cpld postcode
@@ -16,11 +16,11 @@ Upstream-Status: Pending
  1 file changed, 113 insertions(+)
 
 diff --git a/redfish-core/lib/systems.hpp b/redfish-core/lib/systems.hpp
-index 609af715..edb7a05e 100644
+index e044c670..bdffd22a 100644
 --- a/redfish-core/lib/systems.hpp
 +++ b/redfish-core/lib/systems.hpp
-@@ -938,6 +938,62 @@ inline void getBootProgressLastStateTime(
-         });
+@@ -948,6 +948,62 @@ inline void getBootProgressLastStateTime(
+     });
  }
  
 +/**
@@ -72,7 +72,7 @@ index 609af715..edb7a05e 100644
 +        aResp->res.jsonValue["BootProgress"]["Oem"]["CpldLastState"] =
 +            *powerState;
 +        aResp->res.jsonValue["BootProgress"]["Oem"]["CpldErr"] = *errorSource;
-+        },
++    },
 +        "xyz.openbmc_project.DCSCM.Cpld.Manager",
 +        "/xyz/openbmc_project/dcscm/cpld/manager/CPU",
 +        "org.freedesktop.DBus.Properties", "GetAll",
@@ -82,7 +82,7 @@ index 609af715..edb7a05e 100644
  /**
   * @brief Retrieves boot override type over DBUS and fills out the response
   *
-@@ -2082,6 +2138,61 @@ inline void
+@@ -2096,6 +2152,61 @@ inline void
  }
  
  #ifdef BMCWEB_ENABLE_REDFISH_PROVISIONING_FEATURE
@@ -135,7 +135,7 @@ index 609af715..edb7a05e 100644
 +        }
 +        oemPFR["Data"] = *postcode;
 +        oemPFR["PlatformState"] = *platformState;
-+        },
++    },
 +        "xyz.openbmc_project.PFR.Manager", "/xyz/openbmc_project/pfr",
 +        "org.freedesktop.DBus.Properties", "GetAll",
 +        "xyz.openbmc_project.State.Boot.Platform");
@@ -144,7 +144,7 @@ index 609af715..edb7a05e 100644
  /**
   * @brief Retrieves provisioning status
   *
-@@ -2141,6 +2252,7 @@ inline void getProvisioningStatus(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+@@ -2155,6 +2266,7 @@ inline void getProvisioningStatus(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
              {
                  oemPFR["ProvisioningStatus"] = "ProvisionedButNotLocked";
              }
@@ -152,14 +152,14 @@ index 609af715..edb7a05e 100644
          }
          else
          {
-@@ -3322,6 +3434,7 @@ inline void
+@@ -3339,6 +3339,7 @@ inline void
      getBootProperties(asyncResp);
      getBootProgress(asyncResp);
      getBootProgressLastStateTime(asyncResp);
 +    getCPLDBootProgress(asyncResp);
-     pcie_util::getPCIeDeviceList(asyncResp, "PCIeDevices");
+     pcie_util::getPCIeDeviceList(asyncResp,
+                                  nlohmann::json::json_pointer("/PCIeDevices"));
      getHostWatchdogTimer(asyncResp);
-     getPowerRestorePolicy(asyncResp);
 -- 
 2.25.1
 

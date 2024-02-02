@@ -441,7 +441,7 @@ static void getDomain(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline void requestRoutesNodeManagerDomains(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,

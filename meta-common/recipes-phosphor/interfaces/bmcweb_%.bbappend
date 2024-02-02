@@ -1,7 +1,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/bmcweb.git;branch=master;protocol=https"
-SRCREV = "0c2ba59dd0532480970517457fae9f4739790c81"
+SRCREV = "a88942019fdd3d8fc366999f7c178f3e1c18b2fe"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
@@ -25,7 +25,6 @@ SRC_URI += " \
             file://0020-Redfish-Deny-set-AccountLockDuration-to-zero.patch \
             file://0023-Add-get-IPMI-session-id-s-to-Redfish.patch \
             file://0024-Add-count-sensor-type.patch \
-            file://0026-Revert-Delete-the-copy-constructor-on-the-Request.patch \
             file://0029-Added-support-for-patching-sensors-under-Chassis-Sen.patch \
             file://0032-systems-Add-pfr-and-cpld-postcode.patch \
             file://0034-Add-Model-to-ProcessorSummary.patch \
@@ -34,6 +33,10 @@ SRC_URI += " \
             file://0038-Image-Directory-made-as-Configurable-Parameter.patch \
             file://0039-Revert-Remove-redfish-post-to-old-updateservice.patch \
             file://0040-Add-ThermalSubsystem-Fan-Collection-and-Instances-and-FanRedundancy.patch \
+            file://0042-Add-Members-to-PowerSupplies.patch \
+            file://0043-Add-PowerCapacityWatts-instead-on-PowerInputwatts.patch \
+            file://0045-Increase-crashdump-Task-timeout.patch \
+            file://0046-Fix-redundancy-attribute-issue-for-Power-Supply-URI.patch \
 "
 
 # OOB Bios Config:
@@ -70,7 +73,6 @@ SRC_URI += " \
 
 # Temporary downstream mirror of upstream patches, see telemetry\README for details
 SRC_URI += " file://telemetry/0001-Revert-Remove-LogService-from-TelemetryService.patch \
-             file://telemetry/0004-Add-PUT-and-PATCH-for-MetricReportDefinition.patch \
              file://telemetry/0006-Improved-telemetry-service-error-handling.patch \
              file://telemetry/0007-Add-telemetry-triggers-to-the-message-registry.patch \
              file://telemetry/0008-Restore-PUT-method-for-MRD.patch \
@@ -81,6 +83,7 @@ SRC_URI += " \
             file://http_routing/0001-Fix-Adaptor-scope-issue-in-upgraded-connection.patch \
             file://http_routing/0002-Move-privileges-to-separate-entity.patch \
             file://http_routing/0003-Add-Privileges-to-SSE-and-Websockets.patch \
+            file://http_routing/0004-Dynamic-request-body-size-limit.patch \
 "
 
 # ACPI LogService:
@@ -103,7 +106,6 @@ SRC_URI += "file://power_utility.hpp;subdir=git/redfish-core/lib/node-manager \
             file://node-manager/0003-Add-NodeManager-schema-files.patch \
             file://node-manager/0004-Add-node-manager-endpoint.patch \
 "
-
 # OOB Config features:
 SRC_URI += " \
             file://oob-config/0001-Adding-schema-for-OnDemand-Oem-URI-s.patch \
@@ -116,6 +118,14 @@ SRC_URI += " \
             file://telemetry-pkg/0002-cups-service-features-added.patch \
             file://telemetry-pkg/0003-Kafka-streaming-configuration-support.patch \
             file://telemetry-pkg/0004-Redfish-Schema-for-Kafka-Streaming-Support.patch \
+            file://telemetry-pkg/0005-Add-PMT-kafka-streaming-messege-to-RF-registry.patch \
+"
+
+# FIPS Enablement
+SRC_URI += " \
+            file://fips-enablement/0001-FIPS-Add-route-in-Managers.patch \
+            file://fips-enablement/0002-Add-FIPS-Manager.patch \
+            file://fips-enablement/0003-Add-FIPS-Route-in-Redfish.patch \
 "
 
 # Enable PFR support
@@ -132,9 +142,9 @@ EXTRA_OEMESON += " -Dvm-websocket=disabled"
 EXTRA_OEMESON += " -Dredfish-host-logger=disabled"
 EXTRA_OEMESON += " -Dredfish-post-to-old-updateservice=enabled"
 
-# This will set the max size of image file which can be uploaded
-# to bmcweb over https. 
-# Max size of the image file is set to 128MB. 
+# image-payload-limit will configure the max size of image file in MB which can be uploaded to bmcweb over https.
+EXTRA_OEMESON += " -Dimage-payload-limit=128"
+# http-body-limit will configure the max size of http request body in KB
 EXTRA_OEMESON += " -Dhttp-body-limit=128"
 EXTRA_OEMESON += " -Dimage-upload-dir=/tmp/images/"
 EXTRA_OEMESON += " -Dredfish-health-populate=enabled"

@@ -1,4 +1,4 @@
-From 6e451a6ac68550d566ce301cd5c3857115b9d7f1 Mon Sep 17 00:00:00 2001
+From fe2f0870063971e46e79590c9dae2228e519d304 Mon Sep 17 00:00:00 2001
 From: "Arun P. Mohanan" <arun.p.m@linux.intel.com>
 Date: Wed, 27 Jan 2021 18:22:58 +0530
 Subject: [PATCH] Add state sensor messages to the registry
@@ -36,13 +36,13 @@ Upstream-Status: Pending
  1 file changed, 30 insertions(+), 1 deletion(-)
 
 diff --git a/redfish-core/include/registries/openbmc_message_registry.hpp b/redfish-core/include/registries/openbmc_message_registry.hpp
-index 80d30c3..842115d 100644
+index 35625042..cc059b0c 100644
 --- a/redfish-core/include/registries/openbmc_message_registry.hpp
 +++ b/redfish-core/include/registries/openbmc_message_registry.hpp
-@@ -2173,6 +2173,36 @@ constexpr std::array registry = {
-                      {},
-                      "None.",
-                  }},
+@@ -2254,6 +2254,36 @@ constexpr std::array registry =
+             {},
+             "None.",
+         }},
 +    MessageEntry{
 +        "StateSensorNormal",
 +        {
@@ -73,16 +73,17 @@ index 80d30c3..842115d 100644
 +            {"string", "string", "string", "string"},
 +            "Check sensor subsystem for errors.",
 +        }},
-     MessageEntry{"SystemInterfaceDisabledProvisioned",
-                  {
-                      "Indicates that the system interface is in the disabled "
-@@ -2257,6 +2287,5 @@ constexpr std::array registry = {
-             {"string"},
+     MessageEntry{
+         "SystemInterfaceDisabledProvisioned",
+         {
+@@ -2338,7 +2368,6 @@ constexpr std::array registry =
+             },
              "None.",
          }},
 -
  };
- } // namespace redfish::registries::openbmc
+ 
+ enum class Index
 -- 
-2.17.1
+2.25.1
 

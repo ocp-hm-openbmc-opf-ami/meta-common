@@ -1,4 +1,4 @@
-From fb8ea028049784382030786ee3cc31107491039f Mon Sep 17 00:00:00 2001
+From 05c9a02cdd383157b41a864eb66c6d16e4379857 Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@intel.com>
 Date: Fri, 19 May 2023 17:13:35 +0000
 Subject: [PATCH] Adopt upstream ConnectionPolicy
@@ -24,45 +24,44 @@ on browser as expected.
 Signed-off-by: AppaRao Puli <apparao.puli@intel.com>
 Upstream-Status: Pending
 ---
- http/http_client.hpp                          | 12 +++++-----
- .../include/event_service_manager.hpp         | 22 ++++++++++++++++++-
- 2 files changed, 27 insertions(+), 7 deletions(-)
+ http/http_client.hpp                          | 11 +++++-----
+ .../include/event_service_manager.hpp         | 21 ++++++++++++++++++-
+ 2 files changed, 26 insertions(+), 6 deletions(-)
 
 diff --git a/http/http_client.hpp b/http/http_client.hpp
-index c46c46f1..cb16638e 100644
+index 597b0d6f..06d8db2b 100644
 --- a/http/http_client.hpp
 +++ b/http/http_client.hpp
-@@ -624,11 +624,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
+@@ -623,10 +623,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
      }
  
    public:
 -    explicit ConnectionInfo(boost::asio::io_context& iocIn,
 -                            const std::string& idIn,
--                            const std::string& destIPIn, uint16_t destPortIn,
--                            bool useSSLIn, bool verifyCertIn,
+-                            boost::urls::url_view hostIn, bool verifyCertIn,
 -                            unsigned int connIdIn) :
 +    explicit ConnectionInfo(
 +        boost::asio::io_context& iocIn, const std::string& idIn,
 +        const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-+        const std::string& destIPIn, uint16_t destPortIn, bool useSSLIn,
-+        bool verifyCertIn, unsigned int connIdIn) :
-         subId(idIn),
-         connPolicy(connPolicyIn), host(destIPIn), port(destPortIn),
-         useSSL(useSSLIn), verifyCert(verifyCertIn), connId(connIdIn),
-@@ -822,7 +822,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
++        boost::urls::url_view hostIn, bool verifyCertIn,
++        unsigned int connIdIn) :
+         subId(idIn), connPolicy(connPolicyIn), host(hostIn),
+         verifyCert(verifyCertIn), connId(connIdIn), resolver(iocIn),
+         conn(iocIn), timer(iocIn)
+@@ -813,7 +814,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
          unsigned int newId = static_cast<unsigned int>(connections.size());
  
          auto& ret = connections.emplace_back(std::make_shared<ConnectionInfo>(
--            ioc, id, destIP, destPort, useSSL, verifyCert, newId));
-+            ioc, id, connPolicy, destIP, destPort, useSSL, verifyCert, newId));
+-            ioc, id, destIP, verifyCert, newId));
++            ioc, id, connPolicy, destIP, verifyCert, newId));
  
-         BMCWEB_LOG_DEBUG("Added connection {} to pool {}:{}",
-                          std::to_string(connections.size() - 1), destIP,
+         BMCWEB_LOG_DEBUG("Added connection {} to pool {}",
+                          connections.size() - 1, id);
 diff --git a/redfish-core/include/event_service_manager.hpp b/redfish-core/include/event_service_manager.hpp
-index 988e7545..e702b52d 100644
+index fa53d0bd..04681b5e 100644
 --- a/redfish-core/include/event_service_manager.hpp
 +++ b/redfish-core/include/event_service_manager.hpp
-@@ -352,6 +352,25 @@ inline bool
+@@ -351,6 +351,25 @@ inline bool
      return true;
  }
  
@@ -88,15 +87,14 @@ index 988e7545..e702b52d 100644
  class Subscription : public persistent_data::UserSubscription
  {
    public:
-@@ -364,7 +383,8 @@ class Subscription : public persistent_data::UserSubscription
-                  const std::string& inPath, const std::string& inUriProto,
-                  boost::asio::io_context& ioc) :
-         host(inHost),
--        port(inPort), policy(std::make_shared<crow::ConnectionPolicy>()),
-+        port(inPort),
-+        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy())),
-         path(inPath), uriProto(inUriProto)
+@@ -360,7 +379,7 @@ class Subscription : public persistent_data::UserSubscription
+     Subscription& operator=(Subscription&&) = delete;
+ 
+     Subscription(boost::urls::url_view url, boost::asio::io_context& ioc) :
+-        policy(std::make_shared<crow::ConnectionPolicy>())
++        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy()))
      {
+         destinationUrl = url;
          client.emplace(ioc, policy);
 -- 
 2.25.1

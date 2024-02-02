@@ -1,4 +1,4 @@
-From e579c9114b38c40484152502b82e2312cd4af1ee Mon Sep 17 00:00:00 2001
+From 5a3ad7334da36d691dee1c7d64c335beeb7cf07f Mon Sep 17 00:00:00 2001
 From: AppaRao Puli <apparao.puli@linux.intel.com>
 Date: Wed, 6 Oct 2021 22:27:20 +0000
 Subject: [PATCH] Add support to ResetBios action
@@ -19,10 +19,10 @@ Upstream-Status: Pending
  1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index f9d8466b..71c46251 100644
+index a231e424..31b31d3b 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
-@@ -634,17 +634,23 @@ inline void
+@@ -632,17 +632,23 @@ inline void
          return;
      }
  
@@ -38,7 +38,7 @@ index f9d8466b..71c46251 100644
              messages::internalError(asyncResp->res);
              return;
          }
-         },
+     },
 -        "org.open_power.Software.Host.Updater", "/xyz/openbmc_project/software",
 -        "xyz.openbmc_project.Common.FactoryReset", "Reset");
 +        "xyz.openbmc_project.BIOSConfigManager",

@@ -1,4 +1,4 @@
-From 16a1ffbe8b34d7a319a3a5805c69189ae58222e3 Mon Sep 17 00:00:00 2001
+From 065528e757ba0e7b8703f90c62c62047189faa13 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Adrian=20Ambro=C5=BCewicz?= <adrian.ambrozewicz@intel.com>
 Date: Wed, 4 Aug 2021 19:52:44 +0200
 Subject: [PATCH] Skip PMT during exposing IPMI sensors
@@ -19,7 +19,7 @@ Upstream-Status: Pending
  1 file changed, 21 insertions(+)
 
 diff --git a/include/sdrutils.hpp b/include/sdrutils.hpp
-index 697dad3..ddb0d00 100644
+index 9ec1611..dd54c3a 100644
 --- a/include/sdrutils.hpp
 +++ b/include/sdrutils.hpp
 @@ -214,6 +214,26 @@ class IPMIStatsTable
@@ -58,5 +58,5 @@ index 697dad3..ddb0d00 100644
      sensorUpdatedIndex++;
      // The SDR is being regenerated, wipe the old stats
 -- 
-2.25.1
+2.34.1
 

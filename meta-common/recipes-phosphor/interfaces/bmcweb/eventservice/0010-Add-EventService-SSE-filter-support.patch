@@ -1,4 +1,4 @@
-From 1449f5f6fe2a36f453781c8967a500f1cf076be9 Mon Sep 17 00:00:00 2001
+From 780f34107218d56b5abaa0107c3788d03ce50392 Mon Sep 17 00:00:00 2001
 From: P Dheeraj Srujan Kumar <p.dheeraj.srujan.kumar@intel.com>
 Date: Tue, 18 Jul 2023 04:00:51 +0530
 Subject: [PATCH] Add EventService SSE filter support
@@ -58,7 +58,7 @@ index 6c5952d7..e2e1b2f0 100644
  
  } // namespace redfish
 diff --git a/redfish-core/lib/eventservice_sse.hpp b/redfish-core/lib/eventservice_sse.hpp
-index 46a07ed0..37ece8ce 100644
+index 46a07ed0..071c0660 100644
 --- a/redfish-core/lib/eventservice_sse.hpp
 +++ b/redfish-core/lib/eventservice_sse.hpp
 @@ -8,7 +8,7 @@ namespace redfish
@@ -189,7 +189,7 @@ index 46a07ed0..37ece8ce 100644
 +                            [&id](const redfish::registries::MessageEntry&
 +                                      messageEntry) {
 +                        return !id.compare(messageEntry.first);
-+                            }))
++                    }))
 +                    {
 +                        validId = true;
 +                        break;
@@ -223,7 +223,7 @@ index 46a07ed0..37ece8ce 100644
      std::string id = manager.addSubscription(subValue, false);
      if (id.empty())
 diff --git a/redfish-core/src/error_messages.cpp b/redfish-core/src/error_messages.cpp
-index 38f10c82..664d60cd 100644
+index 7bbd8774..ef06b4d1 100644
 --- a/redfish-core/src/error_messages.cpp
 +++ b/redfish-core/src/error_messages.cpp
 @@ -1855,6 +1855,32 @@ nlohmann::json invalidUpload(std::string_view arg1, std::string_view arg2)

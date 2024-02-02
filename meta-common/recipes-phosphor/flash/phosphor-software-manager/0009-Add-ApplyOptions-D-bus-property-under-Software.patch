@@ -1,6 +1,6 @@
-From 76f169e71be10b50b9617e606c38aff9553e6de8 Mon Sep 17 00:00:00 2001
+From 4c1ead4198aabde9ef33a0d3c7af27e10db8654b Mon Sep 17 00:00:00 2001
 From: Vikram Bodireddy <vikram.bodireddy@intel.com>
-Date: Fri, 15 May 2020 21:17:08 +0530
+Date: Thu, 1 Feb 2024 13:01:12 +0530
 Subject: [PATCH] Add ApplyOptions D-bus property under Software
 
 This change adds the ApplyOptions D-bus property
@@ -19,7 +19,7 @@ Upstream-Status: Pending
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/item_updater.hpp b/item_updater.hpp
-index 3f0530f..5c1a779 100644
+index 316113a..a0034d3 100644
 --- a/item_updater.hpp
 +++ b/item_updater.hpp
 @@ -9,6 +9,7 @@
@@ -30,16 +30,13 @@ index 3f0530f..5c1a779 100644
  
  #include <string>
  #include <vector>
-@@ -24,7 +25,8 @@ using ItemUpdaterInherit = sdbusplus::server::object::object<
-     sdbusplus::xyz::openbmc_project::Common::server::FactoryReset,
-     sdbusplus::xyz::openbmc_project::Control::server::FieldMode,
-     sdbusplus::xyz::openbmc_project::Association::server::Definitions,
--    sdbusplus::xyz::openbmc_project::Collection::server::DeleteAll>;
-+    sdbusplus::xyz::openbmc_project::Collection::server::DeleteAll,
+@@ -24,7 +25,8 @@ using ItemUpdaterInherit = sdbusplus::server::object_t<
+     sdbusplus::server::xyz::openbmc_project::common::FactoryReset,
+     sdbusplus::server::xyz::openbmc_project::control::FieldMode,
+     sdbusplus::server::xyz::openbmc_project::association::Definitions,
+-    sdbusplus::server::xyz::openbmc_project::collection::DeleteAll>;
++    sdbusplus::server::xyz::openbmc_project::collection::DeleteAll,
 +    sdbusplus::xyz::openbmc_project::Software::server::ApplyOptions>;
  
  namespace MatchRules = sdbusplus::bus::match::rules;
  using VersionClass = phosphor::software::manager::Version;
--- 
-2.17.1
-

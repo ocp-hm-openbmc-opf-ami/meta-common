@@ -131,10 +131,10 @@ using DbusVariantType =
 
 using DBusPropertiesMap =
     boost::container::flat_map<std::string, DbusVariantType>;
-using DBusInteracesMap =
+using DBusInterfacesMap =
     boost::container::flat_map<std::string, DBusPropertiesMap>;
 using ManagedObjectType =
-    std::vector<std::pair<sdbusplus::message::object_path, DBusInteracesMap>>;
+    std::vector<std::pair<sdbusplus::message::object_path, DBusInterfacesMap>>;
 
 // Bmcweb NM completion codes specified by the Intel OpenBMC Node Manager
 // External Interface Specification

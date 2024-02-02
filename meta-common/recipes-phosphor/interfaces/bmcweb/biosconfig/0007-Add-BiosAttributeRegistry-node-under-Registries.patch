@@ -1,4 +1,4 @@
-From b348047b191f26911549dc83f019d86cf3176426 Mon Sep 17 00:00:00 2001
+From b3522a72202482e4d3c7542c0613723a2ff2a690 Mon Sep 17 00:00:00 2001
 From: Snehalatha Venkatesh <snehalathax.v@intel.com>
 Date: Tue, 28 Dec 2021 11:05:50 +0000
 Subject: [PATCH] Add BiosAttributeRegistry node under Registries.
@@ -39,14 +39,14 @@ Response:
 Signed-off-by: Snehalatha Venkatesh <snehalathax.v@intel.com>
 Upstream-Status: Pending
 ---
- redfish-core/lib/message_registries.hpp | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ redfish-core/lib/message_registries.hpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/redfish-core/lib/message_registries.hpp b/redfish-core/lib/message_registries.hpp
-index 97b28920..a67a3d5d 100644
+index 97b28920..4cc2d2a3 100644
 --- a/redfish-core/lib/message_registries.hpp
 +++ b/redfish-core/lib/message_registries.hpp
-@@ -49,11 +49,11 @@ inline void handleMessageRegistryFileCollectionGet(
+@@ -49,11 +49,12 @@ inline void handleMessageRegistryFileCollectionGet(
      asyncResp->res.jsonValue["Name"] = "MessageRegistryFile Collection";
      asyncResp->res.jsonValue["Description"] =
          "Collection of MessageRegistryFiles";
@@ -56,7 +56,8 @@ index 97b28920..a67a3d5d 100644
      nlohmann::json& members = asyncResp->res.jsonValue["Members"];
      for (const char* memberName :
 -         std::to_array({"Base", "TaskEvent", "ResourceEvent", "OpenBMC"}))
-+         std::to_array({"Base", "TaskEvent", "ResourceEvent", "BiosAttributeRegistry", "OpenBMC"}))
++         std::to_array({"Base", "TaskEvent", "ResourceEvent",
++                        "BiosAttributeRegistry", "OpenBMC"}))
      {
          nlohmann::json::object_t member;
          member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",

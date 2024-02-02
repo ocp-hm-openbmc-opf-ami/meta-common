@@ -1,4 +1,4 @@
-From 058db8ca0ee9bc193cc69585817df01d7505a185 Mon Sep 17 00:00:00 2001
+From 660adb036677e43523c3bc9c9f9d9530c22a9afe Mon Sep 17 00:00:00 2001
 From: "dileepx.kumar.choppa" <dileepx.kumar.choppa@intel.com>
 Date: Wed, 24 May 2023 12:28:05 +0530
 Subject: [PATCH] Add ThermalSubsystem Fan Collection and Instances and
@@ -111,7 +111,7 @@ Upstream-Status: Pending
  create mode 100644 redfish-core/lib/fan_from_sensor.hpp
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index c1df1193..51f11c2a 100644
+index 4aaff9fd..d2062940 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
 @@ -26,7 +26,7 @@
@@ -125,7 +125,7 @@ index c1df1193..51f11c2a 100644
  #include "manager_diagnostic_data.hpp"
 diff --git a/redfish-core/lib/fan_from_sensor.hpp b/redfish-core/lib/fan_from_sensor.hpp
 new file mode 100644
-index 00000000..85242751
+index 00000000..8b92d44a
 --- /dev/null
 +++ b/redfish-core/lib/fan_from_sensor.hpp
 @@ -0,0 +1,312 @@
@@ -220,7 +220,7 @@ index 00000000..85242751
 +            }
 +            asyncResp->res.jsonValue["Members@odata.count"] =
 +                asyncResp->res.jsonValue["Members"].size();
-+            });
++        });
 +    }
 +}
 +
@@ -301,7 +301,7 @@ index 00000000..85242751
 +                asyncResp->res.jsonValue["SpeedPercent"]["Reading"] = *value;
 +            }
 +        }
-+        },
++    },
 +        service, path, "org.freedesktop.DBus.Properties", "GetAll", intf);
 +}
 +
@@ -321,7 +321,7 @@ index 00000000..85242751
 +
 +        asyncResp->res.jsonValue["Status"]["State"] = value ? "Enabled"
 +                                                            : "Absent";
-+        });
++    });
 +}
 +
 +inline void getFanHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -340,7 +340,7 @@ index 00000000..85242751
 +
 +        asyncResp->res.jsonValue["Status"]["Health"] = value ? "OK"
 +                                                             : "Critical";
-+        });
++    });
 +}
 +
 +inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -442,7 +442,7 @@ index 00000000..85242751
 +
 +} // namespace redfish
 diff --git a/redfish-core/lib/thermal_subsystem.hpp b/redfish-core/lib/thermal_subsystem.hpp
-index 92e623ea..a560c2c4 100644
+index 92e623ea..a1d315f1 100644
 --- a/redfish-core/lib/thermal_subsystem.hpp
 +++ b/redfish-core/lib/thermal_subsystem.hpp
 @@ -1,6 +1,7 @@
@@ -536,7 +536,7 @@ index 92e623ea..a560c2c4 100644
 +
 +        asyncResp->res.jsonValue["FanRedundancy"].push_back(
 +            std::move(redundandy));
-+        });
++    });
 +}
 +
  inline void doThermalSubsystemCollection(

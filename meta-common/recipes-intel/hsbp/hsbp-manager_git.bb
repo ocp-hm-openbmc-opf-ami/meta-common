@@ -9,6 +9,7 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 SRC_URI:append = " \
     file://0001-Fix-Build-issue-downstream.patch \
+    file://0002-Default-to-enable-all-clock-outputs.patch \
     "
 
 LICENSE = "Apache-2.0"

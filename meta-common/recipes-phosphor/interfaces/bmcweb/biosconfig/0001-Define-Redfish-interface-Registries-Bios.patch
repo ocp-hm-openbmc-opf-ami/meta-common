@@ -1,4 +1,4 @@
-From d9b55c7632b2b956a1620fe68a38b03081eae23e Mon Sep 17 00:00:00 2001
+From cbb632ccd08e1c807330e9f4257c31e571fa151f Mon Sep 17 00:00:00 2001
 From: Kuiying Wang <kuiying.wang@intel.com>
 Date: Fri, 4 Sep 2020 19:24:25 +0800
 Subject: [PATCH] Define Redfish interface "/Registries/Bios" and enable
@@ -238,10 +238,10 @@ Upstream-Status: Pending
  create mode 100644 redfish-core/include/registries/bios_registry.hpp
 
 diff --git a/redfish-core/include/redfish.hpp b/redfish-core/include/redfish.hpp
-index 51f11c2a..14d2db18 100644
+index d2062940..5ec9c374 100644
 --- a/redfish-core/include/redfish.hpp
 +++ b/redfish-core/include/redfish.hpp
-@@ -187,6 +187,8 @@ class RedfishService
+@@ -188,6 +188,8 @@ class RedfishService
  
          requestRoutesBiosService(app);
          requestRoutesBiosReset(app);
@@ -297,7 +297,7 @@ index 00000000..bcf6b738
 +constexpr std::array<MessageEntry, 0> registry = {};
 +} // namespace redfish::registries::bios
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index 8cd05d6c..e0b41433 100644
+index 025f4361..82fbb5af 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
 @@ -7,6 +7,137 @@
@@ -507,11 +507,11 @@ index 8cd05d6c..e0b41433 100644
 +                    messages::internalError(asyncResp->res);
 +                }
 +            }
-+            },
++        },
 +            service, "/xyz/openbmc_project/bios_config/manager",
 +            "org.freedesktop.DBus.Properties", "Get",
 +            "xyz.openbmc_project.BIOSConfig.Manager", "BaseBIOSTable");
-+        },
++    },
 +        "xyz.openbmc_project.ObjectMapper",
 +        "/xyz/openbmc_project/object_mapper",
 +        "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -603,17 +603,17 @@ index 8cd05d6c..e0b41433 100644
 +                        messages::internalError(asyncResp->res);
 +                    }
 +                }
-+                },
++            },
 +                service, "/xyz/openbmc_project/bios_config/manager",
 +                "org.freedesktop.DBus.Properties", "Get",
 +                "xyz.openbmc_project.BIOSConfig.Manager", "PendingAttributes");
-+            },
++        },
 +            "xyz.openbmc_project.ObjectMapper",
 +            "/xyz/openbmc_project/object_mapper",
 +            "xyz.openbmc_project.ObjectMapper", "GetObject",
 +            "/xyz/openbmc_project/bios_config/manager",
 +            std::array<const char*, 0>());
-+        });
++    });
 +}
 +/**
 + * BiosAttributeRegistry class supports handle get method for BIOS attribute
@@ -765,17 +765,17 @@ index 8cd05d6c..e0b41433 100644
 +                    attributeItem["Value"] = optionsArray;
 +                    attributeArray.push_back(attributeItem);
 +                }
-+                },
++            },
 +                service, "/xyz/openbmc_project/bios_config/manager",
 +                "org.freedesktop.DBus.Properties", "Get",
 +                "xyz.openbmc_project.BIOSConfig.Manager", "BaseBIOSTable");
-+            },
++        },
 +            "xyz.openbmc_project.ObjectMapper",
 +            "/xyz/openbmc_project/object_mapper",
 +            "xyz.openbmc_project.ObjectMapper", "GetObject",
 +            "/xyz/openbmc_project/bios_config/manager",
 +            std::array<const char*, 0>());
-+        });
++    });
 +}
 +
  /**

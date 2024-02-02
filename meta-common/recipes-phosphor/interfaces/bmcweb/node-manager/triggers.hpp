@@ -115,7 +115,7 @@ static void getGpioLines(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 
 inline void requestRoutesNodeManagerTriggers(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,

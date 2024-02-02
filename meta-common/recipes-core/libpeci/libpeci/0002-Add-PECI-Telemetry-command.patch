@@ -1,7 +1,7 @@
-From dcded869ff176344090af160a3719f665c23f9b3 Mon Sep 17 00:00:00 2001
-From: "Jason M. Bills" <jason.m.bills@linux.intel.com>
-Date: Thu, 25 Feb 2021 15:06:38 -0800
-Subject: [PATCH] Add PECI Telemetry command
+From d962d11c8aa397e09cc990b292889044cb8b2e96 Mon Sep 17 00:00:00 2001
+From: Yaswanth <yaswanthsai@ami.com>
+Date: Tue, 23 Jan 2024 14:40:26 +0530
+Subject: [PATCH 1/1] Add PECI Telemetry command
 
 This adds support for the PECI Telemetry command:
    - IOCTLs added to the PECI driver header
@@ -19,12 +19,12 @@ Upstream-Status: Pending
 ---
  linux/peci-ioctl.h |  93 +++++++++++
  peci.c             | 336 ++++++++++++++++++++++++++++++++++++++
- peci.h             |  61 +++++++
+ peci.h             |  57 +++++++
  peci_cmds.c        | 399 +++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 889 insertions(+)
+ 4 files changed, 885 insertions(+)
 
 diff --git a/linux/peci-ioctl.h b/linux/peci-ioctl.h
-index 59ff376..f8629c6 100644
+index 0ebd54b62..97bf86a07 100644
 --- a/linux/peci-ioctl.h
 +++ b/linux/peci-ioctl.h
 @@ -77,6 +77,11 @@ enum peci_cmd {
@@ -44,71 +44,71 @@ index 59ff376..f8629c6 100644
  } __attribute__((__packed__));
  
 +struct peci_telemetry_disc_msg {
-+#define PECI_TELEMETRY_DISC_WRITE_LEN		9
-+#define PECI_TELEMETRY_DISC_READ_LEN_BASE	1
-+#define PECI_TELEMETRY_DISC_VERSION		0
-+#define PECI_TELEMETRY_DISC_OPCODE		1
-+#define PECI_TELEMETRY_CMD			0x81
++#define PECI_TELEMETRY_DISC_WRITE_LEN           9
++#define PECI_TELEMETRY_DISC_READ_LEN_BASE       1
++#define PECI_TELEMETRY_DISC_VERSION             0
++#define PECI_TELEMETRY_DISC_OPCODE              1
++#define PECI_TELEMETRY_CMD                      0x81
 +
-+	__u8	addr;
-+	__u8	subopcode;
-+	__u8	cc;
-+	__u8	param0;
-+	__u16	param1;
-+	__u8	param2;
-+	__u8	rx_len;
-+	__u8	data[10];
-+	__u8	domain_id;
-+	__u8	padding;
++        __u8    addr;
++        __u8    subopcode;
++        __u8    cc;
++        __u8    param0;
++        __u16   param1;
++        __u8    param2;
++        __u8    rx_len;
++        __u8    data[10];
++        __u8    domain_id;
++        __u8    padding;
 +} __attribute__((__packed__));
 +
 +struct peci_telemetry_get_telem_sample_msg {
-+#define PECI_TELEMETRY_GET_TELEM_SAMPLE_WRITE_LEN	8
-+#define PECI_TELEMETRY_GET_TELEM_SAMPLE_READ_LEN	9
-+#define PECI_TELEMETRY_GET_TELEM_SAMPLE_VERSION	0
-+#define PECI_TELEMETRY_GET_TELEM_SAMPLE_OPCODE	2
++#define PECI_TELEMETRY_GET_TELEM_SAMPLE_WRITE_LEN       8
++#define PECI_TELEMETRY_GET_TELEM_SAMPLE_READ_LEN        9
++#define PECI_TELEMETRY_GET_TELEM_SAMPLE_VERSION 0
++#define PECI_TELEMETRY_GET_TELEM_SAMPLE_OPCODE  2
 +
-+	__u8	addr;
-+	__u8	cc;
-+	__u16	index;
-+	__u16	sample;
-+	__u8	data[8];
-+	__u8	domain_id;
-+	__u8	padding;
++        __u8    addr;
++        __u8    cc;
++        __u16   index;
++        __u16   sample;
++        __u8    data[8];
++        __u8    domain_id;
++        __u8    padding;
 +} __attribute__((__packed__));
 +
 +struct peci_telemetry_config_watcher_msg {
-+#define PECI_TELEMETRY_CONFIG_WATCHER_RD_WRITE_LEN	9
-+#define PECI_TELEMETRY_CONFIG_WATCHER_RD_READ_LEN	9
-+#define PECI_TELEMETRY_CONFIG_WATCHER_WR_WRITE_LEN	17
-+#define PECI_TELEMETRY_CONFIG_WATCHER_WR_READ_LEN	1
-+#define PECI_TELEMETRY_CONFIG_WATCHER_VERSION		0
-+#define PECI_TELEMETRY_CONFIG_WATCHER_OPCODE		3
-+#define PECI_TELEMETRY_CONFIG_WATCHER_RD_PARAM		0
-+#define PECI_TELEMETRY_CONFIG_WATCHER_WR_PARAM		1
++#define PECI_TELEMETRY_CONFIG_WATCHER_RD_WRITE_LEN      9
++#define PECI_TELEMETRY_CONFIG_WATCHER_RD_READ_LEN       9
++#define PECI_TELEMETRY_CONFIG_WATCHER_WR_WRITE_LEN      17
++#define PECI_TELEMETRY_CONFIG_WATCHER_WR_READ_LEN       1
++#define PECI_TELEMETRY_CONFIG_WATCHER_VERSION           0
++#define PECI_TELEMETRY_CONFIG_WATCHER_OPCODE            3
++#define PECI_TELEMETRY_CONFIG_WATCHER_RD_PARAM          0
++#define PECI_TELEMETRY_CONFIG_WATCHER_WR_PARAM          1
 +
-+	__u8	addr;
-+	__u8	cc;
-+	__u16	watcher;
-+	__u16	offset;
-+	__u8	data[8];
-+	__u8	domain_id;
-+	__u8	padding;
++        __u8    addr;
++        __u8    cc;
++        __u16   watcher;
++        __u16   offset;
++        __u8    data[8];
++        __u8    domain_id;
++        __u8    padding;
 +} __attribute__((__packed__));
 +
 +struct peci_telemetry_get_crashlog_sample_msg {
-+#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_WRITE_LEN	8
-+#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_READ_LEN	9
-+#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_VERSION	0
-+#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_OPCODE	12
++#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_WRITE_LEN    8
++#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_READ_LEN     9
++#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_VERSION      0
++#define PECI_TELEMETRY_GET_CRASHLOG_SAMPLE_OPCODE       12
 +
-+	__u8	addr;
-+	__u8	cc;
-+	__u16	index;
-+	__u16	sample;
-+	__u8	data[8];
-+	__u8	domain_id;
-+	__u8	padding;
++        __u8    addr;
++        __u8    cc;
++        __u16   index;
++        __u16   sample;
++        __u8    data[8];
++        __u8    domain_id;
++        __u8    padding;
 +} __attribute__((__packed__));
 +
  #define PECI_IOC_BASE	0xb8
@@ -119,28 +119,28 @@ index 59ff376..f8629c6 100644
  	      struct peci_crashdump_get_frame_msg)
  
 +#define PECI_IOC_TELEMETRY_DISC \
-+	_IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_DISC, \
-+	      struct peci_telemetry_disc_msg)
++        _IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_DISC, \
++              struct peci_telemetry_disc_msg)
 +
 +#define PECI_IOC_TELEMETRY_GET_TELEM_SAMPLE \
-+	_IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_GET_TELEM_SAMPLE, \
-+	      struct peci_telemetry_get_telem_sample_msg)
++        _IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_GET_TELEM_SAMPLE, \
++              struct peci_telemetry_get_telem_sample_msg)
 +
 +#define PECI_IOC_TELEMETRY_CONFIG_WATCHER_RD \
-+	_IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_CONFIG_WATCHER_RD, \
-+	      struct peci_telemetry_config_watcher_msg)
++        _IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_CONFIG_WATCHER_RD, \
++              struct peci_telemetry_config_watcher_msg)
 +
 +#define PECI_IOC_TELEMETRY_CONFIG_WATCHER_WR \
-+	_IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_CONFIG_WATCHER_WR, \
-+	      struct peci_telemetry_config_watcher_msg)
++        _IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_CONFIG_WATCHER_WR, \
++              struct peci_telemetry_config_watcher_msg)
 +
 +#define PECI_IOC_TELEMETRY_GET_CRASHLOG_SAMPLE \
-+	_IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_GET_CRASHLOG_SAMPLE, \
-+	      struct peci_telemetry_get_crashlog_sample_msg)
++        _IOWR(PECI_IOC_BASE, PECI_CMD_TELEMETRY_GET_CRASHLOG_SAMPLE, \
++              struct peci_telemetry_get_crashlog_sample_msg)
 +
  #endif /* __PECI_IOCTL_H */
 diff --git a/peci.c b/peci.c
-index 6a0b93c..4004acf 100644
+index 5733d412d..bd34b07fc 100644
 --- a/peci.c
 +++ b/peci.c
 @@ -1751,6 +1751,342 @@ EPECIStatus peci_CrashDump_GetFrame_dom(uint8_t target, uint8_t domainId,
@@ -487,79 +487,75 @@ index 6a0b93c..4004acf 100644
   *  This function provides raw PECI command access
   *------------------------------------------------------------------------*/
 diff --git a/peci.h b/peci.h
-index 4cd2e8d..f1983d0 100644
+index 113f73227..3a13d981f 100644
 --- a/peci.h
 +++ b/peci.h
-@@ -425,6 +425,67 @@ extern "C"
-                                             uint16_t param2, uint8_t u8ReadLen,
-                                             uint8_t* pData, uint8_t* cc);
+@@ -425,6 +425,63 @@ EPECIStatus peci_CrashDump_GetFrame_dom(uint8_t target, uint8_t domainId,
+                                         uint16_t param0, uint16_t param1,
+                                         uint16_t param2, uint8_t u8ReadLen,
+                                         uint8_t* pData, uint8_t* cc);
++    
++// Provides access to the Telemetry Discovery API
++EPECIStatus peci_Telemetry_Discovery(uint8_t target, uint8_t subopcode,
++				     uint8_t param0, uint16_t param1,
++				     uint8_t param2, uint8_t u8ReadLen,
++				     uint8_t* pData, uint8_t* cc);
++
++// Provides access to the Telemetry Discovery API in the specified domain
++EPECIStatus peci_Telemetry_Discovery_dom(uint8_t target, uint8_t domainId,
++                                         uint8_t subopcode, uint8_t param0,
++                                         uint16_t param1, uint8_t param2,
++                                         uint8_t u8ReadLen, uint8_t* pData,
++                                         uint8_t* cc);
++
++// Provides access to the Telemetry GetTelemSample API
++EPECIStatus peci_Telemetry_GetTelemSample(uint8_t target, uint16_t index,
++                                          uint16_t sample,
++                                          uint8_t u8ReadLen, uint8_t* pData,
++                                          uint8_t* cc);
++
++// Provides access to the Telemetry GetTelemSample API in the specified domain
++EPECIStatus peci_Telemetry_GetTelemSample_dom(
++		uint8_t target, uint8_t domainId, uint16_t index, uint16_t sample,
++		uint8_t u8ReadLen, uint8_t* pData, uint8_t* cc);
++
++// Provides access to the Telemetry ConfigWatcher Read API
++EPECIStatus peci_Telemetry_ConfigWatcherRd(uint8_t target, uint16_t watcher,
++                                           uint16_t offset,
++                                           uint8_t u8ReadLen,
++                                           uint8_t* pData, uint8_t* cc);
++
++// Provides access to the Telemetry ConfigWatcher Read API in the specified domain
++EPECIStatus peci_Telemetry_ConfigWatcherRd_dom(
++		uint8_t target, uint8_t domainId, uint16_t watcher, uint16_t offset,
++		uint8_t u8ReadLen, uint8_t* pData, uint8_t* cc);
++
++// Provides access to the Telemetry ConfigWatcher Write API
++EPECIStatus peci_Telemetry_ConfigWatcherWr(uint8_t target, uint16_t watcher,
++                                           uint16_t offset,
++                                           uint8_t u8DataLen,
++                                           uint8_t* pData, uint8_t* cc);
++
++// Provides access to the Telemetry ConfigWatcher Write API in the specified domain
++EPECIStatus peci_Telemetry_ConfigWatcherWr_dom(
++		uint8_t target, uint8_t domainId, uint16_t watcher, uint16_t offset,
++		uint8_t u8DataLen, uint8_t* pData, uint8_t* cc);
++
++// Provides access to the Telemetry GetCrashlogSample API
++EPECIStatus peci_Telemetry_GetCrashlogSample(uint8_t target, uint16_t index,
++                                             uint16_t sample,
++                                             uint8_t u8ReadLen,
++                                             uint8_t* pData, uint8_t* cc);
++
++// Provides access to the Telemetry GetCrashlogSample API in the specified domain
++EPECIStatus peci_Telemetry_GetCrashlogSample_dom(
++		uint8_t target, uint8_t domainId, uint16_t index, uint16_t sample,
++		uint8_t u8ReadLen, uint8_t* pData, uint8_t* cc);
  
-+    // Provides access to the Telemetry Discovery API
-+    EPECIStatus peci_Telemetry_Discovery(uint8_t target, uint8_t subopcode,
-+                                         uint8_t param0, uint16_t param1,
-+                                         uint8_t param2, uint8_t u8ReadLen,
-+                                         uint8_t* pData, uint8_t* cc);
-+
-+    // Provides access to the Telemetry Discovery API in the specified domain
-+    EPECIStatus peci_Telemetry_Discovery_dom(uint8_t target, uint8_t domainId,
-+                                             uint8_t subopcode, uint8_t param0,
-+                                             uint16_t param1, uint8_t param2,
-+                                             uint8_t u8ReadLen, uint8_t* pData,
-+                                             uint8_t* cc);
-+
-+    // Provides access to the Telemetry GetTelemSample API
-+    EPECIStatus peci_Telemetry_GetTelemSample(uint8_t target, uint16_t index,
-+                                              uint16_t sample,
-+                                              uint8_t u8ReadLen, uint8_t* pData,
-+                                              uint8_t* cc);
-+
-+    // Provides access to the Telemetry GetTelemSample API in the specified
-+    // domain
-+    EPECIStatus peci_Telemetry_GetTelemSample_dom(
-+        uint8_t target, uint8_t domainId, uint16_t index, uint16_t sample,
-+        uint8_t u8ReadLen, uint8_t* pData, uint8_t* cc);
-+
-+    // Provides access to the Telemetry ConfigWatcher Read API
-+    EPECIStatus peci_Telemetry_ConfigWatcherRd(uint8_t target, uint16_t watcher,
-+                                               uint16_t offset,
-+                                               uint8_t u8ReadLen,
-+                                               uint8_t* pData, uint8_t* cc);
-+
-+    // Provides access to the Telemetry ConfigWatcher Read API in the specified
-+    // domain
-+    EPECIStatus peci_Telemetry_ConfigWatcherRd_dom(
-+        uint8_t target, uint8_t domainId, uint16_t watcher, uint16_t offset,
-+        uint8_t u8ReadLen, uint8_t* pData, uint8_t* cc);
-+
-+    // Provides access to the Telemetry ConfigWatcher Write API
-+    EPECIStatus peci_Telemetry_ConfigWatcherWr(uint8_t target, uint16_t watcher,
-+                                               uint16_t offset,
-+                                               uint8_t u8DataLen,
-+                                               uint8_t* pData, uint8_t* cc);
-+
-+    // Provides access to the Telemetry ConfigWatcher Write API in the specified
-+    // domain
-+    EPECIStatus peci_Telemetry_ConfigWatcherWr_dom(
-+        uint8_t target, uint8_t domainId, uint16_t watcher, uint16_t offset,
-+        uint8_t u8DataLen, uint8_t* pData, uint8_t* cc);
-+
-+    // Provides access to the Telemetry GetCrashlogSample API
-+    EPECIStatus peci_Telemetry_GetCrashlogSample(uint8_t target, uint16_t index,
-+                                                 uint16_t sample,
-+                                                 uint8_t u8ReadLen,
-+                                                 uint8_t* pData, uint8_t* cc);
-+
-+    // Provides access to the Telemetry GetCrashlogSample API in the specified
-+    // domain
-+    EPECIStatus peci_Telemetry_GetCrashlogSample_dom(
-+        uint8_t target, uint8_t domainId, uint16_t index, uint16_t sample,
-+        uint8_t u8ReadLen, uint8_t* pData, uint8_t* cc);
-+
-     // Provides raw PECI command access
-     EPECIStatus peci_raw(uint8_t target, uint8_t u8ReadLen,
-                          const uint8_t* pRawCmd, const uint32_t cmdSize,
+ // Provides raw PECI command access
+ EPECIStatus peci_raw(uint8_t target, uint8_t u8ReadLen, const uint8_t* pRawCmd,
 diff --git a/peci_cmds.c b/peci_cmds.c
-index 623a9a4..75e075b 100644
+index 4dadd0522..408630fb7 100644
 --- a/peci_cmds.c
 +++ b/peci_cmds.c
 @@ -98,6 +98,7 @@ void Usage(char* progname)
@@ -630,7 +626,7 @@ index 623a9a4..75e075b 100644
 +                           u8Opcode, u8SubOpcode, u8Param0, u16Param1,
 +                           u8Param2);
 +                }
-+                // Set the return size based on the command
++		// Set the return size based on the command
 +                switch (u8SubOpcode)
 +                {
 +                    case 0:
@@ -669,7 +665,7 @@ index 623a9a4..75e075b 100644
 +                while (loops--)
 +                {
 +                    cc = 0; // reset the cc for each loop
-+                    clock_gettime(CLOCK_REALTIME, &begin);
++		    clock_gettime(CLOCK_REALTIME, &begin);
 +                    ret = peci_Telemetry_Discovery_dom(
 +                        address, domainId, u8SubOpcode, u8Param0, u16Param1,
 +                        u8Param2, u8Size, pData, &cc);
@@ -721,7 +717,7 @@ index 623a9a4..75e075b 100644
 +                        printf("Telemetry 0x02 <index sample>\n");
 +                        return 1;
 +                }
-+                if (verbose)
++		if (verbose)
 +                {
 +                    printf("Telemetry Get Telem Sample Opcode:0x%02x "
 +                           "Index:0x%04x Sample:0x%04x\n",
@@ -773,7 +769,7 @@ index 623a9a4..75e075b 100644
 +            {
 +                // Get the read/write parameter
 +                if (argc == optind)
-+                {
++		{
 +                    // Exit if no read/write parameter provided
 +                    printf("ERROR: Missing read/write argument for Telemetry "
 +                           "Config Watcher\n");
@@ -823,7 +819,7 @@ index 623a9a4..75e075b 100644
 +                                       (loopCount - loops), timeSpent);
 +                            }
 +                            totalTimeSpent += timeSpent;
-+                            ccCounts[cc]++;
++			    ccCounts[cc]++;
 +
 +                            if (verbose || loops == 0)
 +                            {
@@ -872,7 +868,7 @@ index 623a9a4..75e075b 100644
 +                                   (unsigned long long)u64Data);
 +                        }
 +                        while (loops--)
-+                        {
++			{
 +                            cc = 0; // reset the cc for each loop
 +                            clock_gettime(CLOCK_REALTIME, &begin);
 +                            ret = peci_Telemetry_ConfigWatcherWr_dom(
@@ -914,7 +910,7 @@ index 623a9a4..75e075b 100644
 +                switch (argc - optind)
 +                {
 +                    case 2:
-+                        u16Sample = (uint16_t)strtoul(argv[--index], NULL, 0);
++			u16Sample = (uint16_t)strtoul(argv[--index], NULL, 0);
 +                        u16Index = (uint16_t)strtoul(argv[--index], NULL, 0);
 +                        break;
 +
@@ -949,7 +945,7 @@ index 623a9a4..75e075b 100644
 +                    ccCounts[cc]++;
 +
 +                    if (verbose || loops == 0)
-+                    {
++		    {
 +                        if (0 != ret)
 +                        {
 +                            printf("ERROR %d: command failed\n", ret);
@@ -983,5 +979,5 @@ index 623a9a4..75e075b 100644
      {
          if ((argc - optind) < 3)
 -- 
-2.25.1
+2.34.1
 

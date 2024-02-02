@@ -110,22 +110,22 @@ index 3534e89..4df1ab6 100644
 +}
 \ No newline at end of file
 diff --git a/app/watchdog_service.hpp b/app/watchdog_service.hpp
-index 141bdb7..32b7461 100644
+index b1f490a0..71490aef 100644
 --- a/app/watchdog_service.hpp
 +++ b/app/watchdog_service.hpp
 @@ -15,6 +15,8 @@ class WatchdogService
- 
+
      using Action =
-         sdbusplus::xyz::openbmc_project::State::server::Watchdog::Action;
+         sdbusplus::server::xyz::openbmc_project::state::Watchdog::Action;
 +    using PreTimeoutInterruptAction = sdbusplus::xyz::openbmc_project::State::
 +        server::Watchdog::PreTimeoutInterruptAction;
      using TimerUse =
-         sdbusplus::xyz::openbmc_project::State::server::Watchdog::TimerUse;
- 
-@@ -92,6 +94,13 @@ class WatchdogService
+         sdbusplus::server::xyz::openbmc_project::state::Watchdog::TimerUse;
+
+@@ -98,6 +100,13 @@ class WatchdogService
       */
      void setInterval(uint64_t interval);
- 
+
 +    /** @brief Sets the value of the PreTimeoutInterrupt property on the host
 +     * watchdog
 +     *
@@ -135,7 +135,7 @@ index 141bdb7..32b7461 100644
 +
    private:
      /** @brief sdbusplus handle */
-     sdbusplus::bus::bus bus;
+     sdbusplus::bus_t bus;
 -- 
 2.17.1
 

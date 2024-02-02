@@ -1,4 +1,4 @@
-From b53033b478bc02963e398fd129e2803811e7f5ee Mon Sep 17 00:00:00 2001
+From f9c510a807d02431651a12a28c700c6172adf6fc Mon Sep 17 00:00:00 2001
 From: Arun Lal K M <arun.lal@intel.com>
 Date: Wed, 3 May 2023 13:11:00 +0000
 Subject: [PATCH] Add fix for broken feature 'Pending Attributes'.
@@ -140,7 +140,7 @@ Upstream-Status: Pending
  1 file changed, 291 insertions(+), 124 deletions(-)
 
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index c80ae282..d30ceac3 100644
+index 037cb181..cfe8c0ec 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
 @@ -5,6 +5,8 @@
@@ -320,7 +320,7 @@ index c80ae282..d30ceac3 100644
 -                    messages::internalError(asyncResp->res);
                  }
              }
-             },
+         },
 @@ -292,8 +271,9 @@ inline void requestRoutesBiosService(App& app)
   */
  inline void requestRoutesBiosChangePassword(App& app)
@@ -443,9 +443,9 @@ index c80ae282..d30ceac3 100644
 +                        return;
                      }
                  }
-                 },
+             },
 @@ -440,7 +451,7 @@ inline void requestRoutesBiosSettings(App& app)
-         });
+     });
  
      BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings")
 -        .privileges({{"ConfigureComponents"}})
@@ -610,14 +610,14 @@ index c80ae282..d30ceac3 100644
 +                    }
 +
 +                    messages::success(asyncResp->res);
-+                    },
++                },
 +                    "xyz.openbmc_project.BIOSConfigManager",
 +                    "/xyz/openbmc_project/bios_config/manager",
 +                    "org.freedesktop.DBus.Properties", "Set",
 +                    "xyz.openbmc_project.BIOSConfig.Manager",
 +                    "PendingAttributes",
 +                    std::variant<PendingAttributesType>(pendingAttributes));
-                 },
+             },
 -                "xyz.openbmc_project.BIOSConfigManager",
 -                "/xyz/openbmc_project/bios_config/manager",
 -                "org.freedesktop.DBus.Properties", "Set",
@@ -627,13 +627,13 @@ index c80ae282..d30ceac3 100644
 +                service, "/xyz/openbmc_project/bios_config/manager",
 +                "org.freedesktop.DBus.Properties", "Get",
 +                "xyz.openbmc_project.BIOSConfig.Manager", "BaseBIOSTable");
-+            },
++        },
 +            "xyz.openbmc_project.ObjectMapper",
 +            "/xyz/openbmc_project/object_mapper",
 +            "xyz.openbmc_project.ObjectMapper", "GetObject",
 +            "/xyz/openbmc_project/bios_config/manager",
 +            std::array<const char*, 0>());
-         });
+     });
  }
  /**
 @@ -539,6 +641,15 @@ inline void requestRoutesBiosAttributeRegistry(App& app)

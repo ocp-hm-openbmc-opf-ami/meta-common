@@ -1,4 +1,4 @@
-From 2041c5fdfa48f9f289c749458801499cb383b474 Mon Sep 17 00:00:00 2001
+From 5a70f91eac61fad03c2ddb2aaca14f1d15321d60 Mon Sep 17 00:00:00 2001
 From: Jakub Nowacki <jakubx.nowacki@intel.com>
 Date: Tue, 18 Jul 2023 13:46:46 +0200
 Subject: [PATCH] Restore PUT method for MRD
@@ -17,7 +17,7 @@ Signed-off-by: Jakub Nowacki <jakubx.nowacki@intel.com>
  1 file changed, 118 insertions(+), 10 deletions(-)
 
 diff --git a/redfish-core/lib/metric_report_definition.hpp b/redfish-core/lib/metric_report_definition.hpp
-index f1b36501..970e79c3 100644
+index f386bfbb..44539441 100644
 --- a/redfish-core/lib/metric_report_definition.hpp
 +++ b/redfish-core/lib/metric_report_definition.hpp
 @@ -37,6 +37,12 @@ using ReadingParameters = std::vector<std::tuple<
@@ -33,16 +33,16 @@ index f1b36501..970e79c3 100644
  class ErrorVerificator
  {
    public:
-@@ -801,22 +807,25 @@ class AddReport
+@@ -800,22 +806,25 @@ class AddReport
  {
    public:
      AddReport(AddReportArgs argsIn, ReportUserArgs userArgsIn,
 -              const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn) :
 +              const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
 +              AddReportType typeIn) :
-         asyncResp(asyncRespIn),
--        args(std::move(argsIn)), userArgs(std::move(userArgsIn))
-+        args(std::move(argsIn)), userArgs(std::move(userArgsIn)), type(typeIn)
+         asyncResp(asyncRespIn), args(std::move(argsIn)),
+-        userArgs(std::move(userArgsIn))
++        userArgs(std::move(userArgsIn)), type(typeIn)
      {}
  
      ~AddReport()
@@ -63,7 +63,7 @@ index f1b36501..970e79c3 100644
      {
          if (asyncResp->res.result() != boost::beast::http::status::ok)
          {
-@@ -858,9 +867,9 @@ class AddReport
+@@ -857,9 +866,9 @@ class AddReport
          }
  
          crow::connections::systemBus->async_method_call(
@@ -76,7 +76,7 @@ index f1b36501..970e79c3 100644
              ErrorVerificator ev(asyncResp->res, ec, msg);
              if (!ev.verifyId(userArgs.id) || !ev.verifyName(userArgs.name) ||
                  !ev.verifyReportingType(userArgs.reportingTypeStr) ||
-@@ -873,8 +882,14 @@ class AddReport
+@@ -872,8 +881,14 @@ class AddReport
              {
                  return;
              }
@@ -90,10 +90,10 @@ index f1b36501..970e79c3 100644
 +            {
 +                messages::success(asyncResp->res);
 +            }
-             },
+         },
              telemetry::service, "/xyz/openbmc_project/Telemetry/Reports",
              "xyz.openbmc_project.Telemetry.ReportManager", "AddReport",
-@@ -898,8 +913,35 @@ class AddReport
+@@ -897,8 +912,35 @@ class AddReport
      AddReportArgs args;
      ReportUserArgs userArgs;
      boost::container::flat_map<std::string, std::string> uriToDbus{};
@@ -122,14 +122,14 @@ index f1b36501..970e79c3 100644
 +                return;
 +            }
 +            callback(uriToDbus);
-+            });
++        });
 +    }
 +}
 +
  class UpdateMetrics
  {
    public:
-@@ -1360,6 +1402,64 @@ inline void
+@@ -1358,6 +1400,64 @@ inline void
      }
  }
  
@@ -186,15 +186,15 @@ index f1b36501..970e79c3 100644
 +            [asyncResp, addReportReq](const std::map<std::string, std::string>&
 +                                          metricPropertyToDbusPaths) {
 +            addReportReq->insert(metricPropertyToDbusPaths);
-+            });
-+        },
++        });
++    },
 +        service, reportPath, "xyz.openbmc_project.Object.Delete", "Delete");
 +}
 +
  inline void
      handleReportDelete(App& app, const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-@@ -1411,8 +1511,10 @@ inline void handleMetricReportDefinitionsPost(
+@@ -1425,8 +1525,10 @@ inline void handleMetricReportDefinitionsPost(
          return;
      }
  
@@ -205,8 +205,8 @@ index f1b36501..970e79c3 100644
 +        std::move(args), std::move(userArgs), asyncResp, addReportMode);
      for (const auto& [chassis, sensorType] : chassisSensors)
      {
-         retrieveUriToDbusMap(
-@@ -1557,5 +1659,11 @@ inline void requestRoutesMetricReportDefinition(App& app)
+         retrieveUriToDbusMap(chassis, sensorType,
+@@ -1560,5 +1662,11 @@ inline void requestRoutesMetricReportDefinition(App& app)
          .privileges(redfish::privileges::patchMetricReportDefinition)
          .methods(boost::beast::http::verb::patch)(
              std::bind_front(telemetry::handleReportPatch, std::ref(app)));

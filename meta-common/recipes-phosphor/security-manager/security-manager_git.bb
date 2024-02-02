@@ -10,9 +10,10 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/meta/files/common-licenses/Apache-2.0;md5
 inherit cmake pkgconfig systemd
 
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.security-manager.git;protocol=ssh;branch=main"
-SRCREV = "db6163b026a970e059b07ca218cb569f1fe5db24"
+SRCREV = "969e945f0e9d756527aceba7c76ff710a39f1cca"
 
 SYSTEMD_SERVICE:${PN} += "xyz.openbmc_project.SecurityManager.service"
+SYSTEMD_SERVICE:${PN} += "com.intel.FipsConfigInstaller.service"
 
 DEPENDS += " \
     systemd \

@@ -465,7 +465,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
 {
     sd_bus_error_add_map(nmDbus::kNodeManagerDBusErrors);
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,

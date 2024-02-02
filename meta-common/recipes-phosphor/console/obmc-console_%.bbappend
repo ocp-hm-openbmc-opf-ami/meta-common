@@ -2,7 +2,7 @@
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/obmc-console;branch=master;protocol=https"
-SRCREV = "dfda5afb4ff7c76c4df3ebebbf496fdbda0fbbae"
+SRCREV = "3453084b579970cd368357bf091f173924ecba5e"
 
 FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 OBMC_CONSOLE_HOST_TTY = "ttyS2"

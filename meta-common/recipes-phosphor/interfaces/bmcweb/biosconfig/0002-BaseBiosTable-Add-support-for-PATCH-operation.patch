@@ -1,4 +1,4 @@
-From 6721f699fdcc04ede6a9603a144caa59fe6c78c3 Mon Sep 17 00:00:00 2001
+From 30ba6a5a6096c7f31ded969c5c70bcc7f8480fb5 Mon Sep 17 00:00:00 2001
 From: Krzysztof Grobelny <krzysztof.grobelny@intel.com>
 Date: Wed, 30 Jun 2021 15:18:46 +0000
 Subject: [PATCH] BaseBiosTable: Add support for PATCH operation
@@ -32,7 +32,7 @@ Upstream-Status: Pending
  1 file changed, 87 insertions(+)
 
 diff --git a/redfish-core/lib/bios.hpp b/redfish-core/lib/bios.hpp
-index e0b41433..7ec499bf 100644
+index 82fbb5af..a231e424 100644
 --- a/redfish-core/lib/bios.hpp
 +++ b/redfish-core/lib/bios.hpp
 @@ -97,6 +97,29 @@ static std::string mapAttrTypeToRedfish(const std::string_view typeDbus)
@@ -68,7 +68,7 @@ index e0b41433..7ec499bf 100644
 @@ -349,6 +372,70 @@ inline void requestRoutesBiosSettings(App& app)
              "/xyz/openbmc_project/bios_config/manager",
              std::array<const char*, 0>());
-         });
+     });
 +
 +    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings")
 +        .privileges({{"ConfigureComponents"}})
@@ -125,14 +125,14 @@ index e0b41433..7ec499bf 100644
 +                    messages::internalError(asyncResp->res);
 +                    return;
 +                }
-+                },
++            },
 +                "xyz.openbmc_project.BIOSConfigManager",
 +                "/xyz/openbmc_project/bios_config/manager",
 +                "org.freedesktop.DBus.Properties", "Set",
 +                "xyz.openbmc_project.BIOSConfig.Manager", "PendingAttributes",
 +                std::variant<PendingAttributesType>(pendingAttributes));
 +        }
-+        });
++    });
  }
  /**
   * BiosAttributeRegistry class supports handle get method for BIOS attribute

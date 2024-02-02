@@ -17,7 +17,7 @@ Signed-off-by: Zhikui Ren <zhikui.ren@intel.com>
 Upstream-Status: Pending
 ---
  src/PSUSensor.cpp     | 2 --
- src/PSUSensorMain.cpp | 5 ++++-
+ src/PSUSensorMain.cpp | 2 +-
  2 files changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/src/PSUSensor.cpp b/src/PSUSensor.cpp
@@ -44,18 +44,15 @@ diff --git a/src/PSUSensorMain.cpp b/src/PSUSensorMain.cpp
 index f6e5691..fb35c58 100644
 --- a/src/PSUSensorMain.cpp
 +++ b/src/PSUSensorMain.cpp
-@@ -809,7 +809,10 @@ static void createSensorsCallback(
+@@ -868,7 +868,7 @@ static void createSensorsCallback(
                  }
              }
- 
--            checkEventLimits(sensorPathStr, limitEventMatch, eventPathList);
+
+-            if (devType == DevTypes::HWMON)
 +            if (sensorType == "pmbus")
-+            {
-+                checkEventLimits(sensorPathStr, limitEventMatch, eventPathList);
-+            }
- 
-             // Similarly, if sensor scaling factor is being customized,
-             // then the below power-of-10 constraint becomes unnecessary,
+             {
+                 checkEventLimits(sensorPathStr, limitEventMatch, eventPathList);
+             }
 -- 
 2.25.1
 

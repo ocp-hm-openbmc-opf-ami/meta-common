@@ -1,7 +1,8 @@
-From 0fcbb151daa200036cb6b7e2b919902d5c53c837 Mon Sep 17 00:00:00 2001
+From b1abbe911d3effc343483adff0d17ec23f665dd9 Mon Sep 17 00:00:00 2001
 From: Iwona Winiarska <iwona.winiarska@intel.com>
 Date: Sat, 18 Mar 2023 23:20:07 +0100
-Subject: [PATCH] intelcpusensor: Update CPUConfig set based on udev events
+Subject: [PATCH] intelcpusensor: Update CPUConfig set based on udev
+ events
 
 If IntelCPUSensor is started before all PECI adapters are up, CPUConfig
 may never be created for missing adapters.
@@ -29,10 +30,10 @@ Signed-off-by: Oleksandr Shulzhenko <oleksandr.shulzhenko.viktorovych@intel.com>
  3 files changed, 142 insertions(+)
 
 diff --git a/meson.build b/meson.build
-index 5883689fb3fb..db27f4ac799c 100644
+index 6af27d1..800a204 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -89,6 +89,8 @@ if not uring.found()
+@@ -88,6 +88,8 @@ if not uring.found()
    uring = uring.as_system('system')
  endif
  
@@ -42,7 +43,7 @@ index 5883689fb3fb..db27f4ac799c 100644
      boost,
      boost_dep,
 diff --git a/src/IntelCPUSensorMain.cpp b/src/IntelCPUSensorMain.cpp
-index 896077d5f9ae..8c6d47253586 100644
+index 533f624..e9a6387 100644
 --- a/src/IntelCPUSensorMain.cpp
 +++ b/src/IntelCPUSensorMain.cpp
 @@ -19,9 +19,11 @@
@@ -57,7 +58,7 @@ index 896077d5f9ae..8c6d47253586 100644
  #include <boost/container/flat_map.hpp>
  #include <boost/container/flat_set.hpp>
  #include <sdbusplus/asio/connection.hpp>
-@@ -835,6 +837,19 @@ void addConfigsForOtherPeciAdapters(
+@@ -877,6 +879,19 @@ void addConfigsForOtherPeciAdapters(
              peciAdapterName = "wire";
          }
  
@@ -74,10 +75,10 @@ index 896077d5f9ae..8c6d47253586 100644
 +            }
 +        }
 +
-         //WA:detectCpu uses cpuConfigs to send ping command
-         //peci-mctp does not support ping command,
-         //detectCPU will be refactored to support peci-mctp
-@@ -991,6 +1006,110 @@ bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
+         cpuConfigs.emplace(*peciDeviceNum, addr, name + "_" + *peciAdapterName, *peciAdapterName, state);
+     }
+ }
+@@ -1028,6 +1043,110 @@ bool getCpuConfig(std::shared_ptr<sdbusplus::asio::connection>& systemBus,
      return false;
  }
  
@@ -188,7 +189,7 @@ index 896077d5f9ae..8c6d47253586 100644
  int main()
  {
      boost::asio::io_context io;
-@@ -1005,6 +1124,10 @@ int main()
+@@ -1042,6 +1161,10 @@ int main()
      waitTimer = std::make_unique<boost::asio::steady_timer>(io);
      ManagedObjectType sensorConfigs;
  
@@ -199,7 +200,7 @@ index 896077d5f9ae..8c6d47253586 100644
      filterTimer.expires_after(std::chrono::seconds(1));
      filterTimer.async_wait([&](const boost::system::error_code& ec) {
          if (ec == boost::asio::error::operation_aborted)
-@@ -1051,6 +1174,22 @@ int main()
+@@ -1088,6 +1211,22 @@ int main()
          });
      };
  
@@ -223,10 +224,10 @@ index 896077d5f9ae..8c6d47253586 100644
          setupPropertiesChangedMatches(*systemBus, sensorTypes, eventHandler);
  
 diff --git a/src/meson.build b/src/meson.build
-index cc600bf0ca56..a326ff1a67e2 100644
+index 9f56c31..94f123b 100644
 --- a/src/meson.build
 +++ b/src/meson.build
-@@ -109,6 +109,7 @@ if get_option('intel-cpu').enabled()
+@@ -94,6 +94,7 @@ if get_option('intel-cpu').enabled()
          dependencies: [
              default_deps,
              gpiodcxx,
