@@ -5,7 +5,7 @@ SRCREV = "800f708024fa74404f325b04892e276fdc118c62"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-SRC_URI += "file://0007-ipmi-set-BIOS-id.patch \
+INTEL_SRC_URI += "file://0007-ipmi-set-BIOS-id.patch \
             file://0010-Increase-the-default-watchdog-timeout-value.patch \
             file://0012-Add-RestoreDelay-interface-for-power-restore-delay.patch \
             file://0013-Add-ErrConfig.yaml-interface-for-processor-error-config.patch \
@@ -22,4 +22,5 @@ SRC_URI += "file://0007-ipmi-set-BIOS-id.patch \
             file://0035-Add-I3C-Binding-related-interfaces.patch \
             "
 
+SRC_URI:append = "${@bb.utils.contains('BBFILE_COLLECTIONS', 'meta-ami', '',INTEL_SRC_URI, d)}"
 EXTRA_OEMESON += "-Ddata_com_intel=true"

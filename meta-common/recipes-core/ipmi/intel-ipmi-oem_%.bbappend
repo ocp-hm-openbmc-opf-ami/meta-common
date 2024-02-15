@@ -11,12 +11,14 @@ SRCREV = "77a44298a726b20e595ee596ce0018e00493ef7e"
 inherit pkgconfig
 FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 
-SRC_URI += " \
+INTEL_SRC_URI += " \
         file://0007-Adding-the-ACPI-agent-support-to-Mdrv2-OEM-commands.patch \
         file://0008-Add-missing-include.patch \
         "
 
 # Telemetry Features:
-SRC_URI += " \
+INTEL_SRC_URI += " \
         file://telemetry/0001-Skip-PMT-during-exposing-IPMI-sensors.patch \
         "
+
+SRC_URI:append = "${@bb.utils.contains('BBFILE_COLLECTIONS', 'meta-ami', '',INTEL_SRC_URI, d)}"

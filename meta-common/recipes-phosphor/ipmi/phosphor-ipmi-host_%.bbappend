@@ -8,9 +8,13 @@ SRCREV = "ea46f3ca61dd12b210a74cf78e464c78e0987a47"
 
 SRC_URI += "file://phosphor-ipmi-host.service \
             file://transporthandler_oem.cpp \
+           "
+
+INTEL_SRC_URI += "\
             file://0053-Fix-keep-looping-issue-when-entering-OS.patch \
             file://0063-Save-the-pre-timeout-interrupt-in-dbus-property.patch \
             "
+SRC_URI:append = "${@bb.utils.contains('BBFILE_COLLECTIONS', 'meta-ami', '',INTEL_SRC_URI, d)}"
 
 PACKAGECONFIG:append = " transport-oem "
 PACKAGECONFIG:remove = "allowlist"
