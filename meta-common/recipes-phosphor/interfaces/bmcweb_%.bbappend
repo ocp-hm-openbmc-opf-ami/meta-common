@@ -140,7 +140,7 @@ EXTRA_OEMESON += " -Dvm-nbdproxy=enabled"
 # Disable dependency on external nbd-proxy application
 EXTRA_OEMESON += " -Dvm-websocket=disabled"
 EXTRA_OEMESON += " -Dredfish-host-logger=disabled"
-EXTRA_OEMESON += " -Dredfish-post-to-old-updateservice=enabled"
+EXTRA_OEMESON += " -Dredfish-post-to-old-updateservice=disabled"
 
 # image-payload-limit will configure the max size of image file in MB which can be uploaded to bmcweb over https.
 EXTRA_OEMESON += " -Dimage-payload-limit=128"
