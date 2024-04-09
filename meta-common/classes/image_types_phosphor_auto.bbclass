@@ -23,6 +23,7 @@ image_dst ?= "image-u-boot"
 python() {
     import json
     types = d.getVar('IMAGE_FSTYPES', True).split()
+    pfr_config = d.getVar('PFR_CONFIG', True).split()
     spl_enabled = d.getVar('SPL_BINARY', True)
 
     # TODO: find partition list in DTS
@@ -35,15 +36,30 @@ python() {
         d.setVar('UBOOT_SEC_SIZE', str(512*1024))
 
     if 'intel-pfr' in types:
-        d.setVar('FLASH_SIZE', str(128*1024))
-        d.setVar('FIT_SECTOR_SIZE', str(0x1f00000))
-        new_active_offset = d.getVar('DTB_FULL_FIT_IMAGE_OFFSETS', True)
-        if new_active_offset:
-            DTB_FULL_FIT_IMAGE_OFFSETS = [int(new_active_offset, 16)]
-            d.setVar('FIT_SECTOR_SIZE', str(0x2380000))
-            d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
-        else :
-            DTB_FULL_FIT_IMAGE_OFFSETS = [0xb00000]
+        if 'pfr-256' in pfr_config:
+            gen = d.getVar('PRODUCT_GENERATION', True).split()
+            if 'egs' in gen:
+                # if intel-pfr & egs, increase flash size to 256MB and max fit image size to 55MB
+                d.setVar('FLASH_SIZE', str(256*1024))
+                DTB_FULL_FIT_IMAGE_OFFSETS = [0xb00000]
+                d.setVar('FIT_SECTOR_SIZE', str(0x3500000))
+                d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
+            else:
+                # if intel-pfr & bhs, increase flash size to 256MB and max fit image size to 54.5MB
+                d.setVar('FLASH_SIZE', str(256*1024))
+                DTB_FULL_FIT_IMAGE_OFFSETS = [0xb80000]
+                d.setVar('FIT_SECTOR_SIZE', str(0x3480000))
+                d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
+        else:
+            d.setVar('FLASH_SIZE', str(128*1024))
+            d.setVar('FIT_SECTOR_SIZE', str(0x1f00000))
+            new_active_offset = d.getVar('DTB_FULL_FIT_IMAGE_OFFSETS', True)
+            if new_active_offset:
+                DTB_FULL_FIT_IMAGE_OFFSETS = [int(new_active_offset, 16)]
+                d.setVar('FIT_SECTOR_SIZE', str(0x2380000))
+                d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
+            else :
+                DTB_FULL_FIT_IMAGE_OFFSETS = [0xb00000]
     else:
         d.setVar('FLASH_SIZE', str(64*1024))
         if spl_enabled:
