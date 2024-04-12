@@ -13,7 +13,7 @@ DEPENDS = "sdbusplus openssl libpam libgpiod safec"
 do_configure[depends] += "virtual/kernel:do_shared_workdir"
 
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.at-scale-debug.git;protocol=ssh;branch=main"
-SRCREV = "ff777461cb8f978aac28ed3993b2facc6b6e9904"
+SRCREV = "bad067dd17d4376186a1476d1c38c346025cb99d"
 
 inherit useradd
 
