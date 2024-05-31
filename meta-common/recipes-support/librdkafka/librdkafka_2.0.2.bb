@@ -16,4 +16,9 @@ BRANCH = "master"
 SRCREV = "e03d3bb91ed92a38f38d9806b8d8deffe78a1de5"
 SRC_URI = "git://github.com/edenhill/librdkafka;protocol=ssh;branch=${BRANCH}"
 
+# Add support for setting TLSv1.3 ciphersuites
+SRC_URI += " \
+    file://0001-Add-support-for-setting-TLSv1.3-ciphers.patch \
+"
+
 S = "${WORKDIR}/git"

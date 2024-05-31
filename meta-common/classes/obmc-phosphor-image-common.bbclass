@@ -77,9 +77,9 @@ IMAGE_INSTALL:append = " \
         nvmemi-daemon \
         "
 
-IMAGE_INSTALL:append:bhs-features = " \
-        power-feature-discovery \
-        "
+#IMAGE_INSTALL:append:bhs-features = " \
+#        power-feature-discovery \
+#        "
 
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr-manager', '', d)}"
 

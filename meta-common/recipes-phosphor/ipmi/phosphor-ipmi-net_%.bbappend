@@ -14,8 +14,9 @@ SRCREV = "36e3c539df647d579f00f1cba6b482692a4ed634"
 
 SRC_URI += " file://10-nice-rules.conf \
              file://0012-rakp12-Add-username-to-SessionInfo-interface.patch \
-             file://0013-Fix-for-SOL-deactivate-IPMI-command.patch \
            "
+
+#file://0013-Fix-for-SOL-deactivate-IPMI-command.patch
 
 do_install:append() {
     mkdir -p ${D}${sysconfdir}/systemd/system/phosphor-ipmi-net@.service.d/

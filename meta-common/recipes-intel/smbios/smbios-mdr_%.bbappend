@@ -5,7 +5,15 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # to not override the upstream value
 # SRC_URI = "git://github.com/openbmc/smbios-mdr.git;branch=master;protocol=https"
 
-SRCREV = "badedf10910f5ea0a5563e461b47acf7cc45603d"
+PACKAGECONFIG[assoc-trim-path] = ""
+PACKAGECONFIG[cpuinfo-peci] = ""
+
+SRCREV = "21cb0e8750b76fff5860b985d8122fd653ca8a1f"
+SRC_URI += " \
+    file://0001-Adding-patch-for-smbios-mdr-for-defaultTimeout.patch \
+    file://0002-Catch-PECIErrors-from-supportsControl.patch \
+    file://0003-sst-Don-t-always-wake-idle-CPU.patch \
+    "
 
 DEPENDS += " \
     nlohmann-json \

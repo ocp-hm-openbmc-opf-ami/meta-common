@@ -463,9 +463,124 @@ class TPMIDBusCache
     }
 };
 
+class WakeOnPECIManager
+{
+    bool peciWoken = false;
+
+    uint8_t cpuAddr;
+    WakePolicy wakePolicy;
+
+  public:
+    WakeOnPECIManager(uint8_t cpuAddr_, WakePolicy wakePolicy_) :
+        cpuAddr(cpuAddr_), wakePolicy(wakePolicy_)
+    {}
+    ~WakeOnPECIManager()
+    {
+        try
+        {
+            if (peciWoken)
+            {
+                setWakeOnPECI(false);
+            }
+        }
+        catch (const PECIError&)
+        {}
+    }
+
+    template <typename PECIOp>
+    std::pair<EPECIStatus, uint8_t> peciOpWithWakeRetry(PECIOp&& peciOp)
+    {
+        uint8_t cc;
+        EPECIStatus status = peciOp(&cc);
+
+        constexpr int ccUnavailResource = 0x82;
+        if (wakePolicy == wakeAllowed && status == PECI_CC_SUCCESS &&
+            cc == ccUnavailResource)
+        {
+            setWakeOnPECI(true);
+            status = peciOp(&cc);
+        }
+
+        return {status, cc};
+    }
+
+    void setWakeOnPECI(bool enable)
+    {
+        constexpr int pkgIDIndex = 0;
+        constexpr int diePresenceParam = 7;
+        constexpr int wakeOnPECIIndex = 5;
+
+        // Cache the die masks for each CPU to avoid extra unnecessary reads.
+        static std::map<uint8_t, std::bitset<32>> dieMasks;
+
+        if (enable == peciWoken)
+        {
+            return;
+        }
+
+        uint8_t cc;
+        EPECIStatus status;
+        if (!dieMasks.contains(cpuAddr))
+        {
+            uint32_t data;
+            status = peci_RdPkgConfig(cpuAddr, pkgIDIndex, diePresenceParam,
+                                      sizeof(data),
+                                      reinterpret_cast<uint8_t*>(&data), &cc);
+            if (!checkPECIStatus(status, cc))
+            {
+                throw PECIError("Failed to read die mask");
+            }
+            dieMasks[cpuAddr] = data;
+            DEBUG_PRINT << "Read die mask " << std::hex << data << std::dec
+                        << '\n';
+        }
+
+        std::cerr << "Setting Wake-on-PECI=" << enable << '\n';
+
+        const std::bitset<32>& dieMask = dieMasks[cpuAddr];
+
+        for (uint8_t i = 0; i < dieMask.size(); ++i)
+        {
+            if (!dieMask.test(i))
+            {
+                continue;
+            }
+            uint32_t unusedData;
+            int tries = 0;
+            do
+            {
+                status = peci_WrPkgConfig_dom(cpuAddr, i, wakeOnPECIIndex,
+                                              enable ? 1 : 0, &unusedData,
+                                              sizeof(unusedData), &cc);
+            } while (status == PECI_CC_TIMEOUT && ++tries <= 5);
+
+            if (tries > 1)
+            {
+                DEBUG_PRINT << "Tried to set Wake-On-PECI " << std::hex
+                            << cpuAddr << std::dec << ":" << static_cast<int>(i)
+                            << " " << tries << " times\n";
+            }
+
+            if (!checkPECIStatus(status, cc))
+            {
+                throw PECIError("Failed to set Wake-On-PECI mode bit");
+            }
+            if (enable)
+            {
+                // Set flag if any domains succeeded
+                peciWoken = true;
+            }
+        }
+        if (!enable)
+        {
+            // Only clear flag if all domains succeeded
+            peciWoken = false;
+        }
+    }
+};
+
 /**
  * Represents a view on the raw SST memory space.
- * TODO: some kind of caching on the RO registers to cut down on PECI traffic.
  */
 class SSTRegisterSet
 {
@@ -474,7 +589,8 @@ class SSTRegisterSet
     TPMIDBusCache& dbusCache = TPMIDBusCache::getInstance();
     const TPMIDBusCache::CPU* cpu;
     const TPMIDBusCache::Feature* feature;
-    int cpuIndex;
+    uint8_t cpuIndex;
+    WakeOnPECIManager peciManager;
 
     unsigned ppOffset(unsigned instance)
     {
@@ -496,16 +612,34 @@ class SSTRegisterSet
         offset += feature->size * instance;
 
         uint64_t data;
-        uint8_t cc;
-        EPECIStatus status = peci_RdEndPointConfigMmio(
-            cpu->address, cpu->segment, cpu->bus, cpu->device, cpu->function,
-            cpu->bar, MMIO_QWORD_OFFSET, offset, sizeof(data),
-            reinterpret_cast<uint8_t*>(&data), &cc);
+        auto [status, cc] = peciManager.peciOpWithWakeRetry(std::bind_front(
+            peci_RdEndPointConfigMmio, cpu->address, cpu->segment, cpu->bus,
+            cpu->device, cpu->function, cpu->bar, MMIO_QWORD_OFFSET, offset,
+            sizeof(data), reinterpret_cast<uint8_t*>(&data)));
         return {data, status, cc};
     }
 
+    uint64_t cachedRead(unsigned instance, size_t offset)
+    {
+        // Cache some of the registers to avoid reading RO data multiple times.
+        // {CPU index, TPMI instance, register offset} -> register value
+        static std::map<std::tuple<uint8_t, unsigned, size_t>, uint64_t>
+            cachedRegs;
+
+        auto key = std::make_tuple(cpuIndex, instance, offset);
+        auto it = cachedRegs.find(key);
+        if (it != cachedRegs.end())
+        {
+            return it->second;
+        }
+        uint64_t value = read(instance, offset);
+        cachedRegs[key] = value;
+        return value;
+    }
+
   public:
-    SSTRegisterSet(int _cpuIndex) : cpuIndex(_cpuIndex)
+    SSTRegisterSet(uint8_t _cpuIndex, WakePolicy wakePolicy) :
+        cpuIndex(_cpuIndex), peciManager(cpuIndex + MIN_CLIENT_ADDR, wakePolicy)
     {
         DEBUG_PRINT << "SSTRegisterSet constructor\n";
         if (!dbusCache.contains(cpuIndex))
@@ -541,10 +675,10 @@ class SSTRegisterSet
         offset += feature->offset;
         offset += feature->size * instance;
 
-        uint8_t cc;
-        EPECIStatus status = peci_WrEndPointConfigMmio(
-            cpu->address, cpu->segment, cpu->bus, cpu->device, cpu->function,
-            cpu->bar, MMIO_QWORD_OFFSET, offset, sizeof(data), data, &cc);
+        auto [status, cc] = peciManager.peciOpWithWakeRetry(std::bind_front(
+            peci_WrEndPointConfigMmio, cpu->address, cpu->segment, cpu->bus,
+            cpu->device, cpu->function, cpu->bar, MMIO_QWORD_OFFSET, offset,
+            sizeof(data), data));
         if (!checkPECIStatus(status, cc))
         {
             throw PECIError("MMIO Write failed");
@@ -582,22 +716,23 @@ class SSTRegisterSet
 
     uint64_t header(unsigned instance)
     {
-        return read(instance, 0);
+        return cachedRead(instance, 0);
     }
 
     uint64_t ppHeader(unsigned instance)
     {
+        // Not cacheable - some fields may change based on BIOS knob.
         return read(instance, ppOffset(instance));
     }
 
     uint64_t ppOffset0(unsigned instance)
     {
-        return read(instance, ppOffset(instance) + 8);
+        return cachedRead(instance, ppOffset(instance) + 8);
     }
 
     uint64_t ppOffset1(unsigned instance)
     {
-        return read(instance, ppOffset(instance) + 8 * 2);
+        return cachedRead(instance, ppOffset(instance) + 8 * 2);
     }
 
     uint64_t ppControl(unsigned instance)
@@ -613,29 +748,33 @@ class SSTRegisterSet
     uint64_t bfInfo0(unsigned instance, unsigned level)
     {
         auto bfOffset = mask<size_t>(ppOffset0(instance), 8, 15);
-        return read(instance, ppLevelOffset(instance, level) + bfOffset * 8);
+        return cachedRead(instance,
+                          ppLevelOffset(instance, level) + bfOffset * 8);
     }
 
     uint64_t bfInfo1(unsigned instance, unsigned level)
     {
         auto bfOffset = mask<size_t>(ppOffset0(instance), 8, 15);
-        return read(instance,
-                    ppLevelOffset(instance, level) + bfOffset * 8 + 8);
+        return cachedRead(instance,
+                          ppLevelOffset(instance, level) + bfOffset * 8 + 8);
     }
 
     uint64_t tfInfo0(unsigned instance, unsigned level)
     {
         auto tfOffset = mask<size_t>(ppOffset0(instance), 16, 23);
-        return read(instance, ppLevelOffset(instance, level) + tfOffset * 8);
+        return cachedRead(instance,
+                          ppLevelOffset(instance, level) + tfOffset * 8);
     }
 
     uint64_t ppInfo1(unsigned instance, unsigned level)
     {
+        // Not cacheable - resolved cores can change by changed by BIOS.
         return read(instance, ppLevelOffset(instance, level) + 8);
     }
 
     uint64_t ppInfo2(unsigned instance, unsigned level)
     {
+        // Not cacheable - resolved cores can change by changed by BIOS.
         return read(instance, ppLevelOffset(instance, level) + 8 * 2);
     }
 
@@ -667,17 +806,19 @@ class SSTTPMI : public SSTInterface
     int cpuIndex;
     TPMIDBusCache& dbusCache = TPMIDBusCache::getInstance();
     std::unique_ptr<SSTRegisterSet> intf;
+    WakePolicy wakePolicy;
 
     static constexpr int mhzPerRatio = 100;
 
   public:
-    SSTTPMI(int _address, CPUModel) :
-        address(_address), cpuIndex(address - MIN_CLIENT_ADDR)
+    SSTTPMI(int _address, CPUModel, WakePolicy wakePolicy_) :
+        address(_address), cpuIndex(address - MIN_CLIENT_ADDR),
+        wakePolicy(wakePolicy_)
     {
         DEBUG_PRINT << "SSTTPMI constructor\n";
         if (dbusCache.contains(cpuIndex))
         {
-            intf = std::make_unique<SSTRegisterSet>(cpuIndex);
+            intf = std::make_unique<SSTRegisterSet>(cpuIndex, wakePolicy);
         }
     }
     ~SSTTPMI()
@@ -693,7 +834,7 @@ class SSTTPMI : public SSTInterface
 
         if (!intf)
         {
-            intf = std::make_unique<SSTRegisterSet>(cpuIndex);
+            intf = std::make_unique<SSTRegisterSet>(cpuIndex, wakePolicy);
         }
 
         const TPMIDBusCache::Feature& sst =
@@ -738,8 +879,8 @@ class SSTTPMI : public SSTInterface
 
     bool levelSupported(unsigned level) override
     {
-        // ALLOWED_LEVEL_MASK
-        std::bitset<8> levelMask = mask(intf->ppHeader(0), 20, 27);
+        // SST_PP_LEVEL_EN_MASK
+        std::bitset<8> levelMask = mask(intf->ppHeader(0), 12, 19);
         return levelMask.test(level);
     }
 
@@ -938,12 +1079,13 @@ class SSTTPMI : public SSTInterface
     }
 };
 
-static std::unique_ptr<SSTInterface> createTPMI(int address, CPUModel model)
+static std::unique_ptr<SSTInterface> createTPMI(int address, CPUModel model,
+                                                WakePolicy wakePolicy)
 {
     DEBUG_PRINT << "createTPMI\n";
     if (model == gnr || model == gnrd || model == srf)
     {
-        return std::make_unique<SSTTPMI>(address, model);
+        return std::make_unique<SSTTPMI>(address, model, wakePolicy);
     }
     return nullptr;
 }

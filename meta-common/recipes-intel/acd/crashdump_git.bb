@@ -14,7 +14,7 @@ LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-lice
 
 SRC_URI = "git://git@github.com/intel-bmc/firmware.bmc.openbmc.applications.crashdump.git;branch=main;protocol=ssh;nobranch=1"
 
-SRCREV = "6f13d1f10d80c8d61a681ae3b246672dab739117"
+SRCREV = "1783cac4e6638368b30e278e209149240ca7f8bc"
 
 S = "${WORKDIR}/git"
 

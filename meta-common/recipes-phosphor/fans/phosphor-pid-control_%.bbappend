@@ -10,6 +10,8 @@ EXTRA_OECONF = "--enable-configure-dbus=yes"
 SRCREV = "df597657fd0d1c248d1685e3b69478c80fc33461"
 
 SRC_URI += "\
+    file://0002-Remove-exception-during-restartControlLoops.patch \
+    file://0003-Avoid-unnecessary-restart.patch \
     file://0001-allow-dbus-sensors-without-thresholds.patch \
     "
 

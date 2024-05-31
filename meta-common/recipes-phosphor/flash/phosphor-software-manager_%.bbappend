@@ -5,8 +5,8 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # The URI is required for the autobump script but keep it commented
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-bmc-code-mgmt;branch=master;protocol=https"
-SRCREV = "83d7d406f7cf6a0b74040cf3dec3d4cf7026ef09"
-
+#SRCREV = "30352a66bed92bbc1b12a2468d3ccb5eea500004"
+SRCREV = "ee3ba93c873c54610ef369ca1fc849af3836120f"
 SYSTEMD_SERVICE:${PN}-updater += "fwupd@.service"
 
 EXTRA_OEMESON += "${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', '-Dpfr-update=enabled', '', d)}"
@@ -29,7 +29,6 @@ SRC_URI_PFR:append:bhs-features = " \
     file://testability/0002-IFWI-full-SPI-flash-update-support.patch \
     file://testability/0003-Image-verification-for-BMC-image-full-flash.patch \
     "
-
 SRC_URI_PFR = " \
     file://0001-PFR-images-support-in-phosphor-software-manager.patch \
     file://0016-Process-PLDM-image-type.patch \

@@ -7,11 +7,7 @@ DEPENDS += "obmc-intel-pfr-image-native \
             intel-pfr-signing-utility-native \
             "
 
-# Use meta-ami version-vars.inc instead of intel version-vars.inc
-# Needed to ensure PFR image is signed using meta-ami major/minor version numbers 
-#require recipes-core/os-release/version-vars.inc
-VERSION_VARS_INC = "${@bb.utils.contains_any("BBFILE_COLLECTIONS", "meta-ami", "../../meta-ami/meta-common/recipes-core/os-release/version-vars.inc", "recipes-core/os-release/version-vars.inc", d)}"
-require ${VERSION_VARS_INC}
+require recipes-core/os-release/version-vars.inc
 
 IMAGE_TYPES += "intel-pfr"
 
@@ -34,12 +30,10 @@ PFM_OFFSET = "0x80000"
 PFM_OFFSET_PAGE = "512"
 
 # RC_IMAGE
-#RC_IMAGE_OFFSET = "0x02a00000"
-RC_IMAGE_OFFSET = "${@bb.utils.contains('PFR_CONFIG', 'pfr-256', '0x4a00000', '0x2a00000', d)}"
+RC_IMAGE_OFFSET = "0x02a00000"
 
 # RC_IMAGE_PAGE= 0x02a00000/1024 = 0xA800 or 43008
-#RC_IMAGE_PAGE = "43008"
-RC_IMAGE_PAGE = "${@bb.utils.contains('PFR_CONFIG', 'pfr-256', '75776', '43008', d)}"
+RC_IMAGE_PAGE = "43008"
 
 def get_offsets(d):
     import json
@@ -68,7 +62,7 @@ do_image_pfr_internal () {
     local output_bin="image-mtd-pfr${bld_suffix}"
 	local SIGN_UTILITY=${PFR_SCRIPT_DIR}/intel-pfr-signing-utility
 
-    # python script that does creating PFM & BMC unsigned, compressed image (from BMC 128MB/256MB raw binary file).
+    # python script that does creating PFM & BMC unsigned, compressed image (from BMC 128MB raw binary file).
     ${PFR_SCRIPT_DIR}/pfr_image.py -m ${PFR_CFG_DIR}/${manifest_json} -i ${DEPLOY_DIR_IMAGE}/image-mtd -n ${build_version} -b ${build_number} \
         -h ${build_hash} -s ${SHA} -o ${output_bin}
 
@@ -91,7 +85,7 @@ do_image_pfr_internal () {
     # Sign the BMC update capsule
     ${SIGN_UTILITY} -c ${PFR_CFG_DIR}/${bmcconfig_xml} -o ${PFR_IMAGES_DIR}/${signed_cap_bin} ${PFR_IMAGES_DIR}/${unsigned_cap_bin} -v
 
-    # Add the signed bmc update capsule to the specified recovery offset
+    # Add the signed bmc update capsule to full rom image @ 0x2a00000
     dd bs=1k conv=notrunc seek=${@d.getVar('RC_IMAGE_PAGE')} if=${PFR_IMAGES_DIR}/${signed_cap_bin} of=${PFR_IMAGES_DIR}/${output_bin}
 
     # Rename all PFR output images by appending date and time, so that they don't meddle with subsequent call to this function.
@@ -129,9 +123,7 @@ do_image_pfr () {
 
     bbplain "Generating Intel PFR compliant BMC image for '${PRODUCT_GENERATION}'"
 
-# Display build version but also display build version as Major.Minor. For OT 1.1 displays as "Build Version = 257 (1.1)" 
-#    bbplain "Build Version = ${build_version}"
-    bbplain "Build Version = ${build_version} (${IPMI_MAJOR}.${IPMI_MINOR})"
+    bbplain "Build Version = ${build_version}"
     bbplain "Build Number = ${build_number}"
     bbplain "Build Hash = ${build_hash}"
     bbplain "Build SHA = ${SHA_NAME}"
