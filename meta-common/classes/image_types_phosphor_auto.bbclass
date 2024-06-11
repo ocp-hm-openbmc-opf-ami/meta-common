@@ -66,8 +66,10 @@ python() {
             d.setVar('FIT_SECTOR_SIZE', str(0x1e00000))
             DTB_FULL_FIT_IMAGE_OFFSETS = [0xb0000, 0x2480000]
         else:
-            d.setVar('FIT_SECTOR_SIZE', str(0x1b80000))
-            DTB_FULL_FIT_IMAGE_OFFSETS = [0x80000, 0x2480000]
+            gen = d.getVar('PRODUCT_GENERATION', True).split()
+            if 'egs' in gen or 'bhs' in gen:
+                d.setVar('FIT_SECTOR_SIZE', str(0x2C00000))
+                DTB_FULL_FIT_IMAGE_OFFSETS = [0x100000]
 
     d.setVar('FLASH_RUNTIME_OFFSETS', ' '.join(
         [str(int(x/1024)) for x in DTB_FULL_FIT_IMAGE_OFFSETS]

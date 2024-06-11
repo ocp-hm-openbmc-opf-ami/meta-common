@@ -23,12 +23,6 @@ SRC_URI += " \
     file://0013-remove-image-file-on-pre-script-failures.patch \
     "
 
-# Testability Features:
-SRC_URI_PFR:append:bhs-features = " \
-    file://testability/0001-Add-retimer-image-type.patch \
-    file://testability/0002-IFWI-full-SPI-flash-update-support.patch \
-    file://testability/0003-Image-verification-for-BMC-image-full-flash.patch \
-    "
 SRC_URI_PFR = " \
     file://0001-PFR-images-support-in-phosphor-software-manager.patch \
     file://0016-Process-PLDM-image-type.patch \
