@@ -15,7 +15,7 @@ DEPENDS += " systemd \
             libspdm \
             "
 
-SRC_URI += "git://git@github.com/intel-bmc/firmware.bmc.openbmc.libraries.spdmapplib.git;protocol=ssh;branch=main"
+SRC_URI += "git://git.ami.com/core/ami-bmc/one-tree/core/firmware.bmc.openbmc.libraries.spdmapplib.git;protocol=https;branch=main"
 
 S = "${WORKDIR}/git"
 SRCREV = "a438aced39283fc405560d539d165b05a42143b2"
