@@ -30,10 +30,7 @@ python() {
     d.setVar('FLASH_UBOOT_OFFSET', str(0))
     # Set alert size to 8K ( 2 erase sectors of flash)
     d.setVar('IMAGE_ALERT_SIZE', str(8*1024))
-    if spl_enabled:
-        d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
-    else:
-        d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
+    d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
 
     if 'intel-pfr' in types:
         if 'pfr-256' in pfr_config:
@@ -62,14 +59,10 @@ python() {
                 DTB_FULL_FIT_IMAGE_OFFSETS = [0xb00000]
     else:
         d.setVar('FLASH_SIZE', str(64*1024))
-        if spl_enabled:
-            d.setVar('FIT_SECTOR_SIZE', str(0x1e00000))
-            DTB_FULL_FIT_IMAGE_OFFSETS = [0xb0000, 0x2480000]
-        else:
-            gen = d.getVar('PRODUCT_GENERATION', True).split()
-            if 'egs' in gen or 'bhs' in gen:
-                d.setVar('FIT_SECTOR_SIZE', str(0x2D00000))
-                DTB_FULL_FIT_IMAGE_OFFSETS = [0x100000]
+        gen = d.getVar('PRODUCT_GENERATION', True).split()
+        if 'egs' in gen or 'bhs' in gen:
+            d.setVar('FIT_SECTOR_SIZE', str(0x2D00000))
+            DTB_FULL_FIT_IMAGE_OFFSETS = [0x100000]
 
     d.setVar('FLASH_RUNTIME_OFFSETS', ' '.join(
         [str(int(x/1024)) for x in DTB_FULL_FIT_IMAGE_OFFSETS]
