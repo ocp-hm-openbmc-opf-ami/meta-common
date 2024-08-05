@@ -144,7 +144,7 @@ EXTRA_OEMESON += " -Dredfish-host-logger=disabled"
 # image-payload-limit will configure the max size of image file in MB which can be uploaded to bmcweb over https.
 EXTRA_OEMESON += " -Dimage-payload-limit=128"
 # http-body-limit will configure the max size of http request body in KB
-EXTRA_OEMESON += " -Dhttp-body-limit=8"
+EXTRA_OEMESON += " -Dhttp-body-limit=128"
 EXTRA_OEMESON += " -Dimage-upload-dir=/tmp/images/"
 RDEPENDS:${PN}:remove = " jsnbd"
 
