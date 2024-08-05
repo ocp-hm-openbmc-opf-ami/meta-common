@@ -1,8 +1,8 @@
 diff --git a/server/asd_main.c b/server/asd_main.c
-index 6e94923..90d42b0 100644
+index 01df645..49387f8 100644
 --- a/server/asd_main.c
 +++ b/server/asd_main.c
-@@ -58,15 +58,36 @@ int main(int argc, char** argv)
+@@ -58,15 +58,35 @@ int main(int argc, char** argv)
  }
  #endif
  
@@ -16,16 +16,15 @@ index 6e94923..90d42b0 100644
  
      ASD_initialize_log_settings(DEFAULT_LOG_LEVEL, DEFAULT_LOG_STREAMS, false,
                                  NULL, NULL);
- 
 +    if ((shmid = shmget(msgkey, sizeof(gASDmsg), IPC_CREAT | 0666)) < 0) {
 +        perror("shmget");
 +    }
-+
+ 
      if (process_command_line(argc, argv, &main_state.args))
      {
 +        //Using the shared memory, send the Intel ASD if it takes enabling TLS.
 +        pMsg = (QMSG_AMI_ASD*) shmat(shmid, NULL, 0);
-+        if ((main_state.args.session.e_extnet_type == EXTNET_HDLR_NON_ENCRYPT) && 
++        if ((main_state.args.session.e_extnet_type == EXTNET_HDLR_NON_ENCRYPT) &&
 +            (main_state.args.session.e_auth_type == AUTH_HDLR_NONE))
 +        {
 +            printf("ASD TLS status is disable\n");
@@ -39,18 +38,11 @@ index 6e94923..90d42b0 100644
          result = init_asd_state();
  
          if (result == ST_OK)
-@@ -1048,4 +1069,4 @@ void on_connection_aborted(void)
-         ASD_log(ASD_LogLevel_Error, ASD_LogStream_Daemon, ASD_LogOption_None,
-                 "sd_journal_send failed %d", retcode);
-     }
--}
-\ No newline at end of file
-+}
 diff --git a/server/asd_main.h b/server/asd_main.h
-index 558c97f..f25a72e 100644
+index ee7774c..426a847 100644
 --- a/server/asd_main.h
 +++ b/server/asd_main.h
-@@ -38,13 +38,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+@@ -38,14 +38,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "ext_network.h"
  #include "logging.h"
  #include "session.h"
@@ -64,11 +56,13 @@ index 558c97f..f25a72e 100644
  #define DEFAULT_SPP_ENABLE false
  #define DEFAULT_I2C_BUS 0x04
 -#define DEFAULT_PORT 5123
+-#define DEFAULT_CERT_FILE "/etc/ssl/certs/https/server.pem"
 +#define DEFAULT_PORT 5125
- #define DEFAULT_CERT_FILE "/etc/ssl/certs/https/server.pem"
++#define DEFAULT_CERT_FILE "/etc/ssl/certs/asd/server.pem"
  #define DEFAULT_LOG_TO_SYSLOG false
  #define DEFAULT_LOG_LEVEL ASD_LogLevel_Warning
-@@ -93,6 +96,11 @@ typedef enum
+ #define DEFAULT_LOG_STREAMS ASD_LogStream_All
+@@ -95,6 +98,11 @@ typedef enum
  int main(int argc, char** argv);
  #endif
  
@@ -80,7 +74,7 @@ index 558c97f..f25a72e 100644
  int asd_main(int argc, char** argv);
  
  bool process_command_line(int argc, char** argv, asd_args* args);
-@@ -121,4 +129,4 @@ bool is_data_pending(void);
+@@ -123,4 +131,4 @@ bool is_data_pending(void);
  STATUS close_connection(asd_state* state);
  void log_client_address(const extnet_conn_t* p_extcon);
  
