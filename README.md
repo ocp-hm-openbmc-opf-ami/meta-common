@@ -1,6 +1,3 @@
-### Important Information
-- After Stable release features migrated into the main branch, the tag "OneTree-X.X" is created in the main repositories. The tag is just providing the information "when the milestone New feature/feature enhancement migration Finished" Only. The latest main branch always provides the latest Bug fixed and Feature enhancement. **Please take the latest main Branch for the project development.**
-
 # firmware.bmc.openbmc.yocto.openbmc-meta-intel
 This repo contains the openbmc-meta-intel layer that is used to build Intel`s
 OpenBMC firmware supporting Intel's reference platforms.
@@ -9,6 +6,9 @@ This repo will be updated based on Intel Best-Known Configuration (BKC)
 releases. Each release will be provided as a single squashed commit. The
 compatible version of the [Linux Foundation (LF) OpenBMC repo][1] will be
 included in each commit message.
+
+## Important Information
+- After Stable release features migrated into the main branch, the tag "OneTree-X.X" is created in the main repositories. The tag is just providing the information "when the milestone New feature/feature enhancement migration Finished" Only. The latest main branch always provides the latest Bug fixed and Feature enhancement. **Please take the latest main Branch for the project development.**
 
 ## How to build Intel-BMC
 1. `git clone` the [LF OpenBMC repo][1] into a folder named `openbmc-openbmc`
