@@ -1,3 +1,6 @@
+### Important Information
+- After Stable release features migrated into the main branch, the tag "OneTree-X.X" is created in the main repositories. The tag is just providing the information "when the milestone New feature/feature enhancement migration Finished" Only. The latest main branch always provides the latest Bug fixed and Feature enhancement. **Please take the latest main Branch for the project development.**
+
 # firmware.bmc.openbmc.yocto.openbmc-meta-intel
 This repo contains the openbmc-meta-intel layer that is used to build Intel`s
 OpenBMC firmware supporting Intel's reference platforms.
