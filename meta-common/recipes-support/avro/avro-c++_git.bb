@@ -9,7 +9,7 @@ DEPENDS = "boost"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
-BRANCH = "master"
+BRANCH = "main"
 SRCREV = "f4e2ebaadaf6e6d99b59882233f8024243adb55d"
 SRC_URI = "git://github.com/apache/avro;branch=${BRANCH};protocol=https \
 	   file://0001-enable-cross-compilation-and-pkgconfig.patch \ 
