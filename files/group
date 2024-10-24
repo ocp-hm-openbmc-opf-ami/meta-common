@@ -2,7 +2,7 @@ bmcweb:x:443:
 ipmid:x:197:
 lock:x:198:
 netdev:x:208:
-avahi:x:200:
+avahi:x:209:
 messagebus:x:201
 systemd-journal:x:202:
 systemd-network:x:203:
