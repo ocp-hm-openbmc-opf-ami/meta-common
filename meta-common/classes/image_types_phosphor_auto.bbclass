@@ -61,7 +61,7 @@ python() {
         d.setVar('FLASH_SIZE', str(64*1024))
         gen = d.getVar('PRODUCT_GENERATION', True).split()
         if 'egs' in gen or 'bhs' in gen:
-            d.setVar('FIT_SECTOR_SIZE', str(0x3300000))
+            d.setVar('FIT_SECTOR_SIZE', str(0x2E00000))
             DTB_FULL_FIT_IMAGE_OFFSETS = [0x100000]
 
     d.setVar('FLASH_RUNTIME_OFFSETS', ' '.join(

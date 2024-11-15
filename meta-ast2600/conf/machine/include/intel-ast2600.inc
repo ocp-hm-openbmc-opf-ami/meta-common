@@ -1,7 +1,7 @@
 COMPATIBLE_MACHINE:intel-ast2600 = "intel-ast2600"
 KMACHINE = "aspeed"
 KERNEL_DEVICETREE = " \
-    aspeed/${KMACHINE}-bmc-${COMPATIBLE_MACHINE}.dtb \
+    ${KMACHINE}-bmc-${COMPATIBLE_MACHINE}.dtb \
     "
 #KERNEL_DEVICETREE = "${KMACHINE}-ast2600-evb.dtb"
 UBOOT_MACHINE = "ast2600_openbmc_defconfig"
