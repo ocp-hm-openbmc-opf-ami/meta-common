@@ -386,7 +386,8 @@ fitimage_assemble() {
                 bberror "${DTB} contains the full path to the the dts file, but only the dtb name should be used."
                 DTB=`basename ${DTB} | sed 's,\.dts$,.dtb,g'`
             fi
-            DTB_PATH="${DEPLOY_DIR_IMAGE}/${DTB}"
+            DTB=$(echo "${DTB}" | sed 's|aspeed/||')
+	    DTB_PATH="${DEPLOY_DIR_IMAGE}/${DTB}"
             if [ ! -e "${DTB_PATH}" ]; then
                 bbwarn "${DTB_PATH} does not exist"
                 continue
