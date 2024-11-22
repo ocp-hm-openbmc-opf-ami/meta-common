@@ -9,7 +9,7 @@ SRC_URI = "file://kernel-panic-check.sh \
 "
 
 LICENSE = "Proprietary"
-LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-licenses/Intel-BMC-Base;md5=f66be55877b5b739110e445efdcf5fbc"
+LIC_FILES_CHKSUM = "file://${COREBASE}/meta-core/meta/files/common-licenses/Intel-BMC-Base;md5=f66be55877b5b739110e445efdcf5fbc"
 RDEPENDS:${PN} += "bash logger-systemd"
 
 inherit systemd

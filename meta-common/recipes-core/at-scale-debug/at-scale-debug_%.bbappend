@@ -1,4 +1,4 @@
-# Ref. openbmc-meta-intel/meta-common/recipes-core/systemd/systemd_%.bbappend
+# Ref. meta-core/meta-common/recipes-core/systemd/systemd_%.bbappend
 # add some configuration overrides for at-scale-debug defaults
 # file://0002-Add-event-log-for-system-time-synchronization.patch
 

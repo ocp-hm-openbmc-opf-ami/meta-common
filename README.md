@@ -1,5 +1,5 @@
-# firmware.bmc.openbmc.yocto.openbmc-meta-intel
-This repo contains the openbmc-meta-intel layer that is used to build Intel`s
+# firmware.bmc.openbmc.yocto.meta-core
+This repo contains the meta-core layer that is used to build Intel`s
 OpenBMC firmware supporting Intel's reference platforms.
 
 This repo will be updated based on Intel Best-Known Configuration (BKC)
@@ -13,14 +13,14 @@ included in each commit message.
 ## How to build Intel-BMC
 1. `git clone` the [LF OpenBMC repo][1] into a folder named `openbmc-openbmc`
 2. `git clone` this repo into a folder named
-`openbmc-openbmc/openbmc-meta-intel`
-3. In `openbmc-openbmc/openbmc-meta-intel`, `git checkout` the BKC version to
+`openbmc-openbmc/meta-core`
+3. In `openbmc-openbmc/meta-core`, `git checkout` the BKC version to
 build and check the commit message for the compatible LF OpenBMC version
 4. In `openbmc-openbmc`, `git checkout` the compatible LF OpenBMC version
 5. Set TEMPLATECONF to the layer for the desired platform. For example, to
 build meta-bhs use:
 ```sh
-export TEMPLATECONF=openbmc-meta-intel/meta-bhs/conf/templates/default
+export TEMPLATECONF=meta-core/meta-bhs/conf/templates/default
 ```
 6. Source the init script
 ```sh
@@ -76,8 +76,8 @@ follows:
 
   Generate local keys using these commands:
   ```sh
-  mkdir -p openbmc-openbmc/openbmc-meta-intel/keys
-  cd openbmc-openbmc/openbmc-meta-intel
+  mkdir -p openbmc-openbmc/meta-core/keys
+  cd openbmc-openbmc/meta-core
   openssl ecparam -out keys/csk_prv.pem -name secp384r1 -genkey
   openssl ec -in keys/csk_prv.pem -pubout -out keys/csk_pub.pem
   openssl ecparam -out keys/rk_prv.pem -name secp384r1 -genkey

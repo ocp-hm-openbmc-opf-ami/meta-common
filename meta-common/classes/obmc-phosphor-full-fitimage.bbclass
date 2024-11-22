@@ -503,7 +503,7 @@ def get_head_hash(codebase):
 python do_generate_release_metainfo() {
     b        = d.getVar('DEPLOY_DIR_IMAGE', True)
     corebase = d.getVar('COREBASE', True)
-    intelbase = os.path.join(corebase, 'openbmc-meta-intel')
+    intelbase = os.path.join(corebase, 'meta-core')
     filename  = os.path.join(b, "RELEASE")
     version   = do_get_version(d)
 

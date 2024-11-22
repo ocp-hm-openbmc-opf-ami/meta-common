@@ -48,7 +48,7 @@ python() {
         gen = 'unknown'
 
     corebase = d.getVar('COREBASE', True)
-    mibase = os.path.join(corebase, 'openbmc-meta-intel')
+    mibase = os.path.join(corebase, 'meta-core')
     obmc_vers = irun_git(d, corebase, 'describe --dirty --long' +
                          r' --match {}-[0-9]*.[0-9]*'.format(gen))
     if obmc_vers is None:

@@ -2,7 +2,7 @@ SUMMARY = "SPDM Application Library"
 DESCRIPTION = "Library for SPDM applications"
 
 LICENSE = "Proprietary"
-LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-licenses/Intel-BMC-FWSEC;md5=8ad5886152d8fa09daa41fbe51fff047"
+LIC_FILES_CHKSUM = "file://${COREBASE}/meta-core/meta/files/common-licenses/Intel-BMC-FWSEC;md5=8ad5886152d8fa09daa41fbe51fff047"
 
 
 inherit pkgconfig meson
