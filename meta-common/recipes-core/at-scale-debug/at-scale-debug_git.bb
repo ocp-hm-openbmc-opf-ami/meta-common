@@ -13,7 +13,7 @@ DEPENDS = "sdbusplus openssl libpam libgpiod safec"
 do_configure[depends] += "virtual/kernel:do_shared_workdir"
 
 SRC_URI = "git://git.ami.com/core/ami-bmc/one-tree/intel/firmware.bmc.openbmc.applications.at-scale-debug.git;protocol=ssh;branch=master"
-SRCREV = "37e22acb6256dc168dfc467ebafd5368daa0c1bf"
+SRCREV = "c611cd519399d019b5d509baa45853d50a856ef1"
 
 inherit useradd
 
