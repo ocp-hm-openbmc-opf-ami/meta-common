@@ -11,6 +11,7 @@ SRC_URI += " \
 	file://0001-Enable-64-bit-RdPkgConfig-and-WrPkgConfig-transfers.patch \
         file://0002-Add-PECI-Telemetry-command.patch \
         file://0003-Add-single-dev-peci-i3c-node-abstraction.patch \
+        file://0005-Added_peci_wakeup_support_for_lib_peci.patch \
 "
 
 do_install:append() {
