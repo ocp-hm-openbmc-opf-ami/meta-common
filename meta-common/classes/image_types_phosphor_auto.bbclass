@@ -53,7 +53,7 @@ python() {
             new_active_offset = d.getVar('DTB_FULL_FIT_IMAGE_OFFSETS', True)
             if new_active_offset:
                 DTB_FULL_FIT_IMAGE_OFFSETS = [int(new_active_offset, 16)]
-                d.setVar('FIT_SECTOR_SIZE', str(0x269ebe2))
+                d.setVar('FIT_SECTOR_SIZE', str(0x26A4D9E))
                 d.setVar('UBOOT_SEC_SIZE', str(1024*1024))
             else :
                 DTB_FULL_FIT_IMAGE_OFFSETS = [0xb00000]
