@@ -10,7 +10,15 @@ EXTRA_OECONF = "--enable-configure-dbus=yes"
 SRCREV = "df597657fd0d1c248d1685e3b69478c80fc33461"
 
 SRC_URI += "\
+    file://10-nice-rules.conf \
+    file://0003-Avoid-unnecessary-restart.patch \
     file://0001-allow-dbus-sensors-without-thresholds.patch \
+    file://0002-Remove-exception-during-restartControlLoops.patch \
     "
 
-FILES:${PN} = "${bindir}/swampd ${bindir}/setsensor"
+FILES:${PN} = "${bindir}/swampd ${bindir}/setsensor ${sysconfdir}/systemd/system/*"
+
+do_install:append() {
+    mkdir -p ${D}${sysconfdir}/systemd/system/phosphor-pid-control.service.d/
+    install -m 0644 ${WORKDIR}/10-nice-rules.conf ${D}${sysconfdir}/systemd/system/phosphor-pid-control.service.d/
+}

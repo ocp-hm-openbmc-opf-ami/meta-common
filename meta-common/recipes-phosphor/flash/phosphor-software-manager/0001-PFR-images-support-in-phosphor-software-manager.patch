@@ -298,13 +298,13 @@ diff --git a/meson.options b/meson.options
 index c4e3294..2575155 100644
 --- a/meson.options
 +++ b/meson.options
-@@ -33,6 +33,8 @@ option(
+@@ -33,5 +33,8 @@ option(
  option('fwupd-script', type: 'feature', value: 'enabled',
      description: 'Enable fwupd script support.')
  
 +option('pfr-update', type: 'feature',
 +    description: 'Enable PFR image support.')
- 
++
  # Variables
  option(
 diff --git a/pfr_image_manager.cpp b/pfr_image_manager.cpp

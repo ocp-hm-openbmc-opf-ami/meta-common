@@ -48,7 +48,7 @@ python() {
         gen = 'unknown'
 
     corebase = d.getVar('COREBASE', True)
-    mibase = os.path.join(corebase, 'openbmc-meta-intel')
+    mibase = os.path.join(corebase, 'meta-core')
     obmc_vers = irun_git(d, corebase, 'describe --dirty --long' +
                          r' --match {}-[0-9]*.[0-9]*'.format(gen))
     if obmc_vers is None:
@@ -61,19 +61,19 @@ python() {
                          '--match ' + r'{}-[0-9]*.[0-9]*'.format(gen))
 
     # If no tag, provide default version
-    if meta_vers.startswith('fatal:'):
-        ver_list = obmc_vers.split('-')
-        obmc_tag_list = ver_list[1].split('.')
-        obmc_major_revision = 0
-        obmc_minor_revision = 0
-        obmc_minor_spare = 0
-        try:
-            obmc_major_revision = int(obmc_tag_list[0])
-            obmc_minor_revision = int(obmc_tag_list[1])
-            obmc_minor_spare = int(ver_list[2])
-        except ValueError:
-            bb.warn("Invalid obmc_vers: {}".format(obmc_vers))
-        meta_vers = '{}-{}.{}-{}-g{}'.format(gen,obmc_major_revision,
+    #    if meta_vers.startswith('fatal:'):
+	    #    ver_list = obmc_vers.split('-')
+	    #obmc_tag_list = ver_list[1].split('.')
+	    #obmc_major_revision = 0
+	    #obmc_minor_revision = 0
+	    #obmc_minor_spare = 
+    try:
+        obmc_major_revision = 1
+        obmc_minor_revision = 2
+        obmc_minor_spare = 3
+    except ValueError:
+        bb.warn("Invalid obmc_vers: {}".format(obmc_vers))
+    meta_vers = '{}-{}.{}-{}-g{}'.format(gen,obmc_major_revision,
                     obmc_minor_revision,obmc_minor_spare,obmc_hash[0:6])
 
     meta_hash = irun_git(d, mibase, 'rev-parse HEAD')

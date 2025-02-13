@@ -13,6 +13,7 @@ FILESEXTRAPATHS:append := ":${THISDIR}/${PN}"
 
 INTEL_SRC_URI += " \
         file://0007-Adding-the-ACPI-agent-support-to-Mdrv2-OEM-commands.patch \
+        file://0008-Increase-MaxFWImageSize-to-avoid-transfer-failure.patch \
         file://0008-Add-missing-include.patch \
         "
 
@@ -22,3 +23,7 @@ INTEL_SRC_URI += " \
         "
 
 SRC_URI:append = "${@bb.utils.contains('BBFILE_COLLECTIONS', 'meta-ami', '',INTEL_SRC_URI, d)}"
+# OOB BIOS Features:
+SRC_URI += " \
+        file://oob-bios/0001-fix-in-oob-bios.patch \
+	"

@@ -5,7 +5,6 @@ PROJECT_SRC_DIR := "${THISDIR}/${PN}"
 # to not override the upstream value
 # SRC_URI += "git://github.com/openbmc/phosphor-host-ipmid;branch=master;protocol=https"
 SRCREV = "ea46f3ca61dd12b210a74cf78e464c78e0987a47"
-
 SRC_URI += "file://phosphor-ipmi-host.service \
             file://transporthandler_oem.cpp \
            "
@@ -22,7 +21,6 @@ PACKAGECONFIG:remove = "i2c-allowlist"
 PACKAGECONFIG:remove = "boot-flag-safe-mode"
 
 RDEPENDS:${PN}:remove:intel-ast2600 = "clear-once"
-
 # remove the softpoweroff service since we do not need it
 SYSTEMD_SERVICE:${PN}:remove = " \
     xyz.openbmc_project.Ipmi.Internal.SoftPowerOff.service"

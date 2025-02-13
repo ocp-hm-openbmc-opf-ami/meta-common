@@ -4,7 +4,7 @@ PR = "r1"
 inherit packagegroup
 
 LICENSE = "Proprietary"
-LIC_FILES_CHKSUM = "file://${COREBASE}/openbmc-meta-intel/meta/files/common-licenses/Intel-BMC-Base;md5=f66be55877b5b739110e445efdcf5fbc"
+LIC_FILES_CHKSUM = "file://${COREBASE}/meta-common/meta/files/common-licenses/Intel-BMC-Base;md5=f66be55877b5b739110e445efdcf5fbc"
 
 PROVIDES = "${PACKAGES}"
 PACKAGES = " \

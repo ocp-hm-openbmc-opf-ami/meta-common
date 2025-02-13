@@ -1,3 +1,10 @@
+From c1888858b51e95e6f3b0889c513b53c469b6782c Mon Sep 17 00:00:00 2001
+From: sonan <sonan@ami.com>
+Date: Thu, 12 Sep 2024 17:14:34 +0530
+Subject: [PATCH 53/53] Add-dbus-method-SlotIpmbRequest.patch
+
+Recreated the below patch
+
 From 955db7a856afbb71262ae0f763b4d80fa581c9e5 Mon Sep 17 00:00:00 2001
 From: Rajashekar Gade Reddy <raja.sekhar.reddy.gade@linux.intel.com>
 Date: Mon, 23 Mar 2020 22:19:07 +0530
@@ -32,23 +39,22 @@ ipmitool raw 0x3e 0x51 0 0x01 0xb0 0x6 1
 
 Note: Tested for all possible negative test cases and it works fine.
 
-Signed-off-by: Rajashekar Gade Reddy <raja.sekhar.reddy.gade@intel.com>
-Upstream-Status: Pending
+Signed-off-by: sonan <sonan@ami.com>
 ---
- include/linux/i2c.h | 159 +++++++++++++++++++++++++++++++
+ include/linux/i2c.h | 158 +++++++++++++++++++++++++++++++
  ipmb-channels.json  |   6 ++
- ipmbbridged.cpp     | 225 +++++++++++++++++++++++++++++++++++++++++++-
- ipmbbridged.hpp     |  10 +-
+ ipmbbridged.cpp     | 222 +++++++++++++++++++++++++++++++++++++++++++-
+ ipmbbridged.hpp     |   9 +-
  meson.build         |   1 +
- 5 files changed, 395 insertions(+), 6 deletions(-)
+ 5 files changed, 393 insertions(+), 3 deletions(-)
  create mode 100644 include/linux/i2c.h
 
 diff --git a/include/linux/i2c.h b/include/linux/i2c.h
 new file mode 100644
-index 0000000..a1db9b1
+index 0000000..e79d4a0
 --- /dev/null
 +++ b/include/linux/i2c.h
-@@ -0,0 +1,159 @@
+@@ -0,0 +1,158 @@
 +/* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
 +/* ------------------------------------------------------------------------- */
 +/*									     */
@@ -117,95 +123,94 @@ index 0000000..a1db9b1
 + * adapters which are known to support the specific mangling options they
 + * need (one or more of IGNORE_NAK, NO_RD_ACK, NOSTART, and REV_DIR_ADDR).
 + */
-+struct i2c_msg {
-+	__u16 addr;	/* target address			*/
-+	__u16 flags;
-+#define I2C_M_RD		0x0001	/* read data, from target to controller */
-+					/* I2C_M_RD is guaranteed to be 0x0001! */
-+#define I2C_M_TEN		0x0010	/* this is a ten bit chip address */
-+#define I2C_M_HOLD		0x0100	/* for holding a mux path */
-+#define I2C_M_DMA_SAFE		0x0200	/* the buffer of this message is DMA safe */
-+					/* makes only sense in kernelspace */
-+					/* userspace buffers are copied anyway */
-+#define I2C_M_RECV_LEN		0x0400	/* length will be first received byte */
-+#define I2C_M_NO_RD_ACK		0x0800	/* if I2C_FUNC_PROTOCOL_MANGLING */
-+#define I2C_M_IGNORE_NAK	0x1000	/* if I2C_FUNC_PROTOCOL_MANGLING */
-+#define I2C_M_REV_DIR_ADDR	0x2000	/* if I2C_FUNC_PROTOCOL_MANGLING */
-+#define I2C_M_NOSTART		0x4000	/* if I2C_FUNC_NOSTART */
-+#define I2C_M_STOP		0x8000	/* if I2C_FUNC_PROTOCOL_MANGLING */
-+	__u16 len;		/* msg length				*/
-+	__u8 *buf;		/* pointer to msg data			*/
++struct i2c_msg
++{
++    __u16 addr; /* target address			*/
++    __u16 flags;
++#define I2C_M_RD 0x0001           /* read data, from target to controller */
++                                  /* I2C_M_RD is guaranteed to be 0x0001! */
++#define I2C_M_TEN 0x0010          /* this is a ten bit chip address */
++#define I2C_M_HOLD 0x0100         /* for holding a mux path */
++#define I2C_M_DMA_SAFE 0x0200     /* the buffer of this message is DMA safe */
++                                  /* makes only sense in kernelspace */
++                                  /* userspace buffers are copied anyway */
++#define I2C_M_RECV_LEN 0x0400     /* length will be first received byte */
++#define I2C_M_NO_RD_ACK 0x0800    /* if I2C_FUNC_PROTOCOL_MANGLING */
++#define I2C_M_IGNORE_NAK 0x1000   /* if I2C_FUNC_PROTOCOL_MANGLING */
++#define I2C_M_REV_DIR_ADDR 0x2000 /* if I2C_FUNC_PROTOCOL_MANGLING */
++#define I2C_M_NOSTART 0x4000      /* if I2C_FUNC_NOSTART */
++#define I2C_M_STOP 0x8000         /* if I2C_FUNC_PROTOCOL_MANGLING */
++    __u16 len;                    /* msg length				*/
++    __u8* buf;                    /* pointer to msg data			*/
 +};
 +
 +/* To determine what functionality is present */
 +
-+#define I2C_FUNC_I2C			0x00000001
-+#define I2C_FUNC_10BIT_ADDR		0x00000002
-+#define I2C_FUNC_PROTOCOL_MANGLING	0x00000004 /* I2C_M_IGNORE_NAK etc. */
-+#define I2C_FUNC_SMBUS_PEC		0x00000008
-+#define I2C_FUNC_NOSTART		0x00000010 /* I2C_M_NOSTART */
-+#define I2C_FUNC_SLAVE			0x00000020
-+#define I2C_FUNC_SMBUS_BLOCK_PROC_CALL	0x00008000 /* SMBus 2.0 */
-+#define I2C_FUNC_SMBUS_QUICK		0x00010000
-+#define I2C_FUNC_SMBUS_READ_BYTE	0x00020000
-+#define I2C_FUNC_SMBUS_WRITE_BYTE	0x00040000
-+#define I2C_FUNC_SMBUS_READ_BYTE_DATA	0x00080000
-+#define I2C_FUNC_SMBUS_WRITE_BYTE_DATA	0x00100000
-+#define I2C_FUNC_SMBUS_READ_WORD_DATA	0x00200000
-+#define I2C_FUNC_SMBUS_WRITE_WORD_DATA	0x00400000
-+#define I2C_FUNC_SMBUS_PROC_CALL	0x00800000
-+#define I2C_FUNC_SMBUS_READ_BLOCK_DATA	0x01000000
++#define I2C_FUNC_I2C 0x00000001
++#define I2C_FUNC_10BIT_ADDR 0x00000002
++#define I2C_FUNC_PROTOCOL_MANGLING 0x00000004 /* I2C_M_IGNORE_NAK etc. */
++#define I2C_FUNC_SMBUS_PEC 0x00000008
++#define I2C_FUNC_NOSTART 0x00000010 /* I2C_M_NOSTART */
++#define I2C_FUNC_SLAVE 0x00000020
++#define I2C_FUNC_SMBUS_BLOCK_PROC_CALL 0x00008000 /* SMBus 2.0 */
++#define I2C_FUNC_SMBUS_QUICK 0x00010000
++#define I2C_FUNC_SMBUS_READ_BYTE 0x00020000
++#define I2C_FUNC_SMBUS_WRITE_BYTE 0x00040000
++#define I2C_FUNC_SMBUS_READ_BYTE_DATA 0x00080000
++#define I2C_FUNC_SMBUS_WRITE_BYTE_DATA 0x00100000
++#define I2C_FUNC_SMBUS_READ_WORD_DATA 0x00200000
++#define I2C_FUNC_SMBUS_WRITE_WORD_DATA 0x00400000
++#define I2C_FUNC_SMBUS_PROC_CALL 0x00800000
++#define I2C_FUNC_SMBUS_READ_BLOCK_DATA 0x01000000
 +#define I2C_FUNC_SMBUS_WRITE_BLOCK_DATA 0x02000000
-+#define I2C_FUNC_SMBUS_READ_I2C_BLOCK	0x04000000 /* I2C-like block xfer  */
-+#define I2C_FUNC_SMBUS_WRITE_I2C_BLOCK	0x08000000 /* w/ 1-byte reg. addr. */
-+#define I2C_FUNC_SMBUS_HOST_NOTIFY	0x10000000
++#define I2C_FUNC_SMBUS_READ_I2C_BLOCK 0x04000000  /* I2C-like block xfer  */
++#define I2C_FUNC_SMBUS_WRITE_I2C_BLOCK 0x08000000 /* w/ 1-byte reg. addr. */
++#define I2C_FUNC_SMBUS_HOST_NOTIFY 0x10000000
 +
-+#define I2C_FUNC_SMBUS_BYTE		(I2C_FUNC_SMBUS_READ_BYTE | \
-+					 I2C_FUNC_SMBUS_WRITE_BYTE)
-+#define I2C_FUNC_SMBUS_BYTE_DATA	(I2C_FUNC_SMBUS_READ_BYTE_DATA | \
-+					 I2C_FUNC_SMBUS_WRITE_BYTE_DATA)
-+#define I2C_FUNC_SMBUS_WORD_DATA	(I2C_FUNC_SMBUS_READ_WORD_DATA | \
-+					 I2C_FUNC_SMBUS_WRITE_WORD_DATA)
-+#define I2C_FUNC_SMBUS_BLOCK_DATA	(I2C_FUNC_SMBUS_READ_BLOCK_DATA | \
-+					 I2C_FUNC_SMBUS_WRITE_BLOCK_DATA)
-+#define I2C_FUNC_SMBUS_I2C_BLOCK	(I2C_FUNC_SMBUS_READ_I2C_BLOCK | \
-+					 I2C_FUNC_SMBUS_WRITE_I2C_BLOCK)
++#define I2C_FUNC_SMBUS_BYTE                                                    \
++    (I2C_FUNC_SMBUS_READ_BYTE | I2C_FUNC_SMBUS_WRITE_BYTE)
++#define I2C_FUNC_SMBUS_BYTE_DATA                                               \
++    (I2C_FUNC_SMBUS_READ_BYTE_DATA | I2C_FUNC_SMBUS_WRITE_BYTE_DATA)
++#define I2C_FUNC_SMBUS_WORD_DATA                                               \
++    (I2C_FUNC_SMBUS_READ_WORD_DATA | I2C_FUNC_SMBUS_WRITE_WORD_DATA)
++#define I2C_FUNC_SMBUS_BLOCK_DATA                                              \
++    (I2C_FUNC_SMBUS_READ_BLOCK_DATA | I2C_FUNC_SMBUS_WRITE_BLOCK_DATA)
++#define I2C_FUNC_SMBUS_I2C_BLOCK                                               \
++    (I2C_FUNC_SMBUS_READ_I2C_BLOCK | I2C_FUNC_SMBUS_WRITE_I2C_BLOCK)
 +
-+#define I2C_FUNC_SMBUS_EMUL		(I2C_FUNC_SMBUS_QUICK | \
-+					 I2C_FUNC_SMBUS_BYTE | \
-+					 I2C_FUNC_SMBUS_BYTE_DATA | \
-+					 I2C_FUNC_SMBUS_WORD_DATA | \
-+					 I2C_FUNC_SMBUS_PROC_CALL | \
-+					 I2C_FUNC_SMBUS_WRITE_BLOCK_DATA | \
-+					 I2C_FUNC_SMBUS_I2C_BLOCK | \
-+					 I2C_FUNC_SMBUS_PEC)
++#define I2C_FUNC_SMBUS_EMUL                                                    \
++    (I2C_FUNC_SMBUS_QUICK | I2C_FUNC_SMBUS_BYTE | I2C_FUNC_SMBUS_BYTE_DATA |   \
++     I2C_FUNC_SMBUS_WORD_DATA | I2C_FUNC_SMBUS_PROC_CALL |                     \
++     I2C_FUNC_SMBUS_WRITE_BLOCK_DATA | I2C_FUNC_SMBUS_I2C_BLOCK |              \
++     I2C_FUNC_SMBUS_PEC)
 +
 +/*
 + * Data for SMBus Messages
 + */
-+#define I2C_SMBUS_BLOCK_MAX	32	/* As specified in SMBus standard */
-+union i2c_smbus_data {
-+	__u8 byte;
-+	__u16 word;
-+	__u8 block[I2C_SMBUS_BLOCK_MAX + 2]; /* block[0] is used for length */
-+			       /* and one more for user-space compatibility */
++#define I2C_SMBUS_BLOCK_MAX 32 /* As specified in SMBus standard */
++union i2c_smbus_data
++{
++    __u8 byte;
++    __u16 word;
++    __u8 block[I2C_SMBUS_BLOCK_MAX + 2]; /* block[0] is used for length */
++    /* and one more for user-space compatibility */
 +};
 +
 +/* i2c_smbus_xfer read or write markers */
-+#define I2C_SMBUS_READ	1
-+#define I2C_SMBUS_WRITE	0
++#define I2C_SMBUS_READ 1
++#define I2C_SMBUS_WRITE 0
 +
 +/* SMBus transaction types (size parameter in the above functions)
 +   Note: these no longer correspond to the (arbitrary) PIIX4 internal codes! */
-+#define I2C_SMBUS_QUICK		    0
-+#define I2C_SMBUS_BYTE		    1
-+#define I2C_SMBUS_BYTE_DATA	    2
-+#define I2C_SMBUS_WORD_DATA	    3
-+#define I2C_SMBUS_PROC_CALL	    4
-+#define I2C_SMBUS_BLOCK_DATA	    5
-+#define I2C_SMBUS_I2C_BLOCK_BROKEN  6
-+#define I2C_SMBUS_BLOCK_PROC_CALL   7		/* SMBus 2.0 */
-+#define I2C_SMBUS_I2C_BLOCK_DATA    8
++#define I2C_SMBUS_QUICK 0
++#define I2C_SMBUS_BYTE 1
++#define I2C_SMBUS_BYTE_DATA 2
++#define I2C_SMBUS_WORD_DATA 3
++#define I2C_SMBUS_PROC_CALL 4
++#define I2C_SMBUS_BLOCK_DATA 5
++#define I2C_SMBUS_I2C_BLOCK_BROKEN 6
++#define I2C_SMBUS_BLOCK_PROC_CALL 7 /* SMBus 2.0 */
++#define I2C_SMBUS_I2C_BLOCK_DATA 8
 +
 +#endif /* _UAPI_LINUX_I2C_H */
 diff --git a/ipmb-channels.json b/ipmb-channels.json
@@ -226,7 +231,7 @@ index 868d802..4ca78b6 100644
      ]
  }
 diff --git a/ipmbbridged.cpp b/ipmbbridged.cpp
-index eed991f..29bf75a 100644
+index 929d9ca..fb29234 100644
 --- a/ipmbbridged.cpp
 +++ b/ipmbbridged.cpp
 @@ -18,6 +18,11 @@
@@ -251,15 +256,11 @@ index eed991f..29bf75a 100644
  
  /**
   * @brief Ipmb request class methods
-@@ -557,9 +563,12 @@ int IpmbChannel::ipmbChannelInit(const char* ipmbI2cSlave)
-     bool hasSysfs = std::filesystem::exists(ipmbI2cSlave);
-     if (!hasSysfs)
+@@ -556,7 +562,10 @@ int IpmbChannel::ipmbChannelInit(const char* ipmbI2cTarget)
      {
--        std::string deviceFileName = "/sys/bus/i2c/devices/i2c-" + busStr +
--                                     "/new_device";
+         std::string deviceFileName =
+             "/sys/bus/i2c/devices/i2c-" + busStr + "/new_device";
 -        std::string para = "ipmb-dev 0x1010"; // init with BMC addr 0x20
-+        std::string deviceFileName =
-+            "/sys/bus/i2c/devices/i2c-" + busStr + "/new_device";
 +        std::ostringstream param;
 +        param << "ipmb-dev 0x" << std::hex
 +              << static_cast<uint16_t>(0x1000 | (ipmbBmcSlaveAddress >> 1));
@@ -267,14 +268,14 @@ index eed991f..29bf75a 100644
          std::fstream deviceFile;
          deviceFile.open(deviceFileName, std::ios::out);
          if (!deviceFile.good())
-@@ -715,6 +724,171 @@ void IpmbChannel::addFilter(const uint8_t respNetFn, const uint8_t cmd)
+@@ -712,6 +721,170 @@ void IpmbChannel::addFilter(const uint8_t respNetFn, const uint8_t cmd)
      }
  }
  
 +class Mux
 +{
 +  public:
-+    Mux(const std::string &path) : heldMux(false)
++    Mux(const std::string& path) : heldMux(false)
 +    {
 +        fd = open(path.c_str(), O_RDWR | O_NONBLOCK);
 +    }
@@ -294,7 +295,7 @@ index eed991f..29bf75a 100644
 +        }
 +    }
 +
-+    int transferAndHoldMux(const uint8_t targetAddr, uint8_t *buffer,
++    int transferAndHoldMux(const uint8_t targetAddr, uint8_t* buffer,
 +                           const uint8_t len, uint16_t timeout)
 +    {
 +        if (!isMuxFdOpen())
@@ -303,7 +304,7 @@ index eed991f..29bf75a 100644
 +        }
 +        struct i2c_msg holdmsg[2] = {
 +            {targetAddr, 0, len, buffer},
-+            {0, I2C_M_HOLD, sizeof(timeout), (uint8_t *)&timeout}};
++            {0, I2C_M_HOLD, sizeof(timeout), (uint8_t*)&timeout}};
 +
 +        struct i2c_rdwr_ioctl_data msgrdwr = {&holdmsg[0], 2};
 +
@@ -336,7 +337,7 @@ index eed991f..29bf75a 100644
 +        uint16_t holdtimeout = 0; // unhold the bus
 +
 +        struct i2c_msg holdmsg = {0, I2C_M_HOLD, sizeof(holdtimeout),
-+                                  (uint8_t *)&holdtimeout};
++                                  (uint8_t*)&holdtimeout};
 +
 +        struct i2c_rdwr_ioctl_data msgrdwr = {&holdmsg, 1};
 +
@@ -348,13 +349,13 @@ index eed991f..29bf75a 100644
 +};
 +
 +std::tuple<int, uint8_t, uint8_t, uint8_t, uint8_t, std::vector<uint8_t>>
-+    IpmbChannel::slotRequestAdd(boost::asio::yield_context &yield,
++    IpmbChannel::slotRequestAdd(boost::asio::yield_context& yield,
 +                                std::shared_ptr<IpmbRequest> request,
 +                                const uint8_t pcieSlot)
 +{
 +    makeRequestValid(request);
-+    std::filesystem::path p =
-+        "/dev/i2c-mux/PCIE_Mux/Pcie_Slot_" + std::to_string(pcieSlot);
++    std::filesystem::path p = "/dev/i2c-mux/PCIE_Mux/Pcie_Slot_" +
++                              std::to_string(pcieSlot);
 +
 +    if (!std::filesystem::exists(p) || !std::filesystem::is_symlink(p))
 +    {
@@ -387,9 +388,10 @@ index eed991f..29bf75a 100644
 +        int i2cRetryCnt = 0;
 +        do
 +        {
-+            if (mux.transferAndHoldMux(
-+                    buffer[targetAddrIndex] >> 1, buffer.data() + slotIpmbHeader,
-+                    size - slotIpmbHeader, ipmbRequestRetryTimeout) >= 0)
++            if (mux.transferAndHoldMux(buffer[targetAddrIndex] >> 1,
++                                       buffer.data() + slotIpmbHeader,
++                                       size - slotIpmbHeader,
++                                       ipmbRequestRetryTimeout) >= 0)
 +            {
 +                break;
 +            }
@@ -398,8 +400,6 @@ index eed991f..29bf75a 100644
 +                "Error sending slot IPMB command");
 +            i2cRetryCnt++;
 +        } while (i2cRetryCnt < ipmbI2cNumberOfRetries);
-+
-+        if (i2cRetryCnt == ipmbI2cNumberOfRetries)
 +        {
 +            std::string msgToLog =
 +                "slotRequestAdd: Sent to I2C failed after retries."
@@ -439,7 +439,15 @@ index eed991f..29bf75a 100644
  std::tuple<int, uint8_t, uint8_t, uint8_t, uint8_t, std::vector<uint8_t>>
      IpmbChannel::requestAdd(boost::asio::yield_context& yield,
                              std::shared_ptr<IpmbRequest> request)
-@@ -851,6 +1025,47 @@ static int initializeChannels()
+@@ -721,6 +894,7 @@ std::tuple<int, uint8_t, uint8_t, uint8_t, uint8_t, std::vector<uint8_t>>
+     std::vector<uint8_t> buffer{};
+     if (request->ipmbToi2cConstruct(buffer) != 0)
+     {
++        makeRequestInvalid(*request);
+         return returnStatus(ipmbResponseStatus::error);
+     }
+ 
+@@ -881,6 +1055,47 @@ static int initializeChannels()
      return 0;
  }
  
@@ -448,7 +456,7 @@ index eed991f..29bf75a 100644
 +       uint8_t slotNumber, uint8_t targetAddr, uint8_t netfn, uint8_t cmd,
 +       std::vector<uint8_t> dataReceived) {
 +        uint8_t lun = 0; // No support for lun in slot IPMB
-+        IpmbChannel *channel =
++        IpmbChannel* channel =
 +            getChannel(static_cast<uint8_t>(ipmbChannelType::slot_ipmb));
 +        if (channel == nullptr)
 +        {
@@ -472,8 +480,8 @@ index eed991f..29bf75a 100644
 +
 +        // construct the request to add it to outstanding request list
 +        std::shared_ptr<IpmbRequest> request = std::make_shared<IpmbRequest>(
-+            rqTargetAddress, netfn, ipmbRsLun, bmcTargetAddress, seqNum, lun, cmd,
-+            dataReceived);
++            rqTargetAddress, netfn, ipmbRsLun, bmcTargetAddress, seqNum, lun,
++            cmd, dataReceived);
 +
 +        if (!request->timer)
 +        {
@@ -484,51 +492,51 @@ index eed991f..29bf75a 100644
 +        return channel->slotRequestAdd(yield, request, slotNumber);
 +    };
 +
- auto ipmbHandleRequest = [](boost::asio::yield_context yield,
-                             uint8_t reqChannel, uint8_t netfn, uint8_t lun,
-                             uint8_t cmd, std::vector<uint8_t> dataReceived) {
-@@ -996,6 +1211,8 @@ int main()
+ auto ipmbHandleRequest =
+     [](boost::asio::yield_context yield, uint8_t reqChannel, uint8_t netfn,
+        uint8_t lun, uint8_t cmd, std::vector<uint8_t> dataReceived) {
+@@ -1027,6 +1242,9 @@ int main()
          server.add_interface(ipmbObj, ipmbDbusIntf);
  
      ipmbIface->register_method("sendRequest", std::move(ipmbHandleRequest));
 +    ipmbIface->register_method("SlotIpmbRequest",
 +                               std::move(slotIpmbHandleRequest));
++
      ipmbIface->initialize();
  
      if (initializeChannels() < 0)
 diff --git a/ipmbbridged.hpp b/ipmbbridged.hpp
-index 04277e5..0f582f5 100644
+index 38df64e..a0247c7 100644
 --- a/ipmbbridged.hpp
 +++ b/ipmbbridged.hpp
-@@ -156,7 +156,8 @@ enum class ipmbRequestState
+@@ -158,7 +158,9 @@ enum class ipmbRequestState
  enum class ipmbChannelType
  {
      ipmb = 0,
 -    me = 1
 +    me = 1,
 +    slot_ipmb = 2
++
  };
  
  /**
-@@ -295,7 +296,12 @@ class IpmbChannel
+@@ -296,6 +298,11 @@ class IpmbChannel
+     void ipmbSendI2cFrame(std::shared_ptr<std::vector<uint8_t>> buffer,
                            size_t retriesAttempted);
  
-     std::tuple<int, uint8_t, uint8_t, uint8_t, uint8_t, std::vector<uint8_t>>
--        requestAdd(boost::asio::yield_context& yield,
-+        slotRequestAdd(boost::asio::yield_context &yield,
++    std::tuple<int, uint8_t, uint8_t, uint8_t, uint8_t, std::vector<uint8_t>>
++        slotRequestAdd(boost::asio::yield_context& yield,
 +                       std::shared_ptr<IpmbRequest> requestToSend,
 +                       const uint8_t pcieSlot);
 +
-+    std::tuple<int, uint8_t, uint8_t, uint8_t, uint8_t, std::vector<uint8_t>>
-+        requestAdd(boost::asio::yield_context &yield,
+     std::tuple<int, uint8_t, uint8_t, uint8_t, uint8_t, std::vector<uint8_t>>
+         requestAdd(boost::asio::yield_context& yield,
                     std::shared_ptr<IpmbRequest> requestToSend);
- 
-   private:
 diff --git a/meson.build b/meson.build
-index 2e4240e..39163a0 100644
+index 1c4e4bf..6e581c9 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -49,6 +49,7 @@ executable(
+@@ -56,6 +56,7 @@ executable(
    'ipmbbridged',
    'ipmbbridged.cpp',
    'ipmbutils.cpp',

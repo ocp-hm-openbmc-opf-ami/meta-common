@@ -16,7 +16,7 @@ LIC_FILES_CHKSUM = "file://README.licensing;md5=972a134f1e14b2b060e365df2fab0099
                     file://libmount/COPYING;md5=7c7e39fb7d70ffe5d693a643e29987c2 \
                     file://libblkid/COPYING;md5=693bcbbe16d3a4a4b37bc906bc01cc04"
 
-inherit autotools gettext pkgconfig
+inherit autotools gettext pkgconfig gtk-doc
 DEPENDS = "libcap-ng ncurses virtual/crypt zlib systemd "
 
 MAJOR_VERSION = "${@'.'.join(d.getVar('PV').split('.')[0:2])}"
@@ -24,7 +24,7 @@ SRC_URI = "${KERNELORG_MIRROR}/linux/utils/util-linux/v${MAJOR_VERSION}/util-lin
            "
 
 S = "${WORKDIR}/util-linux-${MAJOR_VERSION}"
-
+EXTRA_AUTORECONF += "--exclude=gtkdocsize"
 EXTRA_OECONF = " --disable-nls --disable-all-programs  \
     --disable-libuuid --disable-libblkid --disable-libmount \
     --disable-libsmartcols --disable-libfdisk --disable-pylibmount \

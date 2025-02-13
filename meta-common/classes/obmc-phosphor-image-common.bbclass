@@ -71,22 +71,20 @@ IMAGE_INSTALL:append = " \
         zip \
         peci-pcie \
         libespi \
-        mctpd \
-        pldmd \
-        pmci-launcher \
-        nvmemi-daemon \
+        ${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'use-lfmctp', '', 'mctpd pldmd pmci-launcher nvmemi-daemon ', d)} \
         "
 
-IMAGE_INSTALL:append:bhs-features = " \
-        power-feature-discovery \
-        "
+#IMAGE_INSTALL:append:bhs-features = " \
+#        power-feature-discovery \
+#        "
 
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'pfr-manager', '', d)}"
 
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-pfr', 'ncsi-monitor', '', d)}"
 IMAGE_INSTALL:append = " ${@bb.utils.contains('IMAGE_FSTYPES', 'intel-secboot', 'ncsi-monitor', '', d)}"
 
-IMAGE_INSTALL:append = "${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'debug-tweaks', ' mctp-emulator ', '', d)}"
+IMAGE_INSTALL:append = "${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'debug-tweaks', 'mctp-emulator', '', d)}"
+IMAGE_INSTALL:remove = "${@bb.utils.contains('EXTRA_IMAGE_FEATURES', 'use-lfmctp', 'mctp-emulator', '', d)}"
 
 # this package was flagged as a security risk
 IMAGE_INSTALL:remove = " lrzsz"

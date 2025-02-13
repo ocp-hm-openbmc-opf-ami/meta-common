@@ -386,7 +386,8 @@ fitimage_assemble() {
                 bberror "${DTB} contains the full path to the the dts file, but only the dtb name should be used."
                 DTB=`basename ${DTB} | sed 's,\.dts$,.dtb,g'`
             fi
-            DTB_PATH="${DEPLOY_DIR_IMAGE}/${DTB}"
+            DTB=$(echo "${DTB}" | sed 's|aspeed/||')
+	    DTB_PATH="${DEPLOY_DIR_IMAGE}/${DTB}"
             if [ ! -e "${DTB_PATH}" ]; then
                 bbwarn "${DTB_PATH} does not exist"
                 continue
@@ -502,7 +503,7 @@ def get_head_hash(codebase):
 python do_generate_release_metainfo() {
     b        = d.getVar('DEPLOY_DIR_IMAGE', True)
     corebase = d.getVar('COREBASE', True)
-    intelbase = os.path.join(corebase, 'openbmc-meta-intel')
+    intelbase = os.path.join(corebase, 'meta-core')
     filename  = os.path.join(b, "RELEASE")
     version   = do_get_version(d)
 

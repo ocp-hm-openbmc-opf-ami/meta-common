@@ -9,6 +9,7 @@ SRC_URI += " \
     file://login-company-logo.svg \
     file://logo-header.svg \
     file://0001-Change-loading-event-logs.patch \
+    file://0002-Fix-CVEs.patch \
     "
 
 do_compile:prepend() {
